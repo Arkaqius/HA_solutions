@@ -73,10 +73,10 @@ HeaterController:
       garage_error: 'sensor.garage_temperatureerror'
       bedroom_error: 'sensor.bedroom_temperatureerror'
 
-SafetyApp:
+SafetyFunctions:
   # App definitions
-  module: SafetyApp
-  class: SafetyApp
+  module: SafetyFunctions
+  class: SafetyFunctions
   log_level: DEBUG
 
 DailyRoutines:
