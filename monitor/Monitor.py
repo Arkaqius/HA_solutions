@@ -1,8 +1,6 @@
 import appdaemon.plugins.hass.hassapi as hass
 from datetime import datetime, timezone, time
 
-RESET_TIME  = "9:00:00"
-
 class Monitor(hass.Hass):
     """
     Class representing the monitoring functionalities for AppDaemon.
@@ -12,8 +10,12 @@ class Monitor(hass.Hass):
         """
         Initialize the awake and sleep state listeners.
         """
+        self.awake_state = self.args['awake_state']
         self.ux_awake_state = self.args['ux_awake_state']
         self.next_alarm_sensor = self.args['next_alarm_sensor']
+        self.reset_time = self.args['reset_time']
+        self.wake_time_start = self.args['wake_time_start']
+        self.wake_time_end = self.args['wake_time_end']
 
         # Listen for changes to the input_boolean.ux_awake_state entity
         self.listen_state(self.ux_awake_state_changed, self.ux_awake_state)
@@ -25,7 +27,7 @@ class Monitor(hass.Hass):
             # Fake a state change to handle the current value of the sensor
             self.alarm_time_set(self.next_alarm_sensor, "state", None, current_alarm_value, {})
         # Reset awake state every fixed time
-        self.run_daily(self.reset_awake,RESET_TIME)
+        self.run_daily(self.reset_awake, self.reset_time)
 
     def ux_awake_state_changed(self, entity: str, attribute: str, old: str, new: str, kwargs: dict) -> None:
         """
@@ -51,8 +53,8 @@ class Monitor(hass.Hass):
             current_time = datetime.now(timezone.utc).astimezone(next_alarm_time.tzinfo)
 
             # Define the waking hours range
-            waking_hours_start = time(4, 0)  # 4 AM TODO, hardcoded!
-            waking_hours_end = time(9, 0)  # 9 AM TODO, hardcoded!
+            waking_hours_start = time(self.wake_time_start, 0)
+            waking_hours_end = time(self.wake_time_end, 0)
 
             # Check if the alarm is within the waking hours
             if waking_hours_start <= next_alarm_time.time() <= waking_hours_end:
@@ -74,11 +76,12 @@ class Monitor(hass.Hass):
         """
         self.log("Alarm was hit. Setting user state to asleep.")
         self.turn_on(self.ux_awake_state)
-        self.set_state("binary_sensor.monitor_awake_state", state="awake")
+        self.set_state(self.awake_state, state="awake")
 
     def reset_awake(self,_) -> None:
         """
         Callback for reset awake state
         """
-        self.set_state("binary_sensor.monitor_awake_state", state="awake")
+        self.turn_on(self.ux_awake_state)
+        self.set_state(self.awake_state, state="awake")
         

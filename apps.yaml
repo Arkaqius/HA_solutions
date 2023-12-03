@@ -98,3 +98,9 @@ Monitor:
   # HMI varaibles
   ux_awake_state: input_boolean.ux_awake_state
   next_alarm_sensor: sensor.arekphone_next_alarm
+  awake_state: binary_sensor.monitor_awake_state
+  #Config
+  reset_time: "9:00:00"
+  wake_time_start: 4
+  wake_time_end: 9
+
