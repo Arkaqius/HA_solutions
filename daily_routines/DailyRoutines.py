@@ -114,7 +114,7 @@ class DailyRoutines(hass.Hass):
         """
         Activate the 'TurnOffLights' scene in Home Assistant.
         """
-        self.turn_on(self.goodmorning_scene)
+        pass
 
     def close_blinds_and_curtains(self) -> None:
         """
