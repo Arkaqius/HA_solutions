@@ -1,10 +1,32 @@
 import appdaemon.plugins.hass.hassapi as hass
 
-# Base class for domain-specific components
-class SafetyComponent():
-    def __init__(self,hass_app):
-        self.hass_app = hass_app
-        # Common initialization for all safety components
+class SafetyComponent:
+    """ Base class for domain-specific safety components. """
 
-    def handle_sensor_change(self, entity, attribute, old, new, kwargs):
-        pass
+    def __init__(self, hass_app: hass.Hass):
+        """
+        Initialize the safety component.
+
+        :param hass_app: The Home Assistant application instance.
+        """
+        self.hass_app = hass_app
+
+    @staticmethod
+    def is_valid_binary_sensor(entity_name: str) -> bool:
+        """
+        Check if a given entity name is a valid binary sensor.
+
+        :param entity_name: The entity name to validate.
+        :return: True if valid binary sensor, False otherwise.
+        """
+        return isinstance(entity_name, str) and entity_name.startswith("binary_sensor.")
+
+    @staticmethod
+    def is_valid_sensor(entity_name: str) -> bool:
+        """
+        Check if a given entity name is a valid sensor.
+
+        :param entity_name: The entity name to validate.
+        :return: True if valid sensor, False otherwise.
+        """
+        return isinstance(entity_name, str) and entity_name.startswith("sensor.")
