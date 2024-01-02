@@ -5,7 +5,7 @@ class SafetyMechanism:
     Class to define and manage a safety mechanism in the Home Assistant environment.
     """
 
-    def __init__(self, hass_app, entities: List[str], callback: Callable[..., Any], name: str, **kwargs):
+    def __init__(self, hass_app, callback: Callable[..., Any], name: str, **kwargs):
         """
         Initialize the SafetyMechanism.
 
@@ -16,7 +16,7 @@ class SafetyMechanism:
         :param kwargs: Additional keyword arguments to pass to the callback function.
         """
         self.hass_app = hass_app
-        self.entities = entities
+        self.entities = self.extract_entities(kwargs)
         self.callback = callback
         self.name = name
         self.setup_listeners()
@@ -43,3 +43,18 @@ class SafetyMechanism:
         """
         self.hass_app.log(f"Entity changed detected for {entity}, calling callback.")
         self.callback(**self.sm_args)
+        
+    def extract_entities(self, kwargs: dict) -> List[str]:
+        """
+        Extract entity IDs from the kwargs.
+
+        :param kwargs: The specific arguments for the safety mechanism.
+        :return: List of entity IDs to monitor.
+        """
+        entities = []
+        for _, value in kwargs.items():
+            if isinstance(value, list):
+                entities.extend(value)
+            elif isinstance(value, str):
+                entities.append(value)
+        return entities    
