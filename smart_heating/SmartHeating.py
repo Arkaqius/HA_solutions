@@ -1,7 +1,7 @@
 '''
 Smart heating AppDeamon application.
 '''
-import datetime
+import datetime,traceback
 from math import nan
 from enum import Enum
 import appdaemon.plugins.hass.hassapi as hass
@@ -11,6 +11,14 @@ __author__ = 'Arkaqius'
 Offset smaller than 0 -> smaller flow
 Offset bigger than 0 -> bigger flow
 '''
+
+# DEFAULT VALUES FOR FLOAT()
+DEFAULT_COR_SETPOINT = 20.00
+DEFAULT_COR_TERROR = 0.0
+DEFAULT_RAD_POS = 50.0
+DEFAULT_THERMOSTAT_SETPOINT = 20.00
+DEFAULT_WAM_ERROR = 0.0
+DEAFULT_RAD_ERR = 0.0
 
 #region Enumerations
 class ROOM_INDEX_FH(Enum):
@@ -478,13 +486,13 @@ class SmartHeating(hass.Hass):
         Returns:
             List[float]: A list containing the position values of radiators in the order defined by the TRV_INDEX enum.
         """
-        ret_array = [0]*TRV_INDEX.NUM_OF_RADIATORS.value
-        ret_array[TRV_INDEX.OFFICE.value] = float(self.get_state(self.HAL_TRV_office_pos))
-        ret_array[TRV_INDEX.KIDSROOM.value] = float(self.get_state(self.HAL_TRV_kidsRoom_pos))
-        ret_array[TRV_INDEX.BEDROOM_LEFT.value] = float('100')
-        ret_array[TRV_INDEX.BEDROOM_RIGHT.value] = float(self.get_state(self.HAL_TRV_bedroomRight_pos))
-        ret_array[TRV_INDEX.GARAGE.value] = float(self.get_state(self.HAL_TRV_garage_pos))
-        return ret_array
+        ret_array = [0.0]*TRV_INDEX.NUM_OF_RADIATORS.value
+        ret_array[TRV_INDEX.OFFICE.value] = self.get_state(self.HAL_TRV_office_pos)
+        ret_array[TRV_INDEX.KIDSROOM.value] = self.get_state(self.HAL_TRV_kidsRoom_pos)
+        ret_array[TRV_INDEX.BEDROOM_LEFT.value] = self.get_state(self.HAL_TRV_bedroomLeft_pos)
+        ret_array[TRV_INDEX.BEDROOM_RIGHT.value] = self.get_state(self.HAL_TRV_bedroomRight_pos)
+        ret_array[TRV_INDEX.GARAGE.value] = self.get_state(self.HAL_TRV_garage_pos)
+        return [safe_float_convert(i,DEFAULT_RAD_POS) for i in ret_array]
     
     def sh_wam(self, temperatures: list[float], weights: list[float]) -> float:
         """
@@ -521,7 +529,7 @@ class SmartHeating(hass.Hass):
         wam_errors[ROOM_INDEX_FH.UPPER_BATHROOM.value] = self.get_state(self.HAL_upperBathroom_tError)
         wam_errors[ROOM_INDEX_FH.UPPER_CORRIDOR.value] = self.get_state(self.HAL_upperCorridor_tError)
         wam_errors[ROOM_INDEX_FH.WARDROBE.value] = self.get_state(self.HAL_wardrobe_tError)
-        return [float(i) for i in wam_errors]
+        return [safe_float_convert(i,DEFAULT_WAM_ERROR) for i in wam_errors]
 
     def sh_get_rad_errors(self) -> list[float]:
         """
@@ -535,7 +543,7 @@ class SmartHeating(hass.Hass):
         rads_errors[ROOM_INDEX_RAD.GARAGE.value] = self.get_state(self.HAL_garage_tError)
         rads_errors[ROOM_INDEX_RAD.KIDSROOM.value] = self.get_state(self.HAL_kidsRoom_tError)
         rads_errors[ROOM_INDEX_RAD.OFFICE.value] = self.get_state(self.HAL_office_tError)
-        return [float(i) for i in rads_errors]
+        return [safe_float_convert(i,DEAFULT_RAD_ERR) for i in rads_errors]
 #endregion
 
 #region HAL opaque functions
@@ -574,7 +582,7 @@ class SmartHeating(hass.Hass):
         Returns:
             float: The current corridor setpoint.
         """
-        return float(self.get_state(self.HAL_corridor_setpoint))
+        return safe_float_convert(self.get_state(self.HAL_corridor_setpoint),DEFAULT_COR_SETPOINT)
 
     def sh_get_thermostat_setpoint(self) -> float:
         """
@@ -583,7 +591,7 @@ class SmartHeating(hass.Hass):
         Returns:
             float: The current thermostat setpoint.
         """
-        return float(self.get_state(self.HAL_thermostat_setpoint))
+        return safe_float_convert(self.get_state(self.HAL_thermostat_setpoint),DEFAULT_THERMOSTAT_SETPOINT)
     
     def sh_set_thermostat_setpoint(self, value: float) -> None:
         """
@@ -612,7 +620,7 @@ class SmartHeating(hass.Hass):
         Returns:
             float: The current thermostat error.
         """
-        return float(self.get_state(self.HAL_corridor_tError))
+        return safe_float_convert(self.get_state(self.HAL_corridor_tError),DEFAULT_COR_TERROR)
     
     def sh_get_freezing_flag(self) -> str:
         """
@@ -640,5 +648,26 @@ class SmartHeating(hass.Hass):
             str: The state of the force flow flag ('on' or 'off').
         """
         return self.get_state(self.HAL_forceFlow_flag)
+#endregion
+
+#region utilites
+def safe_float_convert(value: str, default: float = 0.0) -> float:
+    """
+    Attempts to convert a string to a float. If the conversion fails,
+    prints an error message and traceback to stdout, then returns a default value.
+
+    Args:
+    value (str): The string value to be converted to float.
+    default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
+
+    Returns:
+    float: The converted float value or the default value if conversion fails.
+    """
+    try:
+        return float(value)
+    except ValueError as e:
+        print(f"An error occurred: {e}")
+        traceback.print_exc()  # Prints the full traceback to stdout
+        return default
 #endregion
     
