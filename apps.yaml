@@ -2,7 +2,7 @@ HeaterController:
   # App definitions
   module: SmartHeating
   class: SmartHeating
-  log_level: ERROR
+  log_level: INFO
 
   # WAM Factors
   wam_factors:
@@ -73,12 +73,6 @@ HeaterController:
       garage_error: 'sensor.garage_temperatureerror'
       bedroom_error: 'sensor.bedroom_temperatureerror'
 
-SafetyApp:
-  # App definitions
-  module: SafetyApp
-  class: SafetyApp
-  log_level: DEBUG
-
 DailyRoutines:
   # App definitions
   module: DailyRoutines
@@ -104,3 +98,20 @@ Monitor:
   wake_time_start: 4
   wake_time_end: 9
 
+SafetyFunctions:
+  # App definitions
+  module: SafetyFunctions
+  class: SafetyFunctions
+  log_level: DEBUG
+  # Safety mechanism configuration
+  safety_mechanisms:
+    WindowComponent:
+      SM_WMC_2:
+        - name: "SM_WMC_2 - office"
+          window_sensors: 
+            - "binary_sensor.office_window_contact_contact"
+          temperature_sensor: "sensor.office_temperature"
+        - name: "SM_WMC_2 - bedroom"
+          window_sensors: 
+            - "binary_sensor.bedroom_window_contact_contact"
+          temperature_sensor: "sensor.bedroom_temperature"
