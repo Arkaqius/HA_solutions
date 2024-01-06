@@ -77,7 +77,7 @@ DailyRoutines:
   # App definitions
   module: DailyRoutines
   class: DailyRoutines
-  log_level: DEBUG
+  log_level: INFO
   # HMI varaibles
   turn_off_ligts_scene: scene.all_lights_off
   ww_activate: input_boolean.ww_state
@@ -88,7 +88,7 @@ Monitor:
   # App definitions
   module: Monitor
   class: Monitor
-  log_level: DEBUG
+  log_level: INFO
   # HMI varaibles
   ux_awake_state: input_boolean.ux_awake_state
   next_alarm_sensor: sensor.arekphone_next_alarm
@@ -108,10 +108,15 @@ SafetyFunctions:
     WindowComponent:
       SM_WMC_2:
         - name: "SM_WMC_2 - office"
+          CAL_THR_Cold: 28.0
+          CAL_THR_ColdRate: -0.5 #per minute
           window_sensors: 
             - "binary_sensor.office_window_contact_contact"
           temperature_sensor: "sensor.office_temperature"
+          temperature_sensor_rate: "sensor.office_temperature_rate"
         - name: "SM_WMC_2 - bedroom"
+          CAL_THR_Cold: 19.0
+          CAL_THR_ColdRate: -0.5 #per minute
           window_sensors: 
             - "binary_sensor.bedroom_window_contact_contact"
           temperature_sensor: "sensor.bedroom_temperature"

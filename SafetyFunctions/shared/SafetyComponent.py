@@ -1,5 +1,6 @@
 import appdaemon.plugins.hass.hassapi as hass
 from typing import List, Type, Any, get_origin, get_args, Callable
+import traceback
 
 class SafetyComponent:
     """ Base class for domain-specific safety components. """
@@ -94,6 +95,26 @@ class SafetyComponent:
                 # The specific error message will be logged in validate_entity
                 return False
         return True
+    
+    @staticmethod
+    def safe_float_convert(value: str, default: float = 0.0) -> float:
+        """
+        Attempts to convert a string to a float. If the conversion fails,
+        prints an error message and traceback to stdout, then returns a default value.
+
+        Args:
+        value (str): The string value to be converted to float.
+        default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
+
+        Returns:
+        float: The converted float value or the default value if conversion fails.
+        """
+        try:
+            return float(value)
+        except ValueError as e:
+            print(f"An error occurred: {e}")
+            traceback.print_exc()  # Prints the full traceback to stdout
+            return default
 
     
 def safety_mechanism_decorator(func: Callable) -> Callable:
@@ -106,7 +127,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
     :param func: The safety mechanism function to be decorated.
     :return: The wrapper function.
     """
-    def wrapper(self, *args, **kwargs) -> Any:
+    def wrapper(self, sm) -> Any:
         """
         Wrapper function for the safety mechanism.
 
@@ -117,7 +138,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         """
         self.hass_app.log(f'{func.__name__} was started!')
 
-        result = func(self, *args, **kwargs) 
+        result = func(self, sm) 
 
         self.hass_app.log(f'{func.__name__} was ended!')
 

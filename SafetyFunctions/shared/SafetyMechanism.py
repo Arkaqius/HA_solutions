@@ -42,7 +42,7 @@ class SafetyMechanism:
         :param kwargs: Additional keyword arguments.
         """
         self.hass_app.log(f"Entity changed detected for {entity}, calling callback.")
-        self.callback(**self.sm_args)
+        self.callback(self)
         
     def extract_entities(self, kwargs: dict) -> List[str]:
         """
