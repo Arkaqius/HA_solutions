@@ -2,8 +2,11 @@
 TODO
 '''
 from typing import List
-from shared.SafetyComponent import SafetyComponent, safety_mechanism_decorator
-from shared.SafetyMechanism import SafetyMechanism
+from shared.safety_component import SafetyComponent, safety_mechanism_decorator
+from shared.safety_mechanism import SafetyMechanism
+from shared.fault_manager import FaultManager
+from shared.recovery_manager import RecoveryManager
+from shared.safe_state_manager import SafeStateManager
 
 class WindowComponent(SafetyComponent):
     """ Component handling safety mechanisms for windows. """
@@ -88,11 +91,6 @@ class WindowComponent(SafetyComponent):
         else:
             is_active = False      
 
-        # 30. Perform results actions
         if is_active:
             self.hass_app.log(f"{sm.name} is active")
             
-        # 40. Set/Heal faults
-            # TODO Use HA as register?
-        # 50. Perform SafeState
-            # TODO Maybe call service? Or call just another component?

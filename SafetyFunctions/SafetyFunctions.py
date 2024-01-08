@@ -1,6 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
-from shared.WindowComponent import WindowComponent
-
+from shared.window_component import WindowComponent
 
 class SafetyFunctions(hass.Hass):
     """
