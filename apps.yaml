@@ -106,17 +106,21 @@ SafetyFunctions:
   # Safety mechanism configuration
   safety_mechanisms:
     WindowComponent:
+      SM_WMC_1:
+        - name: "SM_WMC_1 - office"
+          CAL_LOW_TEMP_THRESHOLD: 28.0
+          temperature_sensor: "sensor.office_temperature"
+        - name: "SM_WMC_1 - bedroom"
+          CAL_LOW_TEMP_THRESHOLD: 28.0
+          temperature_sensor: "sensor.bedroom_temperature"
       SM_WMC_2:
         - name: "SM_WMC_2 - office"
-          CAL_THR_Cold: 28.0
-          CAL_THR_ColdRate: -0.5 #per minute
-          window_sensors: 
-            - "binary_sensor.office_window_contact_contact"
+          CAL_LOW_TEMP_THRESHOLD: 28.0
+          CAL_FORECAST_TIMESPAN: 60.0 # seconds
           temperature_sensor: "sensor.office_temperature"
-          temperature_sensor_rate: "sensor.office_temperature_rate"
+          temperature_sensor_rate: "sensor.office_temperature_rate" # sampling_rate = 1min
         - name: "SM_WMC_2 - bedroom"
-          CAL_THR_Cold: 19.0
-          CAL_THR_ColdRate: -0.5 #per minute
-          window_sensors: 
-            - "binary_sensor.bedroom_window_contact_contact"
+          CAL_LOW_TEMP_THRESHOLD: 28.0
+          CAL_FORECAST_TIMESPAN: 60.0 # seconds
           temperature_sensor: "sensor.bedroom_temperature"
+          temperature_sensor_rate: "sensor.bedroom_temperature_rate" # sampling_rate = 1min          
