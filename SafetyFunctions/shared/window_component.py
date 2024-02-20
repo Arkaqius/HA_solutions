@@ -24,76 +24,71 @@ class WindowComponent(SafetyComponent):
         :param hass_app: The Home Assistant application instance.
         """
         super().__init__(hass_app)
-        self.safety_mechanisms = []
-        self.safety_mechanisms.extend(self.init_sm_wmc1())
-        self.safety_mechanisms.extend(self.init_sm_wmc2())
-
-    def init_sm_wmc1(self):
+        
+    def init_sm_wmc_1(self, name : str, parameters : dict):
         """ Method to init safet mechanism 1 """
+        print('parameters\n\n')
+        print(parameters)
         safety_mechanisms = []
         is_param_ok = True
-        # Iterate throught all safety mechanism instances
-        for sm_cfg in self.hass_app.args['safety_mechanisms']['WindowComponent']['SM_WMC_1']:
-            try:
-                name = sm_cfg['name']
-                temperature_sensor = sm_cfg['temperature_sensor']
-                cold_thr = sm_cfg['CAL_LOW_TEMP_THRESHOLD']
-            except KeyError as e:
-                self.hass_app.log(f"Key not found in sm_cfg: {e}", level='ERROR')
-                is_param_ok = False
-            else:
-                is_param_ok = self.validate_entities(   {'temperature_sensor': temperature_sensor,
-                                                        'cold_thr':cold_thr},
-                                                        {'temperature_sensor' : str,
-                                                        'cold_thr':float})
-            if is_param_ok:
-                safety_mechanisms.append(
-                                            SafetyMechanism(self.hass_app,
-                                            self.sm_wmc_1,
-                                            name,
-                                            temperature_sensor=temperature_sensor,
-                                            cold_thr = cold_thr)
-                )
-            else:
-                self.hass_app.log(f'SM {name} was not created due error', level='ERROR')
+        
+        try:
+            temperature_sensor = parameters['temperature_sensor']
+            cold_thr = parameters['CAL_LOW_TEMP_THRESHOLD']
+        except KeyError as e:
+            self.hass_app.log(f"Key not found in sm_cfg: {e}", level='ERROR')
+            is_param_ok = False
+        else:
+            is_param_ok = self.validate_entities(   {'temperature_sensor': temperature_sensor,
+                                                    'cold_thr':cold_thr},
+                                                    {'temperature_sensor' : str,
+                                                    'cold_thr':float})
+        if is_param_ok:
+            safety_mechanisms.append(
+                                        SafetyMechanism(self.hass_app,
+                                        self.sm_wmc_1,
+                                        name,
+                                        temperature_sensor = temperature_sensor,
+                                        cold_thr = cold_thr)
+            )
+        else:
+            self.hass_app.log(f'SM {name} was not created due error', level='ERROR')
         return safety_mechanisms
 
-    def init_sm_wmc2(self):
+    def init_sm_wmc_2(self, name : str, parameters : dict):
         """ Method to init safet mechanism 2 """
         safety_mechanisms = []
         is_param_ok = True
         # Iterate throught all safety mechanism instances
-        for sm_cfg in self.hass_app.args['safety_mechanisms']['WindowComponent']['SM_WMC_2']:
-            try:
-                name = sm_cfg['name']
-                temperature_sensor = sm_cfg['temperature_sensor']
-                cold_thr = sm_cfg['CAL_LOW_TEMP_THRESHOLD']
-                forecast_timespan = sm_cfg['CAL_FORECAST_TIMESPAN']
-                temperature_sensor_rate = sm_cfg['temperature_sensor_rate']
-            except KeyError as e:
-                self.hass_app.log(f"Key not found in sm_cfg: {e}", level='ERROR')
-                is_param_ok = False
-            else:
-                is_param_ok = self.validate_entities(   {'temperature_sensor': temperature_sensor,
-                                                        'cold_thr':cold_thr,
-                                                        'forecast_timespan':forecast_timespan,
-                                                        'temperature_sensor_rate':temperature_sensor_rate},
-                                                        {'temperature_sensor' : str,
-                                                        'cold_thr':float,
-                                                        'forecast_timespan':float,
-                                                        'temperature_sensor_rate': str})
-            if is_param_ok:
-                safety_mechanisms.append(
-                                            SafetyMechanism(self.hass_app,
-                                            self.sm_wmc_2,
-                                            name,
-                                            temperature_sensor=temperature_sensor,
-                                            cold_thr = cold_thr,
-                                            forecast_timespan = forecast_timespan,
-                                            temperature_sensor_rate = temperature_sensor_rate)
-                )
-            else:
-                self.hass_app.log(f'SM {name} was not created due error', level='ERROR')
+        try:
+            temperature_sensor = parameters['temperature_sensor']
+            cold_thr = parameters['CAL_LOW_TEMP_THRESHOLD']
+            forecast_timespan = parameters['CAL_FORECAST_TIMESPAN']
+            temperature_sensor_rate = parameters['temperature_sensor_rate']
+        except KeyError as e:
+            self.hass_app.log(f"Key not found in sm_cfg: {e}", level='ERROR')
+            is_param_ok = False
+        else:
+            is_param_ok = self.validate_entities(   {'temperature_sensor': temperature_sensor,
+                                                    'cold_thr':cold_thr,
+                                                    'forecast_timespan':forecast_timespan,
+                                                    'temperature_sensor_rate':temperature_sensor_rate},
+                                                    {'temperature_sensor' : str,
+                                                    'cold_thr':float,
+                                                    'forecast_timespan':float,
+                                                    'temperature_sensor_rate': str})
+        if is_param_ok:
+            safety_mechanisms.append(
+                                        SafetyMechanism(self.hass_app,
+                                        self.sm_wmc_2,
+                                        name,
+                                        temperature_sensor=temperature_sensor,
+                                        cold_thr = cold_thr,
+                                        forecast_timespan = forecast_timespan,
+                                        temperature_sensor_rate = temperature_sensor_rate)
+            )
+        else:
+            self.hass_app.log(f'SM {name} was not created due error', level='ERROR')
         return safety_mechanisms
 
 
@@ -105,21 +100,19 @@ class WindowComponent(SafetyComponent):
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
         temperature : float = 0.0
-        # 10. Check if debouncing in process
-        if kwargs['inhib']:
-            # 20. Get inputs
-            try:
-                temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
-                
-            # 30. Perform SM logic
-            (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = self.process_prefault(  12,
-                                                                                    WindowComponent.sm_wmc1_debounce,
-                                                                                    temperature < sm.sm_args['cold_thr'])
+        # 10. Get inputs
+        try:
+            temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
+        except ValueError as e:
+            self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
+            
+        # 30. Perform SM logic
+        (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = self.process_prefault(  12,
+                                                                                WindowComponent.sm_wmc1_debounce,
+                                                                                temperature < sm.sm_args['cold_thr'])
             
         if WindowComponent.sm_wmc1_inhibit:
-            self.hass_app.run_in(self.sm_wmc_1, 60, sm, inhib = True)
+            self.hass_app.run_in(self.sm_wmc_1, 30, sm, inhib = True)
             
             
     @safety_mechanism_decorator
@@ -130,23 +123,24 @@ class WindowComponent(SafetyComponent):
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
         temperature : float = 0.0
-        # 10. Check if debouncing in process
-        if kwargs['inhib']:
-            # 20. Get inputs
-            try:
-                temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
-                temperature_rate = float(self.hass_app.get_state(sm.sm_args['temperature_sensor_rate']))
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
-                
-            # 30. Perform SM logic 
-            forecasted_temperature = temperature + temperature_rate*sm.sm_args['forecast_timespan']
+        # 10. Get inputs
+        try:
+            temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
+            temperature_rate = float(self.hass_app.get_state(sm.sm_args['temperature_sensor_rate']))
+        except ValueError as e:
+            self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
             
-            # 30. Perform SM logic
-            (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = self.process_prefault(  12,
-                                                                                    WindowComponent.sm_wmc2_debounce,
-                                                                                    forecasted_temperature < sm.sm_args['cold_thr'])
+        # 30. Perform SM logic 
+        forecasted_temperature = temperature + temperature_rate*sm.sm_args['forecast_timespan']
+        
+        # 30. Perform SM logic
+        (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = self.process_prefault(  12,
+                                                                                WindowComponent.sm_wmc2_debounce,
+                                                                                forecasted_temperature < sm.sm_args['cold_thr'])
             
-        if WindowComponent.sm_wmc2_inhibit:
-            self.hass_app.run_in(self.sm_wmc_2, 60,sm)
+        if WindowComponent.sm_wmc2_inhibit: 
+            self.hass_app.run_in(self.sm_wmc_2, 30, sm)
+            
+    def RiskyTemperatureRecovery(self):
+        print("RiskyTemperatureRecovery called!")
         

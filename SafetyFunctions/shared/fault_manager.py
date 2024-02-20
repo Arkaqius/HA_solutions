@@ -1,39 +1,144 @@
-# fault_manager.py
-import appdaemon.plugins.hass.hassapi as hass
+from enum import Enum
+from typing import Callable
+
+class FaultState(Enum):
+    NOT_TESTED = 0
+    SET = 1
+    CLEARED = 2
+
+class SMState(Enum):
+    DISABLED = 0
+    ENABLED = 1
+    
+class PreFault:
+    def __init__(self, name : str, sm_name : str, module ,  parameters : dict, recover_actions: (Callable | None) = None):
+        self.name : str = name
+        self.sm_name : str = sm_name
+        self.module = module
+        self.state : FaultState = FaultState.NOT_TESTED
+        self.recover_actions : (Callable | None) = recover_actions
+        self.parameters : dict = parameters
+        self.sm_state = SMState.DISABLED
+        
+class Fault:
+    def __init__(self, name, related_prefaults : list, notification_level : int):
+        self.name : str = name
+        self.state : FaultState = FaultState.NOT_TESTED
+        self.related_prefaults = related_prefaults
+        self.notification_level : int = notification_level
 
 class FaultManager:
-    """
-    Class responsible for managing faults detected by safety mechanisms.
-    
-    Attributes:
-        hass_app (hass.Hass): Instance of the Home Assistant AppDaemon application.
-    """
-    
-    def __init__(self, hass_app: hass.Hass):
+    def __init__(self, sm_modules : list , prefault_dict : dict, fault_dict : dict):
         """
-        Initialize the FaultManager.
+        Initialize the Fault Manager.
 
-        :param hass_app: Instance of the Home Assistant AppDaemon application.
+        :param config_path: Path to the YAML configuration file.
         """
-        self.hass_app = hass_app
-        self.pending_faults = {}
-
-    def register_prefault(self, prefault_code: str):
-        debounce_period = self.get_debounce_period(prefault_code)
-        timer_handle = self.hass_app.run_in(self.handle_fault_after_timeout, debounce_period, prefault_code=prefault_code)
-        self.pending_faults[prefault_code] = timer_handle
-
-    def clear_prefault(self, prefault_code: str):
-        if prefault_code in self.pending_faults:
-            self.hass_app.cancel_timer(self.pending_faults[prefault_code])
-            del self.pending_faults[prefault_code]
-
-    def report_fault(self, kwargs):
-        prefault_code = kwargs.get('prefault_code')
-        if prefault_code in self.pending_faults:
-            # Confirm if the fault is still valid, and escalate to fault
-            del self.pending_faults[prefault_code]
-            # Handle the fault...
+        self.faults : dict[str,Fault] = fault_dict
+        self.prefaults : dict[str,PreFault] = prefault_dict
+        self.sm_modules = sm_modules
+        
+    def enable_prefaults(self):
+        for prefault_name,prefault_data in self.prefaults.items():
+            init_fcn = getattr(prefault_data.module,'init_'+prefault_data.sm_name)
+            init_fcn(prefault_name, prefault_data.parameters)
             
-    def clear_fault(self,kwargs):
-        pass
+    def set_prefault(self, prefault_id, additional_info=None):
+        """
+        Set a pre-fault state.
+
+        :param prefault_id: The identifier of the pre-fault.
+        :param name: Name of the pre-fault.
+        :param state: State of the pre-fault (True/False).
+        :param additional_info: Additional information about the pre-fault.
+        """
+        # Update prefault registry
+        self.prefaults[prefault_id].sm_state = FaultState.SET
+        
+        # Call Related Fault
+        self._set_fault(prefault_id,additional_info)
+        
+
+    def clear_prefault(self, prefault_id):
+        """
+        Clear a pre-fault state.
+
+        :param prefault_id: The identifier of the pre-fault.
+        """
+        # Update prefault registry
+        self.prefaults[prefault_id].sm_state = FaultState.CLEARED
+        
+        # Call Related Fault
+        self._clear_fault(prefault_id,additional_info)
+
+    def check_prefault(self, prefault_id):
+        """
+        Check the state of a pre-fault.
+
+        :param prefault_id: The identifier of the pre-fault.
+        :return: The state of the pre-fault (True/False).
+        """
+        return self.prefaults[prefault_id].state
+
+    def _set_fault(self, prefault_id, additional_info):
+        """
+        Set a fault state. This typically involves aggregating several pre-faults.
+
+        :param fault_id: The identifier of the fault.
+        :param name: Name of the fault.
+        :param state: State of the fault (True/False).
+        :param related_prefaults: List of related pre-faults.
+        :param additional_info: Additional information about the fault.
+        """
+        
+        # Collect all faults mapped from that prefault
+        matching_objects = [fault for fault in self.faults.values() if prefault_id in fault.related_prefaults]
+
+        # Validate there's exactly one occurrence
+        if len(matching_objects) == 1:
+            print("Found exactly one matching object:", matching_objects[0])
+        elif len(matching_objects) > 1:
+            print("Error: Found multiple objects with prefault_id =", prefault_id)
+        else:
+            print("No object found with prefault_id =", prefault_id)
+            
+        # Set Fault
+        matching_objects[0].state = FaultState.SET
+        
+        # Call notifications 
+        
+        # Call recovery actions
+
+    def _clear_fault(self, prefault_id, additional_info):
+        """
+        Clear a fault state.
+
+        :param fault_id: The identifier of the fault.
+        """
+        
+        # Collect all faults mapped from that prefault
+        matching_objects = [fault for fault in self.faults.values() if prefault_id in fault.related_prefaults]
+
+        # Validate there's exactly one occurrence
+        if len(matching_objects) == 1:
+            print("Found exactly one matching object:", matching_objects[0])
+        elif len(matching_objects) > 1:
+            print("Error: Found multiple objects with prefault_id =", prefault_id)
+        else:
+            print("No object found with prefault_id =", prefault_id)
+            
+        # Set Fault
+        matching_objects[0].state = FaultState.CLEARED
+        
+        # Call notifications 
+        
+        # Call recovery actions
+
+    def check_fault(self, fault_id):
+        """
+        Check the state of a fault.
+
+        :param fault_id: The identifier of the fault.
+        :return: The state of the fault (True/False).
+        """
+        return self.faults[fault_id].state
