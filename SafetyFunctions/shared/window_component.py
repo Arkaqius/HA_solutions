@@ -105,21 +105,19 @@ class WindowComponent(SafetyComponent):
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
         temperature : float = 0.0
-        # 10. Check if debouncing in process
-        if kwargs['inhib']:
-            # 20. Get inputs
-            try:
-                temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
-                
-            # 30. Perform SM logic
-            (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = self.process_prefault(  12,
-                                                                                    WindowComponent.sm_wmc1_debounce,
-                                                                                    temperature < sm.sm_args['cold_thr'])
+        # 10. Get inputs
+        try:
+            temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
+        except ValueError as e:
+            self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
+            
+        # 30. Perform SM logic
+        (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = self.process_prefault(  12,
+                                                                                WindowComponent.sm_wmc1_debounce,
+                                                                                temperature < sm.sm_args['cold_thr'])
             
         if WindowComponent.sm_wmc1_inhibit:
-            self.hass_app.run_in(self.sm_wmc_1, 60, sm, inhib = True)
+            self.hass_app.run_in(self.sm_wmc_1, 30, sm, inhib = True)
             
             
     @safety_mechanism_decorator
@@ -130,23 +128,21 @@ class WindowComponent(SafetyComponent):
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
         temperature : float = 0.0
-        # 10. Check if debouncing in process
-        if kwargs['inhib']:
-            # 20. Get inputs
-            try:
-                temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
-                temperature_rate = float(self.hass_app.get_state(sm.sm_args['temperature_sensor_rate']))
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
-                
-            # 30. Perform SM logic 
-            forecasted_temperature = temperature + temperature_rate*sm.sm_args['forecast_timespan']
+        # 10. Get inputs
+        try:
+            temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
+            temperature_rate = float(self.hass_app.get_state(sm.sm_args['temperature_sensor_rate']))
+        except ValueError as e:
+            self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
             
-            # 30. Perform SM logic
-            (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = self.process_prefault(  12,
-                                                                                    WindowComponent.sm_wmc2_debounce,
-                                                                                    forecasted_temperature < sm.sm_args['cold_thr'])
+        # 30. Perform SM logic 
+        forecasted_temperature = temperature + temperature_rate*sm.sm_args['forecast_timespan']
+        
+        # 30. Perform SM logic
+        (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = self.process_prefault(  12,
+                                                                                WindowComponent.sm_wmc2_debounce,
+                                                                                forecasted_temperature < sm.sm_args['cold_thr'])
             
         if WindowComponent.sm_wmc2_inhibit:
-            self.hass_app.run_in(self.sm_wmc_2, 60,sm)
+            self.hass_app.run_in(self.sm_wmc_2, 30,sm)
         
