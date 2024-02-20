@@ -98,64 +98,40 @@ class WindowComponent(SafetyComponent):
 
 
     @safety_mechanism_decorator
-    def sm_wmc_1(self, sm : SafetyMechanism):
+    def sm_wmc_1(self, sm : SafetyMechanism, **kwargs):
         """
         Safety mechanism specific for window monitoring.
 
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
-        is_active : bool = False
         temperature : float = 0.0
         # 10. Check if debouncing in process
-        if WindowComponent.sm_wmc1_inhibit:
+        if kwargs['inhib']:
             # 20. Get inputs
             try:
                 temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
-                #temperature_rate = float(self.hass_app.get_state(sm.sm_args['temperature_sensor_rate']))
-                #windows_state = any(self.hass_app.get_state(sensor) == "false" for sensor in sm.sm_args["window_sensors"])
             except ValueError as e:
                 self.hass_app.log(f"Float conversion error: {e}", level='ERROR')
                 
             # 30. Perform SM logic
-            if(temperature < sm.sm_args['cold_thr']):
-                if True: # Todo call FaultManger to check if prefualt is set active
-                    WindowComponent.sm_wmc1_debounce-=1
-                    if WindowComponent.sm_wmc1_debounce == -3:
-                        is_active = True
-                        WindowComponent.sm_wmc1_inhibit = False
-                    else:
-                        # Inhibit async triggers and scheduler next debounce in next CAL_FORECAST_TIMESPAN
-                        WindowComponent.sm_wmc1_inhibit = True
-                        self.hass_app.run_in(self.sm_wmc_1, 60,sm)
-                else:
-                    pass # Do nothing
-            else:
-                if True: # Todo call FaultManger to check if prefualt is set cleared
-                    WindowComponent.sm_wmc1_debounce+=1
-                    if WindowComponent.sm_wmc1_debounce == 3:
-                        is_active = False
-                        WindowComponent.sm_wmc1_inhibit = False
-                    else:
-                        # Inhibit async triggers and scheduler next debounce in next CAL_FORECAST_TIMESPAN
-                        WindowComponent.sm_wmc1_inhibit = True
-                        self.hass_app.run_in(self.sm_wmc_1, 60,sm)
-                else:
-                    pass # Do nothing
-        if is_active:
-            self.hass_app.log(f"{sm.name} is active")
+            (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = self.process_prefault(  12,
+                                                                                    WindowComponent.sm_wmc1_debounce,
+                                                                                    temperature < sm.sm_args['cold_thr'])
+            
+        if WindowComponent.sm_wmc1_inhibit:
+            self.hass_app.run_in(self.sm_wmc_1, 60, sm, inhib = True)
             
             
     @safety_mechanism_decorator
-    def sm_wmc_2(self, sm : SafetyMechanism):
+    def sm_wmc_2(self, sm : SafetyMechanism, **kwargs):
         """
         Safety mechanism specific for window monitoring.
 
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
-        is_active : bool = False
         temperature : float = 0.0
         # 10. Check if debouncing in process
-        if WindowComponent.sm_wmc2_inhibit:
+        if kwargs['inhib']:
             # 20. Get inputs
             try:
                 temperature = float(self.hass_app.get_state(sm.sm_args['temperature_sensor']))
@@ -166,30 +142,11 @@ class WindowComponent(SafetyComponent):
             # 30. Perform SM logic 
             forecasted_temperature = temperature + temperature_rate*sm.sm_args['forecast_timespan']
             
-            if(forecasted_temperature < sm.sm_args['cold_thr']):
-                if True: # Todo call FaultManger to check if prefualt is set active
-                    WindowComponent.sm_wmc2_debounce-=1
-                    if WindowComponent.sm_wmc2_debounce == -3:
-                        is_active = True
-                        WindowComponent.sm_wmc2_inhibit = False
-                    else:
-                        # Inhibit async triggers and scheduler next debounce in next CAL_FORECAST_TIMESPAN
-                        WindowComponent.sm_wmc2_inhibit = True
-                        self.hass_app.run_in(self.sm_wmc_2, 60,sm)
-                else:
-                    pass # Do nothing
-            else:
-                if True: # Todo call FaultManger to check if prefualt is set cleared
-                    WindowComponent.sm_wmc2_debounce+=1
-                    if WindowComponent.sm_wmc2_debounce == 3:
-                        is_active = False
-                        WindowComponent.sm_wmc2_inhibit = False  
-                    else:
-                        # Inhibit async triggers and scheduler next debounce in next CAL_FORECAST_TIMESPAN
-                        WindowComponent.sm_wmc2_inhibit = True
-                        self.hass_app.run_in(self.sm_wmc_2, 60,sm)
-                else:
-                    pass # Do nothing
-        if is_active:
-            self.hass_app.log(f"{sm.name} is active")
+            # 30. Perform SM logic
+            (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = self.process_prefault(  12,
+                                                                                    WindowComponent.sm_wmc2_debounce,
+                                                                                    forecasted_temperature < sm.sm_args['cold_thr'])
+            
+        if WindowComponent.sm_wmc2_inhibit:
+            self.hass_app.run_in(self.sm_wmc_2, 60,sm)
         
