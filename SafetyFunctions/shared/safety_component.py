@@ -2,6 +2,7 @@ import appdaemon.plugins.hass.hassapi as hass
 from typing import List, Type, Any, get_origin, get_args, Callable
 import traceback
 from collections import namedtuple
+from shared.fault_manager import FaultManager
 
 
 class SafetyComponent:
@@ -14,13 +15,14 @@ class SafetyComponent:
     # Set the possible outcomes
     DEBOUNCE_ACTION = DebounceAction(NO_ACTION=0, PREFAULT_SET=1, PREFAULT_HEALED=-1)
     
-    def __init__(self, hass_app: hass.Hass):
+    def __init__(self, hass_app: hass.Hass, fault_man : FaultManager):
         """
         Initialize the safety component.
 
         :param hass_app: The Home Assistant application instance.
         """
         self.hass_app = hass_app
+        self.fault_man = fault_man
 
     @staticmethod
     def is_valid_binary_sensor(entity_name: str) -> bool:
@@ -186,11 +188,11 @@ class SafetyComponent:
             
             if debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET and not prefault_cur_state:
                 # Call Fault Manager to set pre-fault
-                #self.fault_manager.set_prefault(prefault_id)
+                self.fault_man.set_prefault(prefault_id)
                 is_inhib = False
             elif action == self.DEBOUNCE_ACTION.PREFAULT_HEALED and prefault_cur_state:
                 # Call Fault Manager to heal pre-fault
-                #self.fault_manager.heal_prefault(prefault_id)
+                self.fault_man.heal_prefault(prefault_id)
                 is_inhib = False
             elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
                 is_inhib = True
