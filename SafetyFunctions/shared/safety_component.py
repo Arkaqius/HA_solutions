@@ -6,16 +6,18 @@ from shared.fault_manager import FaultManager
 
 
 class SafetyComponent:
-    """ Base class for domain-specific safety components. """
+    """Base class for domain-specific safety components."""
 
     # Define the named tuple with possible outcomes
-    DebounceAction = namedtuple('DebounceAction', ['NO_ACTION', 'PREFAULT_SET', 'PREFAULT_HEALED'])
-    DebounceResult = namedtuple('DebounceResult', ['action', 'counter'])
+    DebounceAction = namedtuple(
+        "DebounceAction", ["NO_ACTION", "PREFAULT_SET", "PREFAULT_HEALED"]
+    )
+    DebounceResult = namedtuple("DebounceResult", ["action", "counter"])
 
     # Set the possible outcomes
     DEBOUNCE_ACTION = DebounceAction(NO_ACTION=0, PREFAULT_SET=1, PREFAULT_HEALED=-1)
-    
-    def __init__(self, hass_app: hass.Hass, fault_man : FaultManager):
+
+    def __init__(self, hass_app: hass.Hass, fault_man: FaultManager):
         """
         Initialize the safety component.
 
@@ -43,8 +45,10 @@ class SafetyComponent:
         :return: True if valid sensor, False otherwise.
         """
         return isinstance(entity_name, str) and entity_name.startswith("sensor.")
-    
-    def validate_entity(self, entity_name : str, entity: Any, expected_type: Type) -> bool:
+
+    def validate_entity(
+        self, entity_name: str, entity: Any, expected_type: Type
+    ) -> bool:
         """
         Validate a single entity against the expected type.
 
@@ -55,20 +59,31 @@ class SafetyComponent:
         # Check for generic types like List[type]
         if get_origin(expected_type):
             if not isinstance(entity, get_origin(expected_type)):
-                self.hass_app.log(f"Entity {entity_name} should be a {get_origin(expected_type).__name__}", level="ERROR")
+                self.hass_app.log(
+                    f"Entity {entity_name} should be a {get_origin(expected_type).__name__}",
+                    level="ERROR",
+                )
                 return False
             element_type = get_args(expected_type)[0]
             if not all(isinstance(item, element_type) for item in entity):
-                self.hass_app.log(f"Elements of entity {entity_name} should be {element_type.__name__}", level="ERROR")
+                self.hass_app.log(
+                    f"Elements of entity {entity_name} should be {element_type.__name__}",
+                    level="ERROR",
+                )
                 return False
         # Non-generic types
         elif not isinstance(entity, expected_type):
-            self.hass_app.log(f"Entity {entity_name} should be {expected_type.__name__}", level="ERROR")
+            self.hass_app.log(
+                f"Entity {entity_name} should be {expected_type.__name__}",
+                level="ERROR",
+            )
             return False
-        
+
         return True
 
-    def validate_entities(self, sm_args: dict[str, Any], expected_types: dict[str, Type]) -> bool:
+    def validate_entities(
+        self, sm_args: dict[str, Any], expected_types: dict[str, Type]
+    ) -> bool:
         """
         Validate multiple entities against their expected types based on kwargs.
 
@@ -97,16 +112,20 @@ class SafetyComponent:
         :param expected_types: A dictionary mapping expected variable names to their expected types.
                                This dict defines what type each entity in `sm_args` should be.
         :return: True if all required entities are present in `sm_args` and valid, False otherwise.
-        """  
+        """
         for entity_name, expected_type in expected_types.items():
             if entity_name not in sm_args:
-                self.hass_app.log(f"Missing required argument: {entity_name}", level="ERROR")
+                self.hass_app.log(
+                    f"Missing required argument: {entity_name}", level="ERROR"
+                )
                 return False
-            if not self.validate_entity(entity_name,sm_args[entity_name], expected_type):
+            if not self.validate_entity(
+                entity_name, sm_args[entity_name], expected_type
+            ):
                 # The specific error message will be logged in validate_entity
                 return False
         return True
-    
+
     @staticmethod
     def safe_float_convert(value: str, default: float = 0.0) -> float:
         """
@@ -127,11 +146,11 @@ class SafetyComponent:
             traceback.print_exc()  # Prints the full traceback to stdout
             return default
 
-    def _debounce(self,current_counter, pr_test, debounce_limit=3):
+    def _debounce(self, current_counter, pr_test, debounce_limit=3):
         """
         Generic debouncing function that updates the counter based on the state
         and returns an action indicating whether a pre-fault should be set, cleared, or no action taken.
-        
+
         :param current_counter: The current debounce counter for the sensor or mechanism.
         :param state: The current state to be debounced (True for active, False for inactive).
         :param debounce_limit: The limit at which the state is considered stable.
@@ -139,54 +158,65 @@ class SafetyComponent:
         """
         if pr_test:
             new_counter = min(debounce_limit, current_counter + 1)
-            action = self.DEBOUNCE_ACTION.PREFAULT_SET if new_counter >= debounce_limit else self.DEBOUNCE_ACTION.NO_ACTION
+            action = (
+                self.DEBOUNCE_ACTION.PREFAULT_SET
+                if new_counter >= debounce_limit
+                else self.DEBOUNCE_ACTION.NO_ACTION
+            )
         else:
             new_counter = max(-debounce_limit, current_counter - 1)
-            action = self.DEBOUNCE_ACTION.PREFAULT_HEALED if new_counter <= -debounce_limit else self.DEBOUNCE_ACTION.NO_ACTION
+            action = (
+                self.DEBOUNCE_ACTION.PREFAULT_HEALED
+                if new_counter <= -debounce_limit
+                else self.DEBOUNCE_ACTION.NO_ACTION
+            )
 
         return self.DebounceResult(action=action, counter=new_counter)
-    
-    def process_prefault(self,prefault_id,current_counter, pr_test, debounce_limit=3):
+
+    def process_prefault(self, prefault_id, current_counter, pr_test, debounce_limit=3):
         """
         Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
 
-        This method manages the pre-fault state by updating the debounce counter and 
-        interacting with the Fault Manager as needed. The pre-fault state is determined 
-        by the result of the pr_test and the current state of the debounce counter. 
-        This method is responsible for calling the necessary interfaces from the Fault 
+        This method manages the pre-fault state by updating the debounce counter and
+        interacting with the Fault Manager as needed. The pre-fault state is determined
+        by the result of the pr_test and the current state of the debounce counter.
+        This method is responsible for calling the necessary interfaces from the Fault
         Manager to set or clear pre-fault conditions.
 
-        The method returns two values: the updated debounce counter and a boolean 
-        indicating whether to inhibit further triggers. If inhibition is true, 
+        The method returns two values: the updated debounce counter and a boolean
+        indicating whether to inhibit further triggers. If inhibition is true,
         further triggers are ignored except for time-based events used for debouncing purposes.
 
         Args:
             prefault_id (int): The identifier for the pre-fault condition.
             current_counter (int): The current value of the debounce counter.
-            pr_test (bool): The result of the pre-fault test. True if the pre-fault 
+            pr_test (bool): The result of the pre-fault test. True if the pre-fault
                             condition is detected, False otherwise.
-            debounce_limit (int, optional): The threshold for the debounce counter 
+            debounce_limit (int, optional): The threshold for the debounce counter
                                             to consider the state stable. Defaults to 3.
 
         Returns:
             tuple:
                 - int: The updated debounce counter value.
-                - bool: A flag indicating whether to inhibit further triggers. 
+                - bool: A flag indicating whether to inhibit further triggers.
                         True to inhibit, False to allow further triggers.
 
         Raises:
             None
         """
-        
+
         is_inhib = False
         action = self.DEBOUNCE_ACTION.NO_ACTION
-        prefault_cur_state = True # TODO get from FaultManager
-        
+        prefault_cur_state = True  # TODO get from FaultManager
+
         # Check if any actions is needed
         if (pr_test and not prefault_cur_state) or (not pr_test and prefault_cur_state):
-            debounce_result  = self._debounce(current_counter,pr_test,debounce_limit)
-            
-            if debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET and not prefault_cur_state:
+            debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
+
+            if (
+                debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET
+                and not prefault_cur_state
+            ):
                 # Call Fault Manager to set pre-fault
                 self.fault_man.set_prefault(prefault_id)
                 is_inhib = False
@@ -196,20 +226,21 @@ class SafetyComponent:
                 is_inhib = False
             elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
                 is_inhib = True
-                           
+
         return debounce_result.counter, is_inhib
 
-    
+
 def safety_mechanism_decorator(func: Callable) -> Callable:
     """
     Decorator to wrap safety mechanism functions.
 
-    This decorator can be used to add pre- and post-execution logic 
+    This decorator can be used to add pre- and post-execution logic
     around a safety mechanism function.
 
     :param func: The safety mechanism function to be decorated.
     :return: The wrapper function.
     """
+
     def wrapper(self, sm) -> Any:
         """
         Wrapper function for the safety mechanism.
@@ -219,14 +250,12 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         :param kwargs: Keyword arguments for the safety mechanism function.
         :return: The result of the safety mechanism function.
         """
-        self.hass_app.log(f'{func.__name__} was started!')
+        self.hass_app.log(f"{func.__name__} was started!")
 
-        result = func(self, sm) 
+        result = func(self, sm)
 
-        self.hass_app.log(f'{func.__name__} was ended!')
-
+        self.hass_app.log(f"{func.__name__} was ended!")
 
         return result
-    return wrapper    
 
-
+    return wrapper
