@@ -1,13 +1,8 @@
 """
 TODO
 """
-
-from typing import List
 from shared.safety_component import SafetyComponent, safety_mechanism_decorator
 from shared.safety_mechanism import SafetyMechanism
-from shared.fault_manager import FaultManager
-from shared.recovery_manager import RecoveryManager
-from shared.safe_state_manager import SafeStateManager
 
 
 class WindowComponent(SafetyComponent):
@@ -125,6 +120,7 @@ class WindowComponent(SafetyComponent):
                 12,
                 WindowComponent.sm_wmc1_debounce,
                 temperature < sm.sm_args["cold_thr"],
+                {'location' : 'office'}
             )
         )
 
@@ -161,6 +157,7 @@ class WindowComponent(SafetyComponent):
                 12,
                 WindowComponent.sm_wmc2_debounce,
                 forecasted_temperature < sm.sm_args["cold_thr"],
+                {'location' : 'office'}
             )
         )
 

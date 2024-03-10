@@ -1,30 +1,15 @@
-# recovery_manager.py
-import appdaemon.plugins.hass.hassapi as hass
+from typing import Callable
 
 class RecoveryManager:
-    """
-    Class responsible for recovery actions in the system.
-    
-    Attributes:
-        hass_app (hass.Hass): Instance of the Home Assistant AppDaemon application.
-    """
-    
-    def __init__(self, hass_app: hass.Hass):
+    def __init__(self):
         """
-        Initialize the RecoveryManager.
-
-        :param hass_app: Instance of the Home Assistant AppDaemon application.
+        Initialize the Recovery Manager.
         """
-        self.hass_app = hass_app
 
-    def perform_recovery_actions(self, fault_code: str):
+    def recovery(self, recovery_action : Callable, additional_info):
         """
-        Perform specific recovery actions based on the fault code.
+        Execute the recovery process for a given fault.
 
-        :param fault_code: A unique identifier for the fault being recovered from.
-        """
-        # Implement recovery actions specific to the fault
-        # Example: Resetting devices, restarting services, etc.
-        pass
-
-    # Additional methods as needed for recovery actions
+        :param fault: The Fault object containing recovery information.
+        """  
+        recovery_action(additional_info)

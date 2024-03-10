@@ -17,15 +17,18 @@ class SafetyComponent:
     # Set the possible outcomes
     DEBOUNCE_ACTION = DebounceAction(NO_ACTION=0, PREFAULT_SET=1, PREFAULT_HEALED=-1)
 
-    def __init__(self, hass_app: hass.Hass, fault_man: FaultManager):
+    def __init__(self, hass_app: hass.Hass, ):
         """
         Initialize the safety component.
 
         :param hass_app: The Home Assistant application instance.
         """
         self.hass_app = hass_app
-        self.fault_man = fault_man
+        self.fault_man = None
 
+    def register_fm(self,fm: FaultManager):
+        self.fault_man = FaultManager
+        
     @staticmethod
     def is_valid_binary_sensor(entity_name: str) -> bool:
         """
@@ -173,7 +176,7 @@ class SafetyComponent:
 
         return self.DebounceResult(action=action, counter=new_counter)
 
-    def process_prefault(self, prefault_id, current_counter, pr_test, debounce_limit=3):
+    def process_prefault(self, prefault_id, current_counter, pr_test, additional_info, debounce_limit=3):
         """
         Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
 
@@ -218,11 +221,11 @@ class SafetyComponent:
                 and not prefault_cur_state
             ):
                 # Call Fault Manager to set pre-fault
-                self.fault_man.set_prefault(prefault_id)
+                self.fault_man.set_prefault(prefault_id,additional_info)
                 is_inhib = False
             elif action == self.DEBOUNCE_ACTION.PREFAULT_HEALED and prefault_cur_state:
                 # Call Fault Manager to heal pre-fault
-                self.fault_man.heal_prefault(prefault_id)
+                self.fault_man.heal_prefault(prefault_id,additional_info)
                 is_inhib = False
             elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
                 is_inhib = True

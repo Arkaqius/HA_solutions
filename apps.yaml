@@ -116,6 +116,12 @@ SafetyFunctions:
       related_sms:
         - "sm_wmc_1"
 
+  notification:
+    dashboard_1_entity: 'todo'
+    dashboard_2_entity: 'todo'
+    dashboard_3_entity: 'todo'
+    dashboard_4_entity: 'todo'
+
   prefaults:
     RiskyTemperatureOffice:
         name: "RiskyTemperatureOffice"

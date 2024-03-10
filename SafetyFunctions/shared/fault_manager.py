@@ -1,5 +1,7 @@
 from enum import Enum
 from typing import Callable, Optional
+from shared.recovery_manager import RecoveryManager
+from shared.notification_manager import NotificationManager
 
 
 class FaultState(Enum):
@@ -40,12 +42,21 @@ class Fault:
 
 
 class FaultManager:
-    def __init__(self, sm_modules: list, prefault_dict: dict, fault_dict: dict):
+    def __init__(
+        self,
+        notify_man,
+        recovery_man: RecoveryManager,
+        sm_modules: list,
+        prefault_dict: dict,
+        fault_dict: dict,
+    ):
         """
         Initialize the Fault Manager.
 
         :param config_path: Path to the YAML configuration file.
         """
+        self.notify_man: NotificationManager = notify_man
+        self.recovery_man: RecoveryManager = recovery_man
         self.faults: dict[str, Fault] = fault_dict
         self.prefaults: dict[str, PreFault] = prefault_dict
         self.sm_modules = sm_modules
@@ -108,8 +119,12 @@ class FaultManager:
         fault.state = FaultState.SET
 
         # Call notifications
+        self.notify_man.notify(fault.name, fault.notification_level, additional_info)
 
-        # Call recovery actions
+        # Call recovery actions (specific for prefault)
+        self.recovery_man.recovery(
+            self.prefaults[prefault_id].recover_actions, additional_info
+        )
 
     def _clear_fault(self, prefault_id: str, additional_info):
         """
@@ -120,15 +135,15 @@ class FaultManager:
 
         # Collect all faults mapped from that prefault
         fault = self._found_mapped_fault(prefault_id)
-        
-        if fault: # If Fault was found
+
+        if fault:  # If Fault was found
             # Set Fault
             fault.state = FaultState.CLEARED
 
             # Call notifications
-
-            # Call recovery actions
-        
+            self.notify_man.notify(
+                fault.name, fault.notification_level, additional_info
+            )
 
     def check_fault(self, fault_id):
         """
