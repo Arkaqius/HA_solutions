@@ -33,7 +33,7 @@ class SafetyMechanism:
             self.hass_app.listen_state(self.entity_changed, entity)
 
     def entity_changed(
-        self, entity: str, attribute: str, old: Any, new: Any, kwargs: dict
+        self, entity: str, _: str, __: Any, ___: Any, ____: dict
     ):
         """
         Callback method called when a monitored entity changes state.

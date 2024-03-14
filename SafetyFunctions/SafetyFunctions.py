@@ -4,7 +4,7 @@ from shared.fault_manager import FaultManager, Fault, PreFault
 from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 import shared.cfg_parser as cfg_pr
-from remote_pdb import RemotePdb
+#from remote_pdb import RemotePdb
 
 
 class SafetyFunctions(hass.Hass):
@@ -39,12 +39,12 @@ class SafetyFunctions(hass.Hass):
         self.sm_modules["WindowComponent"] = WindowComponent(self)
 
         # Initialize prefaults
-        self.prefaults: dict[str, PreFault] = cfg_pr.get_prefaults(
+        self.prefaults = cfg_pr.get_prefaults(
             self.sm_modules, prefault_dict
         )
 
         # Initialize faults
-        self.faults: dict[str, PreFault] = cfg_pr.get_faults(fault_dict)
+        self.faults = cfg_pr.get_faults(fault_dict)
 
         # Initialize fault manager
         self.fm: FaultManager = FaultManager(

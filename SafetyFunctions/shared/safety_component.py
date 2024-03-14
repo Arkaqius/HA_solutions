@@ -1,5 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
-from typing import List, Type, Any, get_origin, get_args, Callable
+from typing import Type, Any, get_origin, get_args, Callable, Optional
 import traceback
 from collections import namedtuple
 from shared.fault_manager import FaultManager
@@ -24,10 +24,10 @@ class SafetyComponent:
         :param hass_app: The Home Assistant application instance.
         """
         self.hass_app = hass_app
-        self.fault_man = None
+        self.fault_man : Optional[FaultManager] = None
 
     def register_fm(self,fm: FaultManager):
-        self.fault_man = FaultManager
+        self.fault_man = fm
         
     @staticmethod
     def is_valid_binary_sensor(entity_name: str) -> bool:
@@ -210,25 +210,27 @@ class SafetyComponent:
 
         is_inhib = False
         action = self.DEBOUNCE_ACTION.NO_ACTION
-        prefault_cur_state = True  # TODO get from FaultManager
+        if self.fault_man:
+            prefault_cur_state = self.fault_man.check_prefault(prefault_id)
+            # Check if any actions is needed
+            if (pr_test and not prefault_cur_state) or (not pr_test and prefault_cur_state):
+                debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
 
-        # Check if any actions is needed
-        if (pr_test and not prefault_cur_state) or (not pr_test and prefault_cur_state):
-            debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
-
-            if (
-                debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET
-                and not prefault_cur_state
-            ):
-                # Call Fault Manager to set pre-fault
-                self.fault_man.set_prefault(prefault_id,additional_info)
-                is_inhib = False
-            elif action == self.DEBOUNCE_ACTION.PREFAULT_HEALED and prefault_cur_state:
-                # Call Fault Manager to heal pre-fault
-                self.fault_man.heal_prefault(prefault_id,additional_info)
-                is_inhib = False
-            elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
-                is_inhib = True
+                if (
+                    debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET
+                    and not prefault_cur_state
+                ):
+                    # Call Fault Manager to set pre-fault
+                    self.fault_man.set_prefault(prefault_id,additional_info)
+                    is_inhib = False
+                elif action == self.DEBOUNCE_ACTION.PREFAULT_HEALED and prefault_cur_state:
+                    # Call Fault Manager to heal pre-fault
+                    self.fault_man.clear_prefault(prefault_id,additional_info)
+                    is_inhib = False
+                elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
+                    is_inhib = True
+            else:
+                self.hass_app.log("Fault manager not initialized!")
 
         return debounce_result.counter, is_inhib
 
