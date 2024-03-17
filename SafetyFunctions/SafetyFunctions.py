@@ -25,12 +25,12 @@ class SafetyFunctions(hass.Hass):
         self.faults: dict[str, Fault] = {}
 
         # Get and verify cfgs
-        prefault_dict = self.args["prefaults"]
-        fault_dict = self.args["faults"]
-        notification_cfg = self.args["notification"]
+        self.prefault_dict = self.args["prefaults"]
+        self.fault_dict = self.args["faults"]
+        self.notification_cfg = self.args["notification"]
         
         # Initialize notification manager
-        self.notify_man : NotificationManager = NotificationManager(self,notification_cfg)
+        self.notify_man : NotificationManager = NotificationManager(self,self.notification_cfg)
         
         # Initialize recovery manager
         self.reco_man : RecoveryManager = RecoveryManager()
@@ -40,11 +40,11 @@ class SafetyFunctions(hass.Hass):
 
         # Initialize prefaults
         self.prefaults = cfg_pr.get_prefaults(
-            self.sm_modules, prefault_dict
+            self.sm_modules, self.prefault_dict
         )
 
         # Initialize faults
-        self.faults = cfg_pr.get_faults(fault_dict)
+        self.faults = cfg_pr.get_faults(self.fault_dict)
 
         # Initialize fault manager
         self.fm: FaultManager = FaultManager(
