@@ -117,7 +117,7 @@ class Fault:
 
     Args:
         name (str): The name identifier of the fault.
-        related_prefaults (list): List of names of pre-faults that can trigger this fault.
+        related_prefaults (list): List of names of safety mechanism that can trigger this fault.
         notification_level (int): The severity level assigned to this fault for notification purposes.
     """
 
@@ -189,7 +189,9 @@ class FaultManager:
         """
         for prefault_name, prefault_data in self.prefaults.items():
             init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
-            init_fcn(prefault_name, prefault_data.parameters)
+            result : bool = init_fcn(prefault_name, prefault_data.parameters)
+            if result:
+                prefault_data.sm_state = SMState.ENABLED
 
     def set_prefault(self, prefault_id, additional_info=None):
         """
