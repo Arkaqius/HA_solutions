@@ -35,7 +35,7 @@ from shared.notification_manager import NotificationManager
 
 class FaultState(Enum):
     """
-    Represents the possible states of a fault within the safety management system.
+    Represents the possible states of a fault and prefaults within the safety management system.
 
     Attributes:
         NOT_TESTED: Initial state, indicating the fault has not yet been tested.
@@ -189,7 +189,7 @@ class FaultManager:
         """
         for prefault_name, prefault_data in self.prefaults.items():
             init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
-            result : bool = init_fcn(prefault_name, prefault_data.parameters)
+            result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
                 prefault_data.sm_state = SMState.ENABLED
 
@@ -281,8 +281,11 @@ class FaultManager:
             pre-fault conditions. It assumes that a mapping exists between pre-faults and faults, allowing for
             appropriate fault state updates based on pre-fault triggers.
         """
+        # Get sm name based on prefault_id
+        sm_name = self.prefaults[prefault_id].sm_name
+
         # Collect all faults mapped from that prefault
-        fault = self._found_mapped_fault(prefault_id)
+        fault = self._found_mapped_fault(prefault_id, sm_name)
         if fault:
             # Set Fault
             fault.state = FaultState.SET
@@ -324,11 +327,18 @@ class FaultManager:
             to manage fault states dynamically based on the resolution of pre-fault conditions.
         """
 
-        # Collect all faults mapped from that prefault
-        fault = self._found_mapped_fault(prefault_id)
+        # Get sm name based on prefault_id
+        sm_name = self.prefaults[prefault_id].sm_name
 
-        if fault:  # If Fault was found
-            # Set Fault
+        # Collect all faults mapped from that prefault
+        fault = self._found_mapped_fault(prefault_id, sm_name)
+
+        if fault and not any(
+            prefault.state == FaultState.SET
+            for prefault in self.prefaults.values()
+            if prefault.sm_name == sm_name
+        ):  # If Fault was found and if other fault related prefaults are not raised
+            # Clear Fault
             fault.state = FaultState.CLEARED
 
             # Call notifications
@@ -358,7 +368,7 @@ class FaultManager:
         """
         return self.faults[fault_id].state
 
-    def _found_mapped_fault(self, prefault_id: str) -> Optional[Fault]:
+    def _found_mapped_fault(self, prefault_id: str, sm_id: str) -> Optional[Fault]:
         """
         Finds the fault associated with a given pre-fault identifier.
 
@@ -373,6 +383,7 @@ class FaultManager:
 
         Args:
             prefault_id (str): The identifier of the pre-fault for which the associated fault is sought.
+            sm_id (str) : The identifier of the sm
 
         Returns:
             Optional[Fault]: The fault object associated with the specified pre-fault, if found. Returns
@@ -384,17 +395,25 @@ class FaultManager:
             role in linking pre-fault conditions to their corresponding faults, facilitating the automated
             management of fault states based on system observations and pre-fault activations.
         """
+
         # Collect all faults mapped from that prefault
         matching_objects = [
-            fault
-            for fault in self.faults.values()
-            if prefault_id in fault.related_prefaults
+            fault for fault in self.faults.values() if sm_id in fault.related_prefaults
         ]
 
         # Validate there's exactly one occurrence
         if len(matching_objects) == 1:
-            print("Found exactly one matching fault:", matching_objects[0])
             return matching_objects[0]
 
-        print("Error: Found multiple objects with prefault_id =", prefault_id)
+        elif len(matching_objects) > 1:
+            self.hass.log(
+                f"Error: Multiple faults found associated with prefault_id '{prefault_id}', indicating a configuration error.",
+                level="ERROR",
+            )
+        else:
+            self.hass.log(
+                f"Error: No faults associated with prefault_id '{prefault_id}'. This may indicate a configuration error.",
+                level="ERROR",
+            )
+
         return None

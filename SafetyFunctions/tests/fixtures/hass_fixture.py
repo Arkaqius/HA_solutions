@@ -147,3 +147,30 @@ def mocked_hass_app_with_state_check(app_config_valid):
             "dummy_global_vars",
         )
         yield app_instance, mock_hass
+
+@pytest.fixture
+def mocked_hass_app_fm_mocks(app_config_valid):
+    """
+    Provides a mocked instance of the SafetyFunctions app with a mocked Hass class.
+
+    This fixture is used for general testing of the app's initialization and functionality
+    without requiring a live Home Assistant environment.
+    """
+    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass:
+        mock_logging = MagicMock()
+        mock_logging.get_child.return_value = MagicMock()
+        mock_hass = MockHass()
+        mock_hass.logger = mock_logging
+
+        app_instance = SafetyFunctions(
+            mock_hass,
+            "dummy_namespace",
+            mock_logging,
+            app_config_valid,
+            "mock_config",
+            "dummy_app_config",
+            "dummy_global_vars",
+        )
+        app_instance.initialize()
+
+        yield app_instance, mock_hass

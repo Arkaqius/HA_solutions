@@ -14,7 +14,7 @@ def app_config_valid():
             "RiskyTemperatureForecast": {
                 "name": "Unsafe temperature forecast",
                 "priority": 3,
-                "related_sms": ["sm_wmc_1"],
+                "related_sms": ["sm_wmc_2"],
             },
         },
         "notification": {
@@ -26,6 +26,16 @@ def app_config_valid():
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.office_temperature",
+                },
+                "component_name": "WindowComponent",
+                "recovery_actions": "RiskyTemperatureRecovery",
+            },
+            "RiskyTemperatureKitchen": {
+                "name": "RiskyTemperatureKitchen",
+                "safety_mechanism": "sm_wmc_1",
+                "parameters": {
+                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
+                    "temperature_sensor": "sensor.kitchen_temperature",
                 },
                 "component_name": "WindowComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",

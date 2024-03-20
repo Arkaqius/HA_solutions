@@ -164,5 +164,6 @@ class WindowComponent(SafetyComponent):
         if WindowComponent.sm_wmc2_inhibit:
             self.hass_app.run_in(self.sm_wmc_2, 30, sm)
 
+    @staticmethod
     def RiskyTemperatureRecovery(self):
         print("RiskyTemperatureRecovery called!")

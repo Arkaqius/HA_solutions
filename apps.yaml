@@ -114,7 +114,7 @@ SafetyFunctions:
       name: "Unsafe temperature forecast"
       priority: 3
       related_sms:
-        - "sm_wmc_1"
+        - "sm_wmc_2"
 
   notification:
     light_entity: 'light.warning_light'
