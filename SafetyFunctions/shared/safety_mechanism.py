@@ -1,5 +1,6 @@
 from typing import Callable, List, Any
 
+
 class SafetyMechanism:
     """
     Class to define and manage a safety mechanism in the Home Assistant environment.
@@ -31,7 +32,9 @@ class SafetyMechanism:
             self.hass_app.log(f"Setting up listener for entity: {entity}")
             self.hass_app.listen_state(self.entity_changed, entity)
 
-    def entity_changed(self, entity: str, attribute: str, old: Any, new: Any, kwargs: dict):
+    def entity_changed(
+        self, entity: str, _: str, __: Any, ___: Any, ____: dict
+    ):
         """
         Callback method called when a monitored entity changes state.
 
@@ -42,8 +45,8 @@ class SafetyMechanism:
         :param kwargs: Additional keyword arguments.
         """
         self.hass_app.log(f"Entity changed detected for {entity}, calling callback.")
-        self.callback(**self.sm_args)
-        
+        self.callback(self)
+
     def extract_entities(self, kwargs: dict) -> List[str]:
         """
         Extract entity IDs from the kwargs.
@@ -57,4 +60,4 @@ class SafetyMechanism:
                 entities.extend(value)
             elif isinstance(value, str):
                 entities.append(value)
-        return entities    
+        return entities

@@ -1,0 +1,20 @@
+{
+    "configurations": [
+
+        {
+            "name": "PythonPDB",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "172.30.33.4",
+                "port": 5050
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ]
+        }
+    ]
+}
