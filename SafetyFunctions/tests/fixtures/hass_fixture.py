@@ -174,3 +174,57 @@ def mocked_hass_app_fm_mocks(app_config_valid):
         app_instance.initialize()
 
         yield app_instance, mock_hass
+        
+@pytest.fixture
+def mocked_hass_app_2_flts_1_sm(app_config_2_faults_to_single_prefault):
+    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, \
+         patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
+        mock_logging = MagicMock()
+        mock_logging.get_child.return_value = MagicMock()
+        mock_hass = MockHass()
+        mock_hass.logger = mock_logging
+        mock_hass.log = MagicMock()
+
+        app_instance = SafetyFunctions(
+            mock_hass,
+            "dummy_namespace",
+            mock_logging,
+            app_config_2_faults_to_single_prefault,
+            "mock_config",
+            "dummy_app_config",
+            "dummy_global_vars",
+        )
+
+        # Initialize the SafetyFunctions instance
+        app_instance.initialize()
+
+        # The mock_log_method patch will be active here and in any test using this fixture
+        yield app_instance, mock_hass, mock_log_method
+        
+@pytest.fixture
+def mocked_hass_app_flt_0_sm(app_config_fault_withou_smc):
+    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, \
+         patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
+        mock_logging = MagicMock()
+        mock_logging.get_child.return_value = MagicMock()
+        mock_hass = MockHass()
+        mock_hass.logger = mock_logging
+        mock_hass.log = MagicMock()
+
+        app_instance = SafetyFunctions(
+            mock_hass,
+            "dummy_namespace",
+            mock_logging,
+            app_config_fault_withou_smc,
+            "mock_config",
+            "dummy_app_config",
+            "dummy_global_vars",
+        )
+
+        # Initialize the SafetyFunctions instance
+        app_instance.initialize()
+
+        # The mock_log_method patch will be active here and in any test using this fixture
+        yield app_instance, mock_hass, mock_log_method        
+        
+        

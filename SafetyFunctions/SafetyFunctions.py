@@ -48,6 +48,7 @@ class SafetyFunctions(hass.Hass):
 
         # Initialize fault manager
         self.fm: FaultManager = FaultManager(
+            self,
             self.notify_man,
             self.reco_man,
             self.sm_modules, self.prefaults, self.faults

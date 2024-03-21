@@ -152,6 +152,7 @@ class FaultManager:
 
     def __init__(
         self,
+        hass,
         notify_man,
         recovery_man: RecoveryManager,
         sm_modules: dict,
@@ -168,6 +169,7 @@ class FaultManager:
         self.faults: dict[str, Fault] = fault_dict
         self.prefaults: dict[str, PreFault] = prefault_dict
         self.sm_modules = sm_modules
+        self.hass = hass
 
     def enable_prefaults(self):
         """

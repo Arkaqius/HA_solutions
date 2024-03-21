@@ -105,3 +105,24 @@ def test_faults_set_2_prefault_heal_one(mocked_hass_app):
     assert app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.CLEARED
     assert app_instance.fm.check_prefault("RiskyTemperatureKitchen") == FaultState.CLEARED
     assert app_instance.fm.check_fault("RiskyTemperature") == FaultState.CLEARED
+    
+    
+def test_faults_invalid_cfg_2_smc(mocked_hass_app_2_flts_1_sm):
+
+    app_instance, mock_hass, mock_log_method = mocked_hass_app_2_flts_1_sm
+
+    # 1. Set Prefault and Fault
+    app_instance.fm.set_prefault(
+        "RiskyTemperatureOffice", additional_info={"location": "office"}
+    )
+    mock_log_method.assert_called_with("Error: Multiple faults found associated with prefault_id 'RiskyTemperatureOffice', indicating a configuration error.", level='ERROR')
+    
+def test_faults_invalid_cfg_no_smc(mocked_hass_app_flt_0_sm):
+
+    app_instance, mock_hass, mock_log_method = mocked_hass_app_flt_0_sm
+
+    # 1. Set Prefault and Fault
+    app_instance.fm.set_prefault(
+        "RiskyTemperatureOffice", additional_info={"location": "office"}
+    )
+    mock_log_method.assert_called_with("Error: No faults associated with prefault_id 'RiskyTemperatureOffice'. This may indicate a configuration error.', indicating a configuration error.")
