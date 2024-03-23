@@ -20,7 +20,8 @@ def mocked_hass_app(app_config_valid):
     This fixture is used for general testing of the app's initialization and functionality
     without requiring a live Home Assistant environment.
     """
-    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass:
+    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, \
+        patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
         mock_logging = MagicMock()
         mock_logging.get_child.return_value = MagicMock()
         mock_hass = MockHass()
@@ -37,7 +38,7 @@ def mocked_hass_app(app_config_valid):
         )
         app_instance.initialize()
 
-        yield app_instance, mock_hass
+        yield app_instance, mock_hass, mock_log_method
 
 
 @pytest.fixture
@@ -121,33 +122,6 @@ def mocked_call_service(mocked_hass_app):
 
     yield mock_hass.call_service
 
-
-@pytest.fixture
-def mocked_hass_app_with_state_check(app_config_valid):
-    """
-    Provides a mocked instance of the SafetyFunctions app with a mocked Hass class,
-    specifically for testing state changes, such as setting the app's health status.
-    """
-    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass:
-        mock_logging = MagicMock()
-        mock_logging.get_child.return_value = MagicMock()
-        mock_hass = MockHass()
-        mock_hass.logger = mock_logging
-        mock_hass.args = app_config_valid
-
-        mock_hass.set_state = MagicMock()
-
-        app_instance = SafetyFunctions(
-            mock_hass,
-            "dummy_namespace",
-            mock_logging,
-            mock_hass.args,
-            "mock_config",
-            "dummy_app_config",
-            "dummy_global_vars",
-        )
-        yield app_instance, mock_hass
-
 @pytest.fixture
 def mocked_hass_app_fm_mocks(app_config_valid):
     """
@@ -204,7 +178,7 @@ def mocked_hass_app_2_flts_1_sm(app_config_2_faults_to_single_prefault):
 @pytest.fixture
 def mocked_hass_app_flt_0_sm(app_config_fault_withou_smc):
     with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, \
-         patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
+        patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
         mock_logging = MagicMock()
         mock_logging.get_child.return_value = MagicMock()
         mock_hass = MockHass()

@@ -19,7 +19,7 @@ def test_faults_init_RiskyTemperature(mocked_hass_app):
     This test ensures that fault configurations are correctly set up during the application's
     initialization process, which is crucial for the fault management system to operate as intended.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __= mocked_hass_app
 
     # Verify the fault's name is as expected
     assert app_instance.faults["RiskyTemperature"].name == "RiskyTemperature", \

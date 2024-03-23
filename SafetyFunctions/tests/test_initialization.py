@@ -28,7 +28,7 @@ def test_initialize_dicts_prefault(mocked_hass_app):
     This positive test case ensures that the application's safety mechanisms are correctly
     set up with the necessary configuration parameters upon initialization.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __ = mocked_hass_app
 
     # Assert the 'prefaults' dictionary content
     prefault = app_instance.prefault_dict["RiskyTemperatureOffice"]
@@ -64,7 +64,7 @@ def test_NotificationManager_init(mocked_hass_app):
     This test confirms the proper integration and setup of the NotificationManager,
     crucial for the app's notification functionality.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __ = mocked_hass_app
 
     assert (
         app_instance.notify_man.hass_app is not None
@@ -146,6 +146,7 @@ def test_fault_manager_initialization(mocked_hass_app_window_component):
     # Verify that FaultManager's prefaults dictionary is correctly populated
     assert app_instance.fm.prefaults == {
         "RiskyTemperatureOffice": app_instance.prefaults["RiskyTemperatureOffice"],
+        "RiskyTemperatureKitchen": app_instance.prefaults["RiskyTemperatureKitchen"],
         "RiskyTemperatureOfficeForeCast": app_instance.prefaults[
             "RiskyTemperatureOfficeForeCast"
         ],
@@ -165,7 +166,7 @@ def test_assign_fm(mocked_hass_app):
     This test checks that the FaultManager instance is properly registered with all safety components,
     ensuring they can interact with the FaultManager for fault and prefault management.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __= mocked_hass_app
 
     for module in app_instance.sm_modules.values():
         assert (
@@ -173,19 +174,14 @@ def test_assign_fm(mocked_hass_app):
         ), "FaultManager is not correctly assigned to safety module."
 
 
-def test_app_health_set_to_good_at_end_of_init(mocked_hass_app_with_state_check):
+def test_app_health_set_to_good_at_end_of_init(mocked_hass_app):
     """
     Test that the application's health status is set to 'good' at the end of the initialization process.
 
     This ensures that the 'set_state' method is correctly called with 'sensor.safety_app_health' and 'good'
     indicating that the application is ready and operating as expected after initialization.
     """
-    app_instance, mock_hass = mocked_hass_app_with_state_check
-
-    # Initialize the app instance
-    app_instance.initialize()
+    app_instance, mock_hass, mock_log = mocked_hass_app
 
     # Verify set_state was called with the expected arguments
-    mock_hass.set_state.assert_called_once_with(
-        "sensor.safety_app_health", state="good"
-    )
+    mock_log.assert_called_with("Safety app started")

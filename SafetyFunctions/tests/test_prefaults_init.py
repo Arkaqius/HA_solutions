@@ -12,7 +12,7 @@ def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
     - Has correct parameters for the low temperature threshold and temperature sensor.
     - Uses the 'RiskyTemperatureRecovery' recovery action from the 'WindowComponent'.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __ = mocked_hass_app
 
     assert (
         app_instance.prefaults["RiskyTemperatureOffice"].name
@@ -48,7 +48,7 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     - Has correct parameters for the low temperature threshold, forecast timespan, temperature sensor, and temperature sensor rate.
     - Uses the 'RiskyTemperatureRecovery' recovery action from the 'WindowComponent'.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __ = mocked_hass_app
 
     # Call init explicit as it anusual here
     app_instance.initialize()
@@ -92,7 +92,7 @@ def test_enablePrefaults_during_init(mocked_hass_app):
     Ensuring prefaults are enabled during initialization is crucial for the application to start monitoring
     conditions that could lead to faults right away, aligning with the app's proactive safety management strategy.
     """
-    app_instance, _ = mocked_hass_app
+    app_instance, _, __ = mocked_hass_app
 
     # Verify 'RiskyTemperatureOffice' prefault is ENABLED after initialization
     assert (

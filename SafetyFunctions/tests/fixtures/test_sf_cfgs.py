@@ -117,7 +117,7 @@ def app_config_fault_withou_smc():
             "RiskyTemperature": {
                 "name": "Unsafe temperature",
                 "priority": 2,
-                "related_sms": ["sm_wmc_1"],
+                "related_sms": ["sm_wmc_9999"],
             },
             "RiskyTemperatureForecast": {
                 "name": "Unsafe temperature forecast",
