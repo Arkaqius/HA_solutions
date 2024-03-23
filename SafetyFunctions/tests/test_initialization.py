@@ -10,7 +10,7 @@ health status is correctly set to 'good' at the end of initialization.
 
 from unittest.mock import patch, MagicMock
 import pytest
-from shared.window_component import WindowComponent
+from shared.temperature_component import TemperatureComponent
 from shared.fault_manager import FaultManager
 
 # Assuming SafetyFunctions is in the correct import path
@@ -34,7 +34,7 @@ def test_initialize_dicts_prefault(mocked_hass_app):
     prefault = app_instance.prefault_dict["RiskyTemperatureOffice"]
     assert prefault["name"] == "RiskyTemperatureOffice", "Prefault name is incorrect."
     assert (
-        prefault["safety_mechanism"] == "sm_wmc_1"
+        prefault["safety_mechanism"] == "sm_tc_1"
     ), "Prefault safety mechanism is incorrect."
     assert (
         prefault["parameters"]["CAL_LOW_TEMP_THRESHOLD"] == 28.0
@@ -45,7 +45,7 @@ def test_initialize_dicts_prefault(mocked_hass_app):
     assert fault["name"] == "Unsafe temperature", "Fault name is incorrect."
     assert fault["priority"] == 2, "Fault priority is incorrect."
     assert (
-        fault["related_sms"][0] == "sm_wmc_1"
+        fault["related_sms"][0] == "sm_tc_1"
     ), "Related safety mechanism is incorrect."
 
     # Assert the 'notification_cfg' dictionary content
@@ -87,24 +87,24 @@ def test_RecoveryManager_init(mocked_hass_app_recovery_man):
     MockRecoveryManager.assert_called_once()
 
 
-def test_window_component_initialization(mocked_hass_app_window_component):
+def test_temperature_component_initialization(mocked_hass_app_temperature_component):
     """
-    Confirms the initialization and registration of the WindowComponent within
+    Confirms the initialization and registration of the TemperatureComponent within
     the `SafetyFunctions` app's `sm_modules` dictionary.
 
-    This test checks the correct instantiation and storage of the WindowComponent,
+    This test checks the correct instantiation and storage of the TemperatureComponent,
     ensuring it's ready for operation as part of the app's safety mechanisms.
     """
-    app_instance, _, MockWindowComponent = mocked_hass_app_window_component
+    app_instance, _, MockTemperatureComponent = mocked_hass_app_temperature_component
 
     app_instance.initialize()
 
     assert isinstance(
-        app_instance.sm_modules["WindowComponent"], WindowComponent
-    ), "sm_modules['WindowComponent'] is not an instance of WindowComponent."
+        app_instance.sm_modules["TemperatureComponent"], TemperatureComponent
+    ), "sm_modules['TemperatureComponent'] is not an instance of TemperatureComponent."
 
 
-def test_fault_manager_initialization(mocked_hass_app_window_component):
+def test_fault_manager_initialization(mocked_hass_app_temperature_component):
     """
     Test the initialization of the FaultManager within the SafetyFunctions application.
 
@@ -112,14 +112,14 @@ def test_fault_manager_initialization(mocked_hass_app_window_component):
     - The FaultManager instance is correctly initialized and associated with the SafetyFunctions instance.
     - The NotificationManager instance used by FaultManager matches the one used by SafetyFunctions.
     - The RecoveryManager instance used by FaultManager matches the one used by SafetyFunctions.
-    - The sm_modules dictionary within FaultManager correctly contains the initialized WindowComponent.
+    - The sm_modules dictionary within FaultManager correctly contains the initialized TemperatureComponent.
     - The prefaults dictionary within FaultManager is populated with expected prefault configurations.
     - The faults dictionary within FaultManager is populated with expected fault configurations.
 
     Ensuring the proper setup of FaultManager is crucial for the application's ability to manage,
     detect, and recover from faults effectively.
     """
-    app_instance, _, MockWindowComponent = mocked_hass_app_window_component
+    app_instance, _, MockTemperatureComponent = mocked_hass_app_temperature_component
 
     app_instance.initialize()
 
@@ -138,10 +138,10 @@ def test_fault_manager_initialization(mocked_hass_app_window_component):
         app_instance.fm.recovery_man == app_instance.reco_man
     ), "FaultManager does not use the same RecoveryManager instance."
 
-    # Verify that FaultManager's sm_modules dictionary contains the correct WindowComponent instance
+    # Verify that FaultManager's sm_modules dictionary contains the correct TemperatureComponent instance
     assert app_instance.fm.sm_modules == {
-        "WindowComponent": app_instance.sm_modules["WindowComponent"]
-    }, "FaultManager's sm_modules dictionary does not contain the correct WindowComponent instance."
+        "TemperatureComponent": app_instance.sm_modules["TemperatureComponent"]
+    }, "FaultManager's sm_modules dictionary does not contain the correct TemperatureComponent instance."
 
     # Verify that FaultManager's prefaults dictionary is correctly populated
     assert app_instance.fm.prefaults == {

@@ -1,5 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
-from shared.window_component import WindowComponent
+from shared.temperature_component import TemperatureComponent
 from shared.fault_manager import FaultManager, Fault, PreFault
 from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
@@ -15,7 +15,7 @@ class SafetyFunctions(hass.Hass):
     def initialize(self):
         """
         Initialize the SafetyFunctions app and its components.
-        This method sets up the window sensor component and initializes the health status.
+        This method sets up the temperature sensor component and initializes the health status.
         """
         # Disable all the no-member violations in this function
         # pylint: disable=attribute-defined-outside-init
@@ -36,7 +36,7 @@ class SafetyFunctions(hass.Hass):
         self.reco_man : RecoveryManager = RecoveryManager()
         
         # Initalize SM modules
-        self.sm_modules["WindowComponent"] = WindowComponent(self)
+        self.sm_modules["TemperatureComponent"] = TemperatureComponent(self)
 
         # Initialize prefaults
         self.prefaults = cfg_pr.get_prefaults(

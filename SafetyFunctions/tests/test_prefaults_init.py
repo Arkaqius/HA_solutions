@@ -7,10 +7,10 @@ def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
 
     Ensures that the prefault:
     - Is named 'RiskyTemperatureOffice'.
-    - Uses 'sm_wmc_1' as its safety mechanism.
-    - Is associated with the 'WindowComponent' module.
+    - Uses 'sm_tc_1' as its safety mechanism.
+    - Is associated with the 'TemperatureComponent' module.
     - Has correct parameters for the low temperature threshold and temperature sensor.
-    - Uses the 'RiskyTemperatureRecovery' recovery action from the 'WindowComponent'.
+    - Uses the 'RiskyTemperatureRecovery' recovery action from the 'TemperatureComponent'.
     """
     app_instance, _, __ = mocked_hass_app
 
@@ -19,19 +19,19 @@ def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
         == "RiskyTemperatureOffice"
     ), "Prefault 'RiskyTemperatureOffice' does not have the correct name."
     assert (
-        app_instance.prefaults["RiskyTemperatureOffice"].sm_name == "sm_wmc_1"
-    ), "'RiskyTemperatureOffice' does not use 'sm_wmc_1' as its safety mechanism."
+        app_instance.prefaults["RiskyTemperatureOffice"].sm_name == "sm_tc_1"
+    ), "'RiskyTemperatureOffice' does not use 'sm_tc_1' as its safety mechanism."
     assert (
         app_instance.prefaults["RiskyTemperatureOffice"].module
-        == app_instance.sm_modules["WindowComponent"]
-    ), "'RiskyTemperatureOffice' is not correctly associated with the 'WindowComponent' module."
+        == app_instance.sm_modules["TemperatureComponent"]
+    ), "'RiskyTemperatureOffice' is not correctly associated with the 'TemperatureComponent' module."
     assert app_instance.prefaults["RiskyTemperatureOffice"].parameters == {
         "CAL_LOW_TEMP_THRESHOLD": 28,
         "temperature_sensor": "sensor.office_temperature",
     }, "'RiskyTemperatureOffice' does not have the correct parameters."
     assert (
         app_instance.prefaults["RiskyTemperatureOffice"].recover_actions
-        == app_instance.sm_modules["WindowComponent"].RiskyTemperatureRecovery
+        == app_instance.sm_modules["TemperatureComponent"].RiskyTemperatureRecovery
     ), "'RiskyTemperatureOffice' does not use the correct recovery action."
 
     assert app_instance.prefaults["RiskyTemperatureOffice"].sm_state == SMState.ENABLED
@@ -44,9 +44,9 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     Ensures that the prefault:
     - Is named 'RiskyTemperatureOfficeForeCast'.
     - Uses 'sm_wmc_2' as its safety mechanism.
-    - Is associated with the 'WindowComponent' module.
+    - Is associated with the 'TemperatureComponent' module.
     - Has correct parameters for the low temperature threshold, forecast timespan, temperature sensor, and temperature sensor rate.
-    - Uses the 'RiskyTemperatureRecovery' recovery action from the 'WindowComponent'.
+    - Uses the 'RiskyTemperatureRecovery' recovery action from the 'TemperatureComponent'.
     """
     app_instance, _, __ = mocked_hass_app
 
@@ -58,12 +58,12 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
         == "RiskyTemperatureOfficeForeCast"
     ), "Prefault 'RiskyTemperatureOfficeForeCast' does not have the correct name."
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].sm_name == "sm_wmc_2"
-    ), "'RiskyTemperatureOfficeForeCast' does not use 'sm_wmc_2' as its safety mechanism."
+        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].sm_name == "sm_tc_2"
+    ), "'RiskyTemperatureOfficeForeCast' does not use 'sm_tc_2' as its safety mechanism."
     assert (
         app_instance.prefaults["RiskyTemperatureOfficeForeCast"].module
-        == app_instance.sm_modules["WindowComponent"]
-    ), "'RiskyTemperatureOfficeForeCast' is not correctly associated with the 'WindowComponent' module."
+        == app_instance.sm_modules["TemperatureComponent"]
+    ), "'RiskyTemperatureOfficeForeCast' is not correctly associated with the 'TemperatureComponent' module."
     assert app_instance.prefaults["RiskyTemperatureOfficeForeCast"].parameters == {
         "CAL_LOW_TEMP_THRESHOLD": 28,
         "CAL_FORECAST_TIMESPAN": 60,
@@ -72,7 +72,7 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     }, "'RiskyTemperatureOfficeForeCast' does not have the correct parameters."
     assert (
         app_instance.prefaults["RiskyTemperatureOfficeForeCast"].recover_actions
-        == app_instance.sm_modules["WindowComponent"].RiskyTemperatureRecovery
+        == app_instance.sm_modules["TemperatureComponent"].RiskyTemperatureRecovery
     ), "'RiskyTemperatureOfficeForeCast' does not use the correct recovery action."
 
     assert (

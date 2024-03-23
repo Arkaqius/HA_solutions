@@ -5,25 +5,26 @@ from shared.safety_component import SafetyComponent, safety_mechanism_decorator
 from shared.safety_mechanism import SafetyMechanism
 
 
-class WindowComponent(SafetyComponent):
-    """Component handling safety mechanisms for windows."""
+class TemperatureComponent(SafetyComponent):
+    """Component handling safety mechanisms for temperature risks
+    ."""
 
     # Static class variables to keep debounce
-    sm_wmc1_debounce = 0
-    sm_wmc1_inhibit = False
-    sm_wmc2_debounce = 0
-    sm_wmc2_inhibit = False
+    sm_tc1_debounce = 0
+    sm_tc1_inhibit = False
+    sm_tc2_debounce = 0
+    sm_tc2_inhibit = False
 
     def __init__(self, hass_app):
         """
-        Initialize the window component.
+        Initialize the temperature component.
 
         :param hass_app: The Home Assistant application instance.
         """
         super().__init__(hass_app)
 
-    def init_sm_wmc_1(self, name: str, parameters: dict):
-        """Method to init safet mechanism 1"""
+    def init_sm_tc_1(self, name: str, parameters: dict):
+        """Method to init safety mechanism 1"""
         print("parameters\n\n")
         print(parameters)
         safety_mechanisms = []
@@ -44,7 +45,7 @@ class WindowComponent(SafetyComponent):
             safety_mechanisms.append(
                 SafetyMechanism(
                     self.hass_app,
-                    self.sm_wmc_1,
+                    self.sm_tc_1,
                     name,
                     temperature_sensor=temperature_sensor,
                     cold_thr=cold_thr,
@@ -54,7 +55,7 @@ class WindowComponent(SafetyComponent):
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
         return safety_mechanisms
 
-    def init_sm_wmc_2(self, name: str, parameters: dict):
+    def init_sm_tc_2(self, name: str, parameters: dict):
         """Method to init safet mechanism 2"""
         safety_mechanisms = []
         is_param_ok = True
@@ -86,7 +87,7 @@ class WindowComponent(SafetyComponent):
             safety_mechanisms.append(
                 SafetyMechanism(
                     self.hass_app,
-                    self.sm_wmc_2,
+                    self.sm_tc_2,
                     name,
                     temperature_sensor=temperature_sensor,
                     cold_thr=cold_thr,
@@ -99,11 +100,11 @@ class WindowComponent(SafetyComponent):
         return safety_mechanisms
 
     @safety_mechanism_decorator
-    def sm_wmc_1(self, sm: SafetyMechanism, **kwargs):
+    def sm_tc_1(self, sm: SafetyMechanism, **kwargs):
         """
-        Safety mechanism specific for window monitoring.
+        Safety mechanism specific for temperature monitoring.
 
-        :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
+        :param kwargs: Keyword arguments containing 'temperature_sensor'.
         """
         temperature: float = 0.0
         # 10. Get inputs
@@ -115,22 +116,22 @@ class WindowComponent(SafetyComponent):
             self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
 
         # 30. Perform SM logic
-        (WindowComponent.sm_wmc1_debounce, WindowComponent.sm_wmc1_inhibit) = (
+        (TemperatureComponent.sm_tc1_debounce, TemperatureComponent.sm_tc1_inhibit) = (
             self.process_prefault(
                 12,
-                WindowComponent.sm_wmc1_debounce,
+                TemperatureComponent.sm_tc1_debounce,
                 temperature < sm.sm_args["cold_thr"],
                 {'location' : 'office'}
             )
         )
 
-        if WindowComponent.sm_wmc1_inhibit:
-            self.hass_app.run_in(self.sm_wmc_1, 30, sm, inhib=True)
+        if TemperatureComponent.sm_tc1_inhibit:
+            self.hass_app.run_in(self.sm_tc_1, 30, sm, inhib=True)
 
     @safety_mechanism_decorator
-    def sm_wmc_2(self, sm: SafetyMechanism, **kwargs):
+    def sm_tc_2(self, sm: SafetyMechanism, **kwargs):
         """
-        Safety mechanism specific for window monitoring.
+        Safety mechanism specific for temperature monitoring.
 
         :param kwargs: Keyword arguments containing 'window_sensors' and 'temperature_sensor'.
         """
@@ -152,17 +153,17 @@ class WindowComponent(SafetyComponent):
         )
 
         # 30. Perform SM logic
-        (WindowComponent.sm_wmc2_debounce, WindowComponent.sm_wmc2_inhibit) = (
+        (TemperatureComponent.sm_tc2_debounce, TemperatureComponent.sm_tc2_inhibit) = (
             self.process_prefault(
                 12,
-                WindowComponent.sm_wmc2_debounce,
+                TemperatureComponent.sm_tc2_debounce,
                 forecasted_temperature < sm.sm_args["cold_thr"],
                 {'location' : 'office'}
             )
         )
 
-        if WindowComponent.sm_wmc2_inhibit:
-            self.hass_app.run_in(self.sm_wmc_2, 30, sm)
+        if TemperatureComponent.sm_tc2_inhibit:
+            self.hass_app.run_in(self.sm_tc_2, 30, sm)
 
     @staticmethod
     def RiskyTemperatureRecovery(self):

@@ -1,7 +1,7 @@
 """
 This module defines pytest fixtures for testing the SafetyFunctions app within a Home Assistant environment.
 
-Fixtures include mocked instances of the Hass class from appdaemon, RecoveryManager, WindowComponent,
+Fixtures include mocked instances of the Hass class from appdaemon, RecoveryManager, TemperatureComponent,
 and service calls, allowing for isolated testing of app functionality without dependencies on the actual
 Home Assistant environment.
 """
@@ -9,7 +9,7 @@ Home Assistant environment.
 from unittest.mock import patch, MagicMock
 import pytest
 from SafetyFunctions import SafetyFunctions
-from shared.window_component import WindowComponent
+from shared.temperature_component import TemperatureComponent
 
 
 @pytest.fixture
@@ -74,21 +74,21 @@ def mocked_hass_app_recovery_man(app_config_valid):
 
 
 @pytest.fixture
-def mocked_hass_app_window_component(app_config_valid):
+def mocked_hass_app_temperature_component(app_config_valid):
     """
     Provides a mocked instance of the SafetyFunctions app with a mocked Hass class
-    and WindowComponent, facilitating testing of window-related functionality.
+    and TemperatureComponent, facilitating testing of temperature-related functionality.
     """
     with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, patch(
-        "shared.window_component.WindowComponent"
-    ) as MockWindowComponent:
+        "shared.temperature_component.TemperatureComponent"
+    ) as MockTemperatureComponent:
         mock_logging = MagicMock()
         mock_logging.get_child.return_value = MagicMock()
         mock_hass = MockHass()
         mock_hass.logger = mock_logging
         mock_hass.args = app_config_valid
 
-        MockWindowComponent.return_value = MagicMock(spec=WindowComponent)
+        MockTemperatureComponent.return_value = MagicMock(spec=TemperatureComponent)
 
         app_instance = SafetyFunctions(
             mock_hass,
@@ -99,7 +99,7 @@ def mocked_hass_app_window_component(app_config_valid):
             "dummy_app_config",
             "dummy_global_vars",
         )
-        yield app_instance, mock_hass, MockWindowComponent
+        yield app_instance, mock_hass, MockTemperatureComponent
 
 
 @pytest.fixture

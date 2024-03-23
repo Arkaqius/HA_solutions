@@ -9,12 +9,12 @@ def app_config_valid():
             "RiskyTemperature": {
                 "name": "Unsafe temperature",
                 "priority": 2,
-                "related_sms": ["sm_wmc_1"],
+                "related_sms": ["sm_tc_1"],
             },
             "RiskyTemperatureForecast": {
                 "name": "Unsafe temperature forecast",
                 "priority": 3,
-                "related_sms": ["sm_wmc_2"],
+                "related_sms": ["sm_tc_2"],
             },
         },
         "notification": {
@@ -22,34 +22,34 @@ def app_config_valid():
         "prefaults": {
             "RiskyTemperatureOffice": {
                 "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.office_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureKitchen": {
                 "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.kitchen_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureOfficeForeCast": {
                 "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_wmc_2",
+                "safety_mechanism": "sm_tc_2",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
                     "temperature_sensor": "sensor.office_temperature",
                     "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
         },
@@ -63,12 +63,12 @@ def app_config_2_faults_to_single_prefault():
             "RiskyTemperature": {
                 "name": "Unsafe temperature",
                 "priority": 2,
-                "related_sms": ["sm_wmc_1"],
+                "related_sms": ["sm_tc_1"],
             },
             "RiskyTemperatureForecast": {
                 "name": "Unsafe temperature forecast",
                 "priority": 3,
-                "related_sms": ["sm_wmc_1"],
+                "related_sms": ["sm_tc_1"],
             },
         },
         "notification": {
@@ -76,34 +76,34 @@ def app_config_2_faults_to_single_prefault():
         "prefaults": {
             "RiskyTemperatureOffice": {
                 "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.office_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureKitchen": {
                 "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.kitchen_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureOfficeForeCast": {
                 "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_wmc_2",
+                "safety_mechanism": "sm_tc_2",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
                     "temperature_sensor": "sensor.office_temperature",
                     "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
         },
@@ -130,34 +130,34 @@ def app_config_fault_withou_smc():
         "prefaults": {
             "RiskyTemperatureOffice": {
                 "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.office_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureKitchen": {
                 "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_wmc_1",
+                "safety_mechanism": "sm_tc_1",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "temperature_sensor": "sensor.kitchen_temperature",
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
             "RiskyTemperatureOfficeForeCast": {
                 "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_wmc_2",
+                "safety_mechanism": "sm_tc_2",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
                     "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
                     "temperature_sensor": "sensor.office_temperature",
                     "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
                 },
-                "component_name": "WindowComponent",
+                "component_name": "TemperatureComponent",
                 "recovery_actions": "RiskyTemperatureRecovery",
             },
         },
