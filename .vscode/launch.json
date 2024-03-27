@@ -1,20 +1,13 @@
 {
     "configurations": [
-
         {
-            "name": "PythonPDB",
+            "name": "Python Debugger: Current File",
             "type": "debugpy",
-            "request": "attach",
-            "connect": {
-                "host": "172.30.33.4",
-                "port": 5050
-            },
-            "pathMappings": [
-                {
-                    "localRoot": "${workspaceFolder}",
-                    "remoteRoot": "."
-                }
-            ]
-        }
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
+    
 }

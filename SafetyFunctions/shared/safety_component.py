@@ -1,53 +1,117 @@
 import appdaemon.plugins.hass.hassapi as hass
-from typing import Type, Any, get_origin, get_args, Callable, Optional
+from typing import Type, Any, get_origin, get_args, Callable, Optional, NamedTuple
 import traceback
 from collections import namedtuple
-from shared.fault_manager import FaultManager
+from shared.fault_manager import FaultManager, FaultState
+from enum import Enum
+
+NO_NEEDED = False
+
+
+class DebounceState(NamedTuple):
+    """
+    Purpose: Acts as a memory for a particular safety mechanism. It stores the current state of the debouncing process for a specific mechanism,
+    including the debounce counter and a flag indicating whether action should be forced for debouncing purposes.
+
+    Usage: This state is maintained across calls to process_prefault to keep track of how many times a condition has been met or not met,
+    helping to stabilize the detection over time by preventing rapid toggling due to transient states.
+
+    Attributes:
+        debounce (int): A counter used to stabilize the detection of a condition over time, preventing rapid toggling.
+        force_sm (bool): A flag indicating whether sm shall be forced for debouncing purpose
+    """
+
+    debounce: int
+    force_sm: bool
+
+
+# Define the named tuple with possible outcomes
+class DebounceAction(Enum):
+    """
+    Enumeration of debouncing actions that can be taken after evaluating a pre-fault condition.
+
+    Attributes:
+        NO_ACTION (int): Indicates that no action should be taken.
+        PREFAULT_SET (int): Indicates a pre-fault condition should be set.
+        PREFAULT_HEALED (int): Indicates a pre-fault condition has been cleared or healed.
+    """
+
+    NO_ACTION = 0
+    PREFAULT_SET = 1
+    PREFAULT_HEALED = -1
+
+
+class DebounceResult(NamedTuple):
+    """
+    Represents the result of a debouncing process, encapsulating the action to be taken and the updated counter value.
+
+    Attributes:
+        action (DebounceAction): The action determined by the debouncing process.
+        counter (int): The updated debounce counter after evaluating the pre-fault condition.
+    """
+
+    action: DebounceAction
+    counter: int
 
 
 class SafetyComponent:
-    """Base class for domain-specific safety components."""
+    """
+    A base class for implementing domain-specific safety components within a Home Assistant environment.
+    This class provides foundational functionalities to support the development and operation of safety mechanisms,
+    including sensor validation, entity validation, debouncing of pre-fault conditions, and interaction with a fault manager.
 
-    # Define the named tuple with possible outcomes
-    DebounceAction = namedtuple(
-        "DebounceAction", ["NO_ACTION", "PREFAULT_SET", "PREFAULT_HEALED"]
-    )
-    DebounceResult = namedtuple("DebounceResult", ["action", "counter"])
+    The SafetyComponent facilitates the integration and management of safety-related features by offering utilities to:
+    - Validate sensor and binary sensor entity names against expected formats.
+    - Check and validate entities against expected data types, ensuring compatibility and correctness of sensor data.
+    - Perform debouncing of pre-fault conditions to manage the state of safety mechanisms based on dynamic sensor data,
+      thereby preventing rapid toggling of states due to transient conditions.
+    - Interact with a fault manager to set or clear pre-fault conditions, allowing for sophisticated fault detection
+      and management strategies within the Home Assistant ecosystem.
 
-    # Set the possible outcomes
-    DEBOUNCE_ACTION = DebounceAction(NO_ACTION=0, PREFAULT_SET=1, PREFAULT_HEALED=-1)
+    Attributes:
+        hass_app (hass.Hass): An instance of the Home Assistant application, providing access to Home Assistant's functionality and state.
+        fault_man (Optional[FaultManager]): An optional fault manager instance that, if provided, enables the SafetyComponent
+                                            to interact with fault states and perform fault management operations.
 
-    def __init__(self, hass_app: hass.Hass, ):
+    The SafetyComponent class is designed to be subclassed and extended with domain-specific logic for various types of safety mechanisms,
+    such as temperature monitoring, window or door sensor management, and other home automation scenarios requiring careful fault detection
+    and management. It serves as a building block for creating robust, reliable, and effective safety mechanisms within the smart home environment.
+    """
+
+    def __init__(
+        self,
+        hass_app: hass.Hass,
+    ):
         """
         Initialize the safety component.
 
         :param hass_app: The Home Assistant application instance.
         """
         self.hass_app = hass_app
-        self.fault_man : Optional[FaultManager] = None
+        self.fault_man: Optional[FaultManager] = None
 
-    def register_fm(self,fm: FaultManager):
+    def register_fm(self, fm: FaultManager):
         self.fault_man = fm
-        
-    @staticmethod
-    def is_valid_binary_sensor(entity_name: str) -> bool:
-        """
-        Check if a given entity name is a valid binary sensor.
 
-        :param entity_name: The entity name to validate.
-        :return: True if valid binary sensor, False otherwise.
-        """
-        return isinstance(entity_name, str) and entity_name.startswith("binary_sensor.")
+    # @staticmethod
+    # def is_valid_binary_sensor(entity_name: str) -> bool:
+    #     """
+    #     Check if a given entity name is a valid binary sensor.
 
-    @staticmethod
-    def is_valid_sensor(entity_name: str) -> bool:
-        """
-        Check if a given entity name is a valid sensor.
+    #     :param entity_name: The entity name to validate.
+    #     :return: True if valid binary sensor, False otherwise.
+    #     """
+    #     return isinstance(entity_name, str) and entity_name.startswith("binary_sensor.")
 
-        :param entity_name: The entity name to validate.
-        :return: True if valid sensor, False otherwise.
-        """
-        return isinstance(entity_name, str) and entity_name.startswith("sensor.")
+    # @staticmethod
+    # def is_valid_sensor(entity_name: str) -> bool:
+    #     """
+    #     Check if a given entity name is a valid sensor.
+
+    #     :param entity_name: The entity name to validate.
+    #     :return: True if valid sensor, False otherwise.
+    #     """
+    #     return isinstance(entity_name, str) and entity_name.startswith("sensor.")
 
     def validate_entity(
         self, entity_name: str, entity: Any, expected_type: Type
@@ -154,29 +218,39 @@ class SafetyComponent:
         Generic debouncing function that updates the counter based on the state
         and returns an action indicating whether a pre-fault should be set, cleared, or no action taken.
 
-        :param current_counter: The current debounce counter for the sensor or mechanism.
-        :param state: The current state to be debounced (True for active, False for inactive).
-        :param debounce_limit: The limit at which the state is considered stable.
-        :return: A tuple containing the debounce action and the updated counter.
+        Args:
+            current_counter (int): The current debounce counter for the mechanism.
+            pr_test (bool): The result of the pre-fault test. True if the condition is detected, False otherwise.
+            debounce_limit (int, optional): The limit at which the state is considered stable. Defaults to 3.
+
+        Returns:
+            DebounceResult: A named tuple containing the action to be taken (DebounceAction) and the updated counter (int).
         """
         if pr_test:
             new_counter = min(debounce_limit, current_counter + 1)
             action = (
-                self.DEBOUNCE_ACTION.PREFAULT_SET
+                DebounceAction.PREFAULT_SET
                 if new_counter >= debounce_limit
-                else self.DEBOUNCE_ACTION.NO_ACTION
+                else DebounceAction.NO_ACTION
             )
         else:
             new_counter = max(-debounce_limit, current_counter - 1)
             action = (
-                self.DEBOUNCE_ACTION.PREFAULT_HEALED
+                DebounceAction.PREFAULT_HEALED
                 if new_counter <= -debounce_limit
-                else self.DEBOUNCE_ACTION.NO_ACTION
+                else DebounceAction.NO_ACTION
             )
 
-        return self.DebounceResult(action=action, counter=new_counter)
+        return DebounceResult(action=action, counter=new_counter)
 
-    def process_prefault(self, prefault_id, current_counter, pr_test, additional_info, debounce_limit=3):
+    def process_prefault(
+        self,
+        prefault_id: str,
+        current_counter: int,
+        pr_test: bool,
+        additional_info: dict,
+        debounce_limit: int = 3,
+    ):
         """
         Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
 
@@ -201,38 +275,55 @@ class SafetyComponent:
         Returns:
             tuple:
                 - int: The updated debounce counter value.
-                - bool: A flag indicating whether to inhibit further triggers.
-                        True to inhibit, False to allow further triggers.
+                - bool: A flag indicating whether to safety mechanism shall be forced to trigger.
+                        True to force, False to not.
 
         Raises:
             None
         """
 
-        is_inhib = False
-        action = self.DEBOUNCE_ACTION.NO_ACTION
-        if self.fault_man:
-            prefault_cur_state = self.fault_man.check_prefault(prefault_id)
-            # Check if any actions is needed
-            if (pr_test and not prefault_cur_state) or (not pr_test and prefault_cur_state):
-                debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
+        if not self.fault_man:
+            self.hass_app.log("Fault manager not initialized!", level="ERROR")
+            return current_counter, False
 
-                if (
-                    debounce_result.action == self.DEBOUNCE_ACTION.PREFAULT_SET
-                    and not prefault_cur_state
-                ):
-                    # Call Fault Manager to set pre-fault
-                    self.fault_man.set_prefault(prefault_id,additional_info)
-                    is_inhib = False
-                elif action == self.DEBOUNCE_ACTION.PREFAULT_HEALED and prefault_cur_state:
-                    # Call Fault Manager to heal pre-fault
-                    self.fault_man.clear_prefault(prefault_id,additional_info)
-                    is_inhib = False
-                elif debounce_result.action == self.DEBOUNCE_ACTION.NO_ACTION:
-                    is_inhib = True
-            else:
-                self.hass_app.log("Fault manager not initialized!")
+        # Prepare retVal
+        force_sm: bool = False
+        debounce_result: DebounceResult = DebounceResult(
+            action=DebounceAction.NO_ACTION, counter=current_counter
+        )
 
-        return debounce_result.counter, is_inhib
+        # Get current prefault state
+        prefault_cur_state: bool = self.fault_man.check_prefault(prefault_id)
+        # Check if any actions is needed
+        if (
+            (pr_test and prefault_cur_state == FaultState.CLEARED)
+            or (not pr_test and prefault_cur_state == FaultState.SET)
+            or (prefault_cur_state == FaultState.NOT_TESTED)
+        ):
+            debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
+
+            if (
+                debounce_result.action == DebounceAction.PREFAULT_SET
+                and not prefault_cur_state
+            ):
+                # Call Fault Manager to set pre-fault
+                self.fault_man.set_prefault(prefault_id, additional_info)
+                force_sm = False
+            elif (
+                debounce_result.action == DebounceAction.PREFAULT_HEALED
+                and prefault_cur_state
+            ):
+                # Call Fault Manager to heal pre-fault
+                self.fault_man.clear_prefault(prefault_id, additional_info)
+                force_sm = False
+            elif debounce_result.action == DebounceAction.NO_ACTION:
+                force_sm = True
+        else:
+            # Debouncing not necessary at all (Test failed and prefault already raised or
+            #  test passed and fault already cleared)
+            pass
+
+        return debounce_result.counter, force_sm
 
 
 def safety_mechanism_decorator(func: Callable) -> Callable:

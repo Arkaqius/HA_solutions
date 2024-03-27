@@ -201,4 +201,40 @@ def mocked_hass_app_flt_0_sm(app_config_fault_withou_smc):
         # The mock_log_method patch will be active here and in any test using this fixture
         yield app_instance, mock_hass, mock_log_method        
         
+
+# Define a custom function to serve as the side_effect
+def get_state_side_effect(entity_id, *args, **kwargs):
+    # Example return values based on the entity_id
+    if entity_id == "sensor.temperature_office":
+        return "23.5"
+    elif entity_id == "sensor.humidity_office":
+        return "45"
+    # Add more conditions as needed for different entities
+    # Return a default value or None if entity_id is not recognized
+    return None
+
+@pytest.fixture
+def mocked_hass_app_get_state(app_config_valid):
+    with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, \
+        patch.object(SafetyFunctions, "log", new_callable=MagicMock) as mock_log_method:
         
+        mock_logging = MagicMock()
+        mock_logging.get_child.return_value = MagicMock()
+        mock_hass = MockHass()
+        mock_hass.logger = mock_logging
+        
+        app_instance = SafetyFunctions(
+            mock_hass,
+            "dummy_namespace",
+            mock_logging,
+            app_config_valid,
+            "mock_config",
+            "dummy_app_config",
+            "dummy_global_vars",
+        )
+        app_instance.initialize()
+        
+        # Use side_effect for the get_state method
+        app_instance.get_state = MagicMock(side_effect=get_state_side_effect)
+        
+        yield app_instance, mock_hass, mock_log_method        

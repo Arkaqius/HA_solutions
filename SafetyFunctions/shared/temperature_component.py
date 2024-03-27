@@ -20,23 +20,9 @@ Note:
 This module is part of a larger system designed for enhancing safety through Home Assistant. It should be integrated with the appropriate Home Assistant setup and configured according to the specific needs and safety requirements of the environment being monitored.
 """
 
-from typing import Dict, ClassVar, NamedTuple
-from shared.safety_component import SafetyComponent, safety_mechanism_decorator
+from typing import Dict, ClassVar
+from shared.safety_component import SafetyComponent, safety_mechanism_decorator, DebounceState
 from shared.safety_mechanism import SafetyMechanism
-
-
-class DebounceState(NamedTuple):
-    """
-    Represents the state of a debounce process for a safety mechanism, encapsulating both the debounce counter and inhibition flag.
-
-    Attributes:
-        debounce (int): A counter used to stabilize the detection of a condition over time, preventing rapid toggling.
-        inhibit (bool): A flag indicating whether subsequent triggers of the safety mechanism should be temporarily ignored.
-    """
-
-    debounce: int
-    inhibit: bool
-
 
 class TemperatureComponent(SafetyComponent):
     """
@@ -84,7 +70,7 @@ class TemperatureComponent(SafetyComponent):
         is_param_ok = True
 
         if name not in self.safety_mechanisms:
-            self.debounce_states[name] = DebounceState(debounce=0, inhibit=False)
+            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
         else:
             self.hass_app.log("Doubled SM_TC_1 - Invalid Cfg", level="ERROR")
             return None
@@ -112,7 +98,7 @@ class TemperatureComponent(SafetyComponent):
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
             )
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=0, inhibit=False)
+            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
         else:
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
 
@@ -134,7 +120,7 @@ class TemperatureComponent(SafetyComponent):
         is_param_ok = True  # Placeholder for actual parameter validation logic
 
         if name not in self.safety_mechanisms:
-            self.debounce_states[name] = DebounceState(debounce=0, inhibit=False)
+            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
         else:
             self.hass_app.log("Doubled SM_TC_2 - Invalid Cfg", level="ERROR")
             return None
@@ -176,7 +162,7 @@ class TemperatureComponent(SafetyComponent):
             )
 
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=0, inhibit=False)
+            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
         else:
             self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
 
@@ -214,8 +200,8 @@ class TemperatureComponent(SafetyComponent):
         current_state = self.debounce_states[sm.name]
 
         # Perform SM logic
-        new_debounce, inhibit = self.process_prefault(
-            prefault_id=12,
+        new_debounce, force_sm = self.process_prefault(
+            prefault_id=sm.name,
             current_counter=current_state.debounce,
             pr_test=temperature < sm.sm_args["cold_thr"],
             additional_info={"location": "office"},  # Example additional info
@@ -223,10 +209,10 @@ class TemperatureComponent(SafetyComponent):
 
         # Update the debounce state with the new values
         self.debounce_states[sm.name] = DebounceState(
-            debounce=new_debounce, inhibit=inhibit
+            debounce=new_debounce, force_sm=force_sm
         )
 
-        if inhibit:
+        if force_sm:
             # Schedule to run `sm_tc_1` again after 30 seconds if inhibited
             self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 30)
 
@@ -271,12 +257,12 @@ class TemperatureComponent(SafetyComponent):
 
         # Retrieve the current debounce state for this mechanism
         current_state = self.debounce_states.get(
-            sm.name, DebounceState(debounce=0, inhibit=False)
+            sm.name, DebounceState(debounce=0, force_sm=False)
         )
 
         # Perform SM logic
         new_debounce, inhibit = self.process_prefault(
-            prefault_id=12,  # Example ID, ensure this is dynamically managed or correctly assigned
+            prefault_id=sm.name,  # Example ID, ensure this is dynamically managed or correctly assigned
             current_counter=current_state.debounce,
             pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
             additional_info={"location": "office"},  # Example additional info
@@ -284,7 +270,7 @@ class TemperatureComponent(SafetyComponent):
 
         # Update the debounce state with the new values
         self.debounce_states[sm.name] = DebounceState(
-            debounce=new_debounce, inhibit=inhibit
+            debounce=new_debounce, force_sm=inhibit
         )
 
         if inhibit:

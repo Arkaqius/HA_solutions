@@ -239,7 +239,7 @@ class FaultManager:
         # Call Related Fault
         self._clear_fault(prefault_id, additional_info)
 
-    def check_prefault(self, prefault_id):
+    def check_prefault(self, prefault_id) -> FaultState:
         """
         Checks the current state of a specified pre-fault.
 
