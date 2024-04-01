@@ -1,12 +1,34 @@
-import appdaemon.plugins.hass.hassapi as hass
+"""
+This module provides foundational structures and functionalities for implementing advanced safety mechanisms within Home Assistant applications. It introduces a systematic approach to handling, debouncing, and managing state changes of Home Assistant entities, enabling the creation of sophisticated safety and fault management strategies.
+
+Components:
+- `DebounceState`: A named tuple that stores the current state of a debouncing process, including the debounce counter and a flag indicating the necessity of action.
+- `DebounceAction`: An enumeration that defines possible outcomes of the debouncing process, such as setting a pre-fault condition, clearing it, or taking no action.
+- `DebounceResult`: A named tuple that encapsulates the result of a debouncing process, comprising the action to be taken and the updated counter value.
+- `SafetyComponent`: A base class for creating domain-specific safety components. It provides methods for entity validation, debouncing logic, and interaction with a fault manager to set or clear pre-fault conditions based on dynamic sensor data.
+- `safety_mechanism_decorator`: A decorator designed to wrap safety mechanism functions, adding pre- and post-execution logic around these functions for enhanced logging and execution control.
+
+Features:
+- Flexible monitoring and debouncing of entity states to prevent rapid toggling and ensure reliable fault detection.
+- Integration with a fault management system, allowing for dynamic response to fault conditions and the ability to set or clear faults programmatically.
+- Extensibility for developing custom safety mechanisms tailored to specific needs and scenarios within the smart home environment.
+
+Usage:
+The module's components are intended to be used as building blocks for developing custom safety mechanisms within Home Assistant. By subclassing `SafetyComponent` and utilizing `DebounceState`, `DebounceAction`, and `DebounceResult`, developers can create robust safety features that respond intelligently to changes in the Home Assistant environment.
+
+Example:
+A developer might create a `TemperatureSafetyComponent` subclass that monitors temperature sensors and uses the debouncing logic to manage heating elements within the home, ensuring a safe and comfortable environment.
+
+This module streamlines the creation of safety mechanisms, emphasizing reliability, flexibility, and integration with Home Assistant's dynamic ecosystem.
+"""
+
 from typing import Type, Any, get_origin, get_args, Callable, Optional, NamedTuple
 import traceback
-from collections import namedtuple
-from shared.fault_manager import FaultManager, FaultState
 from enum import Enum
+from shared.fault_manager import FaultManager, FaultState
+import appdaemon.plugins.hass.hassapi as hass # type: ignore
 
 NO_NEEDED = False
-
 
 class DebounceState(NamedTuple):
     """
@@ -56,26 +78,23 @@ class DebounceResult(NamedTuple):
 
 class SafetyComponent:
     """
-    A base class for implementing domain-specific safety components within a Home Assistant environment.
-    This class provides foundational functionalities to support the development and operation of safety mechanisms,
-    including sensor validation, entity validation, debouncing of pre-fault conditions, and interaction with a fault manager.
+    A base class for creating and managing safety mechanisms within the Home Assistant environment.
 
-    The SafetyComponent facilitates the integration and management of safety-related features by offering utilities to:
-    - Validate sensor and binary sensor entity names against expected formats.
-    - Check and validate entities against expected data types, ensuring compatibility and correctness of sensor data.
-    - Perform debouncing of pre-fault conditions to manage the state of safety mechanisms based on dynamic sensor data,
-      thereby preventing rapid toggling of states due to transient conditions.
-    - Interact with a fault manager to set or clear pre-fault conditions, allowing for sophisticated fault detection
-      and management strategies within the Home Assistant ecosystem.
+    It provides the infrastructure for monitoring entity states, validating entities, debouncing state changes,
+    and interacting with a fault management system. Subclasses can implement specific safety logic, such as
+    monitoring for hazardous conditions and taking corrective actions.
 
     Attributes:
-        hass_app (hass.Hass): An instance of the Home Assistant application, providing access to Home Assistant's functionality and state.
-        fault_man (Optional[FaultManager]): An optional fault manager instance that, if provided, enables the SafetyComponent
-                                            to interact with fault states and perform fault management operations.
+        hass_app: Reference to the Home Assistant application instance.
+        fault_man: Optional instance of a fault manager for managing fault conditions.
 
-    The SafetyComponent class is designed to be subclassed and extended with domain-specific logic for various types of safety mechanisms,
-    such as temperature monitoring, window or door sensor management, and other home automation scenarios requiring careful fault detection
-    and management. It serves as a building block for creating robust, reliable, and effective safety mechanisms within the smart home environment.
+    Methods:
+        register_fm: Registers a fault manager instance with the safety component.
+        validate_entity: Validates an entity against a specified type.
+        validate_entities: Validates multiple entities against their expected types.
+        safe_float_convert: Safely converts a string to a float.
+        _debounce: Implements debouncing logic for state changes.
+        process_prefault: Processes potential pre-fault conditions based on debouncing logic.
     """
 
     def __init__(
@@ -91,6 +110,20 @@ class SafetyComponent:
         self.fault_man: Optional[FaultManager] = None
 
     def register_fm(self, fm: FaultManager):
+        """
+        Registers a FaultManager instance with this component, enabling interaction with the fault management system.
+
+        This method associates a FaultManager object with the component, allowing it to set or clear fault conditions
+        based on the outcomes of safety mechanism evaluations. The registered FaultManager is essential for the component
+        to communicate fault states and recovery actions within the broader safety management system.
+
+        Args:
+            fm (FaultManager): An instance of FaultManager that will be used by this component to manage fault conditions.
+
+        Note:
+            It's important to register a FaultManager before invoking safety mechanisms that require fault state management
+            to ensure the component can appropriately respond to and manage fault conditions.
+        """
         self.fault_man = fm
 
     # @staticmethod
@@ -293,7 +326,7 @@ class SafetyComponent:
         )
 
         # Get current prefault state
-        prefault_cur_state: bool = self.fault_man.check_prefault(prefault_id)
+        prefault_cur_state: FaultState = self.fault_man.check_prefault(prefault_id)
         # Check if any actions is needed
         if (
             (pr_test and prefault_cur_state == FaultState.CLEARED)
@@ -322,13 +355,18 @@ class SafetyComponent:
 
 def safety_mechanism_decorator(func: Callable) -> Callable:
     """
-    Decorator to wrap safety mechanism functions.
+    A decorator to add additional logic before and after the execution of a safety mechanism function.
 
-    This decorator can be used to add pre- and post-execution logic
-    around a safety mechanism function.
+    This decorator is designed to wrap functions related to safety mechanisms, providing
+    logging before and after the function's execution. It can be used to enhance visibility
+    into the operation of safety mechanisms, such as logging the start and end of a function
+    or handling exceptions.
 
-    :param func: The safety mechanism function to be decorated.
-    :return: The wrapper function.
+    Args:
+        func (Callable): The safety mechanism function to be decorated.
+
+    Returns:
+        Callable: A wrapped version of the input function with added pre- and post-execution logic.
     """
 
     def wrapper(self, sm) -> Any:

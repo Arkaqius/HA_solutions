@@ -18,8 +18,10 @@ This module plays a crucial role in the safety system's ability to notify users 
 Classes:
     NotificationManager: Manages the configuration and execution of notifications within the safety system.
 """
+
 from typing import Optional
-import appdaemon.plugins.hass.hassapi as hass
+import appdaemon.plugins.hass.hassapi as hass # type: ignore
+
 
 class NotificationManager:
     """
@@ -41,6 +43,7 @@ class NotificationManager:
         notification_config (dict): A dictionary containing configurations for notification levels,
             including entity IDs for alarms, lights, and dashboard notification entities.
     """
+
     def __init__(self, hass_app: hass.Hass, notification_config: dict):
         """
         Initialize the Notification Manager with specific configurations.
@@ -73,7 +76,7 @@ class NotificationManager:
             additional_info (Optional[dict]): Additional details about the fault, which can be included
                 in the notification message. Defaults to None.
         """
-        
+
         # Construct the message to be sent
         message = f"Fault Detected: {fault}\n"
         if additional_info:
