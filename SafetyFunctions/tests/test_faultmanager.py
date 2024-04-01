@@ -5,6 +5,7 @@ def test_faults_set_prefaults(mocked_hass_app):
 
     app_instance, _ , __= mocked_hass_app
 
+    app_instance.initialize()
     # 0. Check before Prefault and Fault
     assert (
         app_instance.fm.check_prefault("RiskyTemperatureOffice")
@@ -45,6 +46,7 @@ def test_faults_set_prefaults(mocked_hass_app):
 def test_faults_set_2_prefault_heal_one(mocked_hass_app):
     
     app_instance, _, __= mocked_hass_app
+    app_instance.initialize()
     
     # 0. Check before Prefault and Fault
     assert (

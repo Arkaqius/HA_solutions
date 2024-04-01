@@ -12,7 +12,7 @@ from SafetyFunctions import SafetyFunctions
 from shared.temperature_component import TemperatureComponent
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def mocked_hass_app(app_config_valid):
     """
     Provides a mocked instance of the SafetyFunctions app with a mocked Hass class.
@@ -36,10 +36,8 @@ def mocked_hass_app(app_config_valid):
             "dummy_app_config",
             "dummy_global_vars",
         )
-        app_instance.initialize()
 
         yield app_instance, mock_hass, mock_log_method
-
 
 @pytest.fixture
 def mocked_hass_app_recovery_man(app_config_valid):

@@ -13,7 +13,8 @@ def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
     - Uses the 'RiskyTemperatureRecovery' recovery action from the 'TemperatureComponent'.
     """
     app_instance, _, __ = mocked_hass_app
-
+    app_instance.initialize()
+    
     assert (
         app_instance.prefaults["RiskyTemperatureOffice"].name
         == "RiskyTemperatureOffice"
@@ -49,10 +50,8 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     - Uses the 'RiskyTemperatureRecovery' recovery action from the 'TemperatureComponent'.
     """
     app_instance, _, __ = mocked_hass_app
-
-    # Call init explicit as it anusual here
     app_instance.initialize()
-
+    
     assert (
         app_instance.prefaults["RiskyTemperatureOfficeForeCast"].name
         == "RiskyTemperatureOfficeForeCast"
@@ -93,7 +92,8 @@ def test_enablePrefaults_during_init(mocked_hass_app):
     conditions that could lead to faults right away, aligning with the app's proactive safety management strategy.
     """
     app_instance, _, __ = mocked_hass_app
-
+    app_instance.initialize()
+    
     # Verify 'RiskyTemperatureOffice' prefault is ENABLED after initialization
     assert (
         app_instance.fm.prefaults["RiskyTemperatureOffice"].sm_state == SMState.ENABLED

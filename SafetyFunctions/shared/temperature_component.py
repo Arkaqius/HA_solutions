@@ -21,8 +21,13 @@ This module is part of a larger system designed for enhancing safety through Hom
 """
 
 from typing import Dict, ClassVar
-from shared.safety_component import SafetyComponent, safety_mechanism_decorator, DebounceState
+from shared.safety_component import (
+    SafetyComponent,
+    safety_mechanism_decorator,
+    DebounceState,
+)
 from shared.safety_mechanism import SafetyMechanism
+
 
 class TemperatureComponent(SafetyComponent):
     """
@@ -49,7 +54,7 @@ class TemperatureComponent(SafetyComponent):
         """
         super().__init__(hass_app)
 
-    def init_sm_tc_1(self, name: str, parameters: dict):
+    def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
         Initializes a new temperature threshold-based safety mechanism. This process involves validating
         configuration parameters, setting up debounce states for reliable condition detection, and registering
@@ -69,11 +74,9 @@ class TemperatureComponent(SafetyComponent):
         """
         is_param_ok = True
 
-        if name not in self.safety_mechanisms:
-            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
-        else:
+        if name in self.safety_mechanisms:
             self.hass_app.log("Doubled SM_TC_1 - Invalid Cfg", level="ERROR")
-            return None
+            return False
 
         try:
             temperature_sensor = parameters["temperature_sensor"]
@@ -99,10 +102,12 @@ class TemperatureComponent(SafetyComponent):
             )
             # Initialize the debounce state for this mechanism
             self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
+            return True
         else:
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
+            return False
 
-    def init_sm_tc_2(self, name: str, parameters: dict):
+    def init_sm_tc_2(self, name: str, parameters: dict) -> bool:
         """
         Sets up a forecast-based temperature safety mechanism considering the rate of temperature change.
         This involves configuring the mechanism to predict future temperature conditions and trigger responses
@@ -119,11 +124,9 @@ class TemperatureComponent(SafetyComponent):
         """
         is_param_ok = True  # Placeholder for actual parameter validation logic
 
-        if name not in self.safety_mechanisms:
-            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
-        else:
+        if name in self.safety_mechanisms:
             self.hass_app.log("Doubled SM_TC_2 - Invalid Cfg", level="ERROR")
-            return None
+            return False
 
         try:
             temperature_sensor = parameters["temperature_sensor"]
@@ -163,8 +166,10 @@ class TemperatureComponent(SafetyComponent):
 
             # Initialize the debounce state for this mechanism
             self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
+            return True
         else:
             self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
+            return False
 
     @safety_mechanism_decorator
     def sm_tc_1(self, sm: SafetyMechanism, **kwargs):
@@ -250,9 +255,15 @@ class TemperatureComponent(SafetyComponent):
             self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
             return  # Exit if there's a conversion error
 
-        # Calculate forecasted temperature
+        # Ensure sm_args["forecast_timespan"] is in hours for this calculation
+        forecast_timespan_in_minutes = (
+            sm.sm_args["forecast_timespan"] * 60
+        )  # Convert hours to minutes
+
+        # Calculate forecasted temperature for the specified timespan
+        # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
         forecasted_temperature = (
-            temperature + temperature_rate * sm.sm_args["forecast_timespan"]
+            temperature + temperature_rate * forecast_timespan_in_minutes
         )
 
         # Retrieve the current debounce state for this mechanism
@@ -265,7 +276,8 @@ class TemperatureComponent(SafetyComponent):
             prefault_id=sm.name,  # Example ID, ensure this is dynamically managed or correctly assigned
             current_counter=current_state.debounce,
             pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
-            additional_info={"location": "office"},  # Example additional info
+            additional_info={"location": "office"},
+            debounce_limit = 10
         )
 
         # Update the debounce state with the new values

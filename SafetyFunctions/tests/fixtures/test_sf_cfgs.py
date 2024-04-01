@@ -45,7 +45,7 @@ def app_config_valid():
                 "safety_mechanism": "sm_tc_2",
                 "parameters": {
                     "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
+                    "CAL_FORECAST_TIMESPAN": 2.0,  # hours
                     "temperature_sensor": "sensor.office_temperature",
                     "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
                 },
@@ -98,7 +98,7 @@ def app_config_2_faults_to_single_prefault():
                 "name": "RiskyTemperatureOfficeForeCast",
                 "safety_mechanism": "sm_tc_2",
                 "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
+                    "CAL_LOW_TEMP_THRESHOLD": 18.0,
                     "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
                     "temperature_sensor": "sensor.office_temperature",
                     "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min

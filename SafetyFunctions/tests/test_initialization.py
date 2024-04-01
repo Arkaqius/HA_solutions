@@ -29,7 +29,8 @@ def test_initialize_dicts_prefault(mocked_hass_app):
     set up with the necessary configuration parameters upon initialization.
     """
     app_instance, _, __ = mocked_hass_app
-
+    app_instance.initialize()
+    
     # Assert the 'prefaults' dictionary content
     prefault = app_instance.prefault_dict["RiskyTemperatureOffice"]
     assert prefault["name"] == "RiskyTemperatureOffice", "Prefault name is incorrect."
@@ -65,7 +66,8 @@ def test_NotificationManager_init(mocked_hass_app):
     crucial for the app's notification functionality.
     """
     app_instance, _, __ = mocked_hass_app
-
+    app_instance.initialize()
+    
     assert (
         app_instance.notify_man.hass_app is not None
     ), "NotificationManager's Hass app is not initialized."
@@ -167,7 +169,8 @@ def test_assign_fm(mocked_hass_app):
     ensuring they can interact with the FaultManager for fault and prefault management.
     """
     app_instance, _, __= mocked_hass_app
-
+    app_instance.initialize()
+    
     for module in app_instance.sm_modules.values():
         assert (
             module.fault_man is app_instance.fm
@@ -182,6 +185,7 @@ def test_app_health_set_to_good_at_end_of_init(mocked_hass_app):
     indicating that the application is ready and operating as expected after initialization.
     """
     app_instance, mock_hass, mock_log = mocked_hass_app
-
+    app_instance.initialize()
+    
     # Verify set_state was called with the expected arguments
     mock_log.assert_called_with("Safety app started")

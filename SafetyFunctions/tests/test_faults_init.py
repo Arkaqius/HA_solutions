@@ -21,6 +21,8 @@ def test_faults_init_RiskyTemperature(mocked_hass_app):
     """
     app_instance, _, __= mocked_hass_app
 
+    app_instance.initialize()
+    
     # Verify the fault's name is as expected
     assert app_instance.faults["RiskyTemperature"].name == "RiskyTemperature", \
         "'RiskyTemperature' fault does not have the correct name."

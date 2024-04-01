@@ -249,7 +249,7 @@ class SafetyComponent:
         current_counter: int,
         pr_test: bool,
         additional_info: dict,
-        debounce_limit: int = 3,
+        debounce_limit: int = 2,
     ):
         """
         Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
@@ -302,17 +302,11 @@ class SafetyComponent:
         ):
             debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
 
-            if (
-                debounce_result.action == DebounceAction.PREFAULT_SET
-                and not prefault_cur_state
-            ):
+            if debounce_result.action == DebounceAction.PREFAULT_SET:
                 # Call Fault Manager to set pre-fault
                 self.fault_man.set_prefault(prefault_id, additional_info)
                 force_sm = False
-            elif (
-                debounce_result.action == DebounceAction.PREFAULT_HEALED
-                and prefault_cur_state
-            ):
+            elif debounce_result.action == DebounceAction.PREFAULT_HEALED:
                 # Call Fault Manager to heal pre-fault
                 self.fault_man.clear_prefault(prefault_id, additional_info)
                 force_sm = False
