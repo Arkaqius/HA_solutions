@@ -291,6 +291,9 @@ class FaultManager:
         if fault:
             # Set Fault
             fault.state = FaultState.SET
+            
+            # Set HA entity
+            self.hass.set_state('sensor.fault_'+ fault.name, state="Set")
 
             # Call notifications
             self.notify_man.notify(
@@ -342,6 +345,9 @@ class FaultManager:
         ):  # If Fault was found and if other fault related prefaults are not raised
             # Clear Fault
             fault.state = FaultState.CLEARED
+            
+            # Clear HA entity
+            self.hass.set_state('sensor.fault_'+ fault.name, state="Cleared")
 
             # Call notifications
             self.notify_man.notify(
