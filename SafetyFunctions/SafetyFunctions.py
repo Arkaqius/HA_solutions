@@ -97,6 +97,9 @@ class SafetyFunctions(hass.Hass):
         # Register fm to safety components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
+            
+        # Register all prefaults
+        self.register_entities(self.faults)
 
         # Enable prefaults
         self.fm.enable_prefaults()
@@ -104,3 +107,8 @@ class SafetyFunctions(hass.Hass):
         # Set the health status after initialization
         self.set_state("sensor.safety_app_health", state="good")
         self.log("Safety app started")
+        
+    def register_entities(self, faults : dict[str, Fault]) -> None:
+        for name, data in faults.items():
+            self.hass.set_state('sensor.fault_'+ name, state="Not_tested")
+        
