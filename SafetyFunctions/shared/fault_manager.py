@@ -31,7 +31,6 @@ from enum import Enum
 from typing import Callable, Optional
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
-from shared.safety_component import SafetyComponent
 import appdaemon.plugins.hass.hassapi as hass
 
 class FaultState(Enum):
@@ -90,7 +89,7 @@ class PreFault:
         self,
         name: str,
         sm_name: str,
-        module : SafetyComponent,
+        module : 'SafetyComponent', # type: ignore
         parameters: dict,
         recover_actions: Callable | None = None,
     ) -> None:
@@ -194,7 +193,11 @@ class FaultManager:
             init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
             result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
-                prefault_data.sm_state = SMState.ENABLED
+                prefault_data.sm_state = SMState.ENABLED   
+            # Force each sm to get state if possible
+            sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+            sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
+         
 
     def set_prefault(self, prefault_id : str, additional_info : Optional[dict] = None ) -> None:
         """
