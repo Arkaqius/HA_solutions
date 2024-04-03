@@ -72,7 +72,7 @@ class TemperatureComponent(SafetyComponent):
             KeyError: If essential parameters are missing, indicating incomplete configuration.
             ValueError: If parameter validations fail, such as incorrect types or unacceptable values.
         """
-        is_param_ok = True
+        is_param_ok  = True
 
         if name in self.safety_mechanisms:
             self.hass_app.log("Doubled SM_TC_1 - Invalid Cfg", level="ERROR")

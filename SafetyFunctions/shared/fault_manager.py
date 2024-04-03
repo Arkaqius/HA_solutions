@@ -92,7 +92,7 @@ class PreFault:
         module,
         parameters: dict,
         recover_actions: Callable | None = None,
-    ):
+    ) -> None:
         self.name: str = name
         self.sm_name: str = sm_name
         self.module = module

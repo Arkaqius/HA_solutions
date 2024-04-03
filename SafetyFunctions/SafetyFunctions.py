@@ -50,7 +50,7 @@ class SafetyFunctions(hass.Hass):
     Main class for managing safety functions in the Home Assistant environment.
     """
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         Initialize the SafetyFunctions app and its components.
         This method sets up the temperature sensor component and initializes the health status.
