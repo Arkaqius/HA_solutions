@@ -31,7 +31,8 @@ from enum import Enum
 from typing import Callable, Optional
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
-
+from shared.safety_component import SafetyComponent
+import appdaemon.plugins.hass.hassapi as hass
 
 class FaultState(Enum):
     """
@@ -71,7 +72,7 @@ class PreFault:
     Attributes:
         name (str): The name of the pre-fault.
         sm_name (str): The name of the safety mechanism associated with this pre-fault.
-        module: The module where the safety mechanism is defined.
+        module (SafetyComponent): The module where the safety mechanism is defined.
         parameters (dict): Configuration parameters for the pre-fault.
         recover_actions (Callable | None): The recovery action to execute if this pre-fault is triggered.
         state (FaultState): The current state of the pre-fault.
@@ -89,7 +90,7 @@ class PreFault:
         self,
         name: str,
         sm_name: str,
-        module,
+        module : SafetyComponent,
         parameters: dict,
         recover_actions: Callable | None = None,
     ) -> None:
@@ -121,7 +122,7 @@ class Fault:
         notification_level (int): The severity level assigned to this fault for notification purposes.
     """
 
-    def __init__(self, name, related_prefaults: list, notification_level: int):
+    def __init__(self, name : str, related_prefaults: list, notification_level: int):
         self.name: str = name
         self.state: FaultState = FaultState.NOT_TESTED
         self.related_prefaults = related_prefaults
@@ -152,8 +153,8 @@ class FaultManager:
 
     def __init__(
         self,
-        hass,
-        notify_man,
+        hass : hass ,
+        notify_man : NotificationManager,
         recovery_man: RecoveryManager,
         sm_modules: dict,
         prefault_dict: dict,
@@ -171,7 +172,7 @@ class FaultManager:
         self.sm_modules = sm_modules
         self.hass = hass
 
-    def enable_prefaults(self):
+    def enable_prefaults(self) -> None:
         """
         Enables all pre-faults by initializing them with their respective safety mechanisms.
 
@@ -195,7 +196,7 @@ class FaultManager:
             if result:
                 prefault_data.sm_state = SMState.ENABLED
 
-    def set_prefault(self, prefault_id, additional_info=None):
+    def set_prefault(self, prefault_id : str, additional_info : Optional[dict] = None ) -> None:
         """
         Sets a pre-fault to its active state, indicating a potential fault condition.
 
@@ -214,7 +215,7 @@ class FaultManager:
         # Call Related Fault
         self._set_fault(prefault_id, additional_info)
 
-    def clear_prefault(self, prefault_id, additional_info):
+    def clear_prefault(self, prefault_id : str, additional_info : dict) -> None:
         """
         Clears a pre-fault state, indicating that the condition leading to a potential fault has been resolved.
 
@@ -239,7 +240,7 @@ class FaultManager:
         # Call Related Fault
         self._clear_fault(prefault_id, additional_info)
 
-    def check_prefault(self, prefault_id) -> FaultState:
+    def check_prefault(self, prefault_id : str) -> FaultState:
         """
         Checks the current state of a specified pre-fault.
 
@@ -261,7 +262,7 @@ class FaultManager:
         """
         return self.prefaults[prefault_id].state
 
-    def _set_fault(self, prefault_id: str, additional_info: Optional[dict]):
+    def _set_fault(self, prefault_id: str, additional_info: Optional[dict]) -> None:
         """
         Sets the state of a fault based on a triggered pre-fault condition.
 
@@ -308,7 +309,7 @@ class FaultManager:
         else:
             pass  # Error logged in previous call
 
-    def _clear_fault(self, prefault_id: str, additional_info):
+    def _clear_fault(self, prefault_id: str, additional_info : dict) -> None:
         """
         Clears the state of a fault based on the resolution of a triggering pre-fault condition.
 
@@ -354,7 +355,7 @@ class FaultManager:
                 fault.name, fault.notification_level, additional_info
             )
 
-    def check_fault(self, fault_id):
+    def check_fault(self, fault_id : str) -> FaultState:
         """
         Checks the current state of a specified fault.
 
