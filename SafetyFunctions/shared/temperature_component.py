@@ -166,7 +166,7 @@ class TemperatureComponent(SafetyComponent):
             self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
 
             # Initialize cyclic runnable to get diverative
-            self.hass_app.run_every( self.calculate_diff, "now", (forecast_timespan * 60 * 60) / 60)
+            self.hass_app.run_every( self.calculate_diff, "now", 60)
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
@@ -302,6 +302,7 @@ class TemperatureComponent(SafetyComponent):
 
         sm.sm_args["diverative"] = temperature - sm.sm_args["prev_val"]
         sm.sm_args["prev_val"] = temperature
+        self.hass_app.set_state('sensor.office_temperature_rate',state=sm.sm_args["diverative"])
         self.hass_app.log(
             f'diverative: {sm.sm_args["diverative"]}, prev_val: {sm.sm_args["prev_val"]}'
         )

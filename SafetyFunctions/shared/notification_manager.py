@@ -152,10 +152,10 @@ class NotificationManager:
         Returns:
             dict: The notification data ready to be sent.
         """
-        base_url = "/lovelace/home-safety"
+        base_url = "/home-safety/home_safety_overview"
         common_data = {
             "persistent": True,
-            "url": base_url,
+            "clickAction": base_url,
         }
 
         notification_configs = {
@@ -170,6 +170,7 @@ class NotificationManager:
                     "tag": "Emergency_Fault",
                     "notification_icon": "mdi:exit-run",
                     "importance": "high",  # Setting high importance for level 1 notifications
+                    "persistent": True
                 },
             },
             2: {
@@ -181,6 +182,7 @@ class NotificationManager:
                     "sticky": True,
                     "tag": "Hazard_Fault",
                     "notification_icon": "mdi:hazard-lights",
+                    "persistent": True
                 },
             },
             3: {
@@ -189,7 +191,7 @@ class NotificationManager:
                 "data": {
                     **common_data,
                     "color": "#FFFF00",  # Hex code for yellow.
-                    "sticky": False,
+                    "sticky": True,
                     "tag": "Warning_Fault",
                     "notification_icon": "mdi:home-alert",
                 },
