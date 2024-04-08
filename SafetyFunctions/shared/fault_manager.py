@@ -28,7 +28,7 @@ Note:
 """
 
 from enum import Enum
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
 import appdaemon.plugins.hass.hassapi as hass
@@ -97,7 +97,7 @@ class PreFault:
         self.sm_name: str = sm_name
         self.module = module
         self.state: FaultState = FaultState.NOT_TESTED
-        self.recover_actions: Callable | None = recover_actions
+        self.recover_actions: Callable | Any = recover_actions
         self.parameters: dict = parameters
         self.sm_state = SMState.DISABLED
 
