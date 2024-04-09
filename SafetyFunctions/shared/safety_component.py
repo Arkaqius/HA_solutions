@@ -25,10 +25,12 @@ This module streamlines the creation of safety mechanisms, emphasizing reliabili
 from typing import Type, Any, get_origin, get_args, Callable, Optional, NamedTuple
 import traceback
 from enum import Enum
-from shared.fault_manager import FaultManager, FaultState
-import appdaemon.plugins.hass.hassapi as hass # type: ignore
+from shared.fault_manager import FaultManager
+from shared.types_common import FaultState, SMState
+import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 NO_NEEDED = False
+
 
 class DebounceState(NamedTuple):
     """
@@ -109,7 +111,7 @@ class SafetyComponent:
         self.hass_app = hass_app
         self.fault_man: Optional[FaultManager] = None
 
-    def register_fm(self, fm: FaultManager):
+    def register_fm(self, fm: FaultManager) -> None:
         """
         Registers a FaultManager instance with this component, enabling interaction with the fault management system.
 
@@ -246,7 +248,9 @@ class SafetyComponent:
             traceback.print_exc()  # Prints the full traceback to stdout
             return default
 
-    def _debounce(self, current_counter, pr_test, debounce_limit=3):
+    def _debounce(
+        self, current_counter: int, pr_test: bool, debounce_limit: int = 3
+    ) -> DebounceResult:
         """
         Generic debouncing function that updates the counter based on the state
         and returns an action indicating whether a pre-fault should be set, cleared, or no action taken.
@@ -283,7 +287,7 @@ class SafetyComponent:
         pr_test: bool,
         additional_info: dict,
         debounce_limit: int = 2,
-    ):
+    ) -> tuple[int, bool]:
         """
         Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
 
@@ -338,10 +342,18 @@ class SafetyComponent:
             if debounce_result.action == DebounceAction.PREFAULT_SET:
                 # Call Fault Manager to set pre-fault
                 self.fault_man.set_prefault(prefault_id, additional_info)
+                self.hass_app.log(
+                    f"PreFault {prefault_id} with {additional_info} was set",
+                    level="DEBUG",
+                )
                 force_sm = False
             elif debounce_result.action == DebounceAction.PREFAULT_HEALED:
                 # Call Fault Manager to heal pre-fault
                 self.fault_man.clear_prefault(prefault_id, additional_info)
+                self.hass_app.log(
+                    f"PreFault {prefault_id} with {additional_info} was cleared",
+                    level="DEBUG",
+                )
                 force_sm = False
             elif debounce_result.action == DebounceAction.NO_ACTION:
                 force_sm = True
@@ -369,7 +381,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         Callable: A wrapped version of the input function with added pre- and post-execution logic.
     """
 
-    def wrapper(self, sm) -> Any:
+    def wrapper(self, sm: Any) -> Any:
         """
         Wrapper function for the safety mechanism.
 

@@ -21,6 +21,7 @@ Classes:
 
 from typing import Optional, Callable
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import FaultState
 
 
 class NotificationManager:
@@ -50,22 +51,22 @@ class NotificationManager:
         self.notification_config = notification_config
 
         # Map notification levels to their respective methods
-        self.level_methods : dict[int, Callable[[str], None] | None] = {
+        self.level_methods: dict[int, Callable | None] = {
             1: self._notify_level_1_additional,
             2: self._notify_level_2_additional,
             3: None,
             4: None,
         }
 
-    def notify(self, fault: str, level: int, additional_info: Optional[dict]) -> None:
+    def notify(self, fault: str, level: int, fault_status: "FaultState", additional_info: Optional[dict]) -> None:  # type: ignore
         """
-        Sends notifications based on fault severity, employing various methods like alerts,
-        dashboard updates, and automation controls.
+        Sends or clears notifications based on fault status, using the fault name as a unique tag.
 
         Parameters:
-            fault: The fault's name.
+            fault: The fault's name, used as a unique tag for the notification.
             level: Notification level, dictating the notification type.
             additional_info: Additional fault details (optional) for the notification message.
+            fault_status: Status of the fault ('active' or 'cleared').
         """
 
         # Construct the message to be sent
@@ -74,18 +75,35 @@ class NotificationManager:
             for key, value in additional_info.items():
                 message += f"{key}: {value}\n"
 
-        # Send notification to company apps
-        self._notify_company_app(level, message)
-        # Set dashboard notification
+        if fault_status == FaultState.SET:
+            self._process_active_fault(level, message, fault)
+            self.hass_app.log(
+                f"Notification for set for {fault} was process with  message {message}",
+                level="DEBUG",
+            )
+        elif fault_status == FaultState.CLEARED:
+            self._clear_fault_notification(fault)
+            self.hass_app.log(
+                f"Notification for clear for {fault} was process", level="DEBUG"
+            )
+        else:
+            self.hass_app.log(f"Invalid fault status '{fault_status}'", level="WARNING")
+
+    def _process_active_fault(self, level: int, message: str, fault_tag: str) -> None:
+        self._notify_company_app(level, message, fault_tag)
         self._set_dashboard_notification(message, level)
-        # Call the corresponding method for the notification level
-        notify_method = self.level_methods.get(level)
-        if notify_method:
-            notify_method(message)
+        additional_actions = self.level_methods.get(level)
+        if additional_actions:
+            additional_actions()
         else:
             self.hass_app.log(
                 f"Notification level {level} has not additional actions", level="DEBUG"
             )
+
+    def _clear_fault_notification(self, fault_tag: str) -> None:
+        self.hass_app.call_service(
+            "notify/notify", message="clear_notification", data={"tag": fault_tag}
+        )
 
     def _set_dashboard_notification(self, message: str, level: int) -> None:
         """
@@ -106,7 +124,7 @@ class NotificationManager:
                 f"No dashboard entity configured for level '{level}'", level="WARNING"
             )
 
-    def _notify_level_1_additional(self, message: str) -> None:
+    def _notify_level_1_additional(self) -> None:
         """
         Triggers an immediate response for level 1 notifications by sounding an alarm and turning lights red.
         This method represents the highest priority action, indicating an immediate emergency.
@@ -125,7 +143,7 @@ class NotificationManager:
             color_name="red",
         )
 
-    def _notify_level_2_additional(self, message: str) -> None:
+    def _notify_level_2_additional(self) -> None:
         """
         Handles level 2 notifications by turning lights yellow, symbolizing a hazard that may not require
         immediate evacuation but still demands attention.
@@ -140,7 +158,9 @@ class NotificationManager:
             color_name="yellow",
         )
 
-    def _prepare_notification_data(self, level: int, message: str) -> dict:
+    def _prepare_notification_data(
+        self, level: int, message: str, fault_tag: str
+    ) -> dict:
         """
         Prepares the notification data based on the level and fault details.
 
@@ -153,10 +173,7 @@ class NotificationManager:
             dict: The notification data ready to be sent.
         """
         base_url = "/home-safety/home_safety_overview"
-        common_data = {
-            "persistent": True,
-            "clickAction": base_url,
-        }
+        common_data = {"persistent": True, "clickAction": base_url, "tag": fault_tag}
 
         notification_configs = {
             1: {
@@ -167,10 +184,8 @@ class NotificationManager:
                     "color": "#FF0000",  # Red for immediate emergencies.
                     "vibrationPattern": "100, 1000, 100, 1000, 100",
                     "sticky": True,
-                    "tag": "Emergency_Fault",
                     "notification_icon": "mdi:exit-run",
                     "importance": "high",  # Setting high importance for level 1 notifications
-                    "persistent": True
                 },
             },
             2: {
@@ -180,9 +195,7 @@ class NotificationManager:
                     **common_data,
                     "color": "#FFA500",  # Orange, a mix of yellow and red.
                     "sticky": True,
-                    "tag": "Hazard_Fault",
                     "notification_icon": "mdi:hazard-lights",
-                    "persistent": True
                 },
             },
             3: {
@@ -192,7 +205,6 @@ class NotificationManager:
                     **common_data,
                     "color": "#FFFF00",  # Hex code for yellow.
                     "sticky": True,
-                    "tag": "Warning_Fault",
                     "notification_icon": "mdi:home-alert",
                 },
             },
@@ -201,7 +213,7 @@ class NotificationManager:
 
         return notification_configs.get(level, {})
 
-    def _notify_company_app(self, level: int, message: str) -> None:
+    def _notify_company_app(self, level: int, message: str, fault_tag: str) -> None:
         """
         Sends a company app notification based on the specified level and fault details.
 
@@ -214,7 +226,7 @@ class NotificationManager:
             # No notification is sent for level 4.
             return
 
-        notification_data = self._prepare_notification_data(level, message)
+        notification_data = self._prepare_notification_data(level, message, fault_tag)
         if notification_data:
             # Convert dict to JSON string if necessary or use as is for service call.
             # json_data = json.dumps(notification_data['data'])
@@ -223,6 +235,10 @@ class NotificationManager:
                 title=notification_data["title"],
                 message=notification_data["message"],
                 data=notification_data["data"],
+            )
+            self.hass_app.log(
+                f'Notification details for {fault_tag} : {notification_data["title"]} {notification_data["message"]} {notification_data["data"]}',
+                level="DEBUG",
             )
         else:
             self.hass_app.log(

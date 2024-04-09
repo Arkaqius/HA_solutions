@@ -31,34 +31,8 @@ from enum import Enum
 from typing import Callable, Optional, Any
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
+from shared.types_common import FaultState, SMState
 import appdaemon.plugins.hass.hassapi as hass
-
-class FaultState(Enum):
-    """
-    Represents the possible states of a fault and prefaults within the safety management system.
-
-    Attributes:
-        NOT_TESTED: Initial state, indicating the fault has not yet been tested.
-        SET: Indicates that the fault condition has been detected.
-        CLEARED: Indicates that the fault condition has been resolved.
-    """
-
-    NOT_TESTED = 0
-    SET = 1
-    CLEARED = 2
-
-
-class SMState(Enum):
-    """
-    Represents the operational states of a Safety Mechanism (SM).
-
-    Attributes:
-        DISABLED: Indicates the SM is currently inactive or turned off.
-        ENABLED: Indicates the SM is active and monitoring for conditions.
-    """
-
-    DISABLED = 0
-    ENABLED = 1
 
 
 class PreFault:
@@ -89,7 +63,7 @@ class PreFault:
         self,
         name: str,
         sm_name: str,
-        module : 'SafetyComponent', # type: ignore
+        module: "SafetyComponent",  # type: ignore
         parameters: dict,
         recover_actions: Callable | None = None,
     ) -> None:
@@ -121,7 +95,7 @@ class Fault:
         notification_level (int): The severity level assigned to this fault for notification purposes.
     """
 
-    def __init__(self, name : str, related_prefaults: list, notification_level: int):
+    def __init__(self, name: str, related_prefaults: list, notification_level: int):
         self.name: str = name
         self.state: FaultState = FaultState.NOT_TESTED
         self.related_prefaults = related_prefaults
@@ -152,8 +126,8 @@ class FaultManager:
 
     def __init__(
         self,
-        hass : hass ,
-        notify_man : NotificationManager,
+        hass: hass,
+        notify_man: NotificationManager,
         recovery_man: RecoveryManager,
         sm_modules: dict,
         prefault_dict: dict,
@@ -193,13 +167,14 @@ class FaultManager:
             init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
             result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
-                prefault_data.sm_state = SMState.ENABLED   
+                prefault_data.sm_state = SMState.ENABLED
             # Force each sm to get state if possible
             sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
             sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
-         
 
-    def set_prefault(self, prefault_id : str, additional_info : Optional[dict] = None ) -> None:
+    def set_prefault(
+        self, prefault_id: str, additional_info: Optional[dict] = None
+    ) -> None:
         """
         Sets a pre-fault to its active state, indicating a potential fault condition.
 
@@ -218,7 +193,7 @@ class FaultManager:
         # Call Related Fault
         self._set_fault(prefault_id, additional_info)
 
-    def clear_prefault(self, prefault_id : str, additional_info : dict) -> None:
+    def clear_prefault(self, prefault_id: str, additional_info: dict) -> None:
         """
         Clears a pre-fault state, indicating that the condition leading to a potential fault has been resolved.
 
@@ -243,7 +218,7 @@ class FaultManager:
         # Call Related Fault
         self._clear_fault(prefault_id, additional_info)
 
-    def check_prefault(self, prefault_id : str) -> FaultState:
+    def check_prefault(self, prefault_id: str) -> FaultState:
         """
         Checks the current state of a specified pre-fault.
 
@@ -295,13 +270,17 @@ class FaultManager:
         if fault:
             # Set Fault
             fault.state = FaultState.SET
-            
+            self.hass.log(f"Fault {fault.name} was set", level="DEBUG")
+
             # Set HA entity
-            self.hass.set_state('sensor.fault_'+ fault.name, state="Set")
+            self.hass.set_state("sensor.fault_" + fault.name, state="Set")
 
             # Call notifications
             self.notify_man.notify(
-                fault.name, fault.notification_level, additional_info
+                fault.name,
+                fault.notification_level,
+                FaultState.SET,
+                additional_info,
             )
 
             # Call recovery actions (specific for prefault)
@@ -312,7 +291,7 @@ class FaultManager:
         else:
             pass  # Error logged in previous call
 
-    def _clear_fault(self, prefault_id: str, additional_info : dict) -> None:
+    def _clear_fault(self, prefault_id: str, additional_info: dict) -> None:
         """
         Clears the state of a fault based on the resolution of a triggering pre-fault condition.
 
@@ -349,16 +328,20 @@ class FaultManager:
         ):  # If Fault was found and if other fault related prefaults are not raised
             # Clear Fault
             fault.state = FaultState.CLEARED
-            
+            self.hass.log(f"Fault {fault.name} was cleared", level="DEBUG")
+
             # Clear HA entity
-            self.hass.set_state('sensor.fault_'+ fault.name, state="Cleared")
+            self.hass.set_state("sensor.fault_" + fault.name, state="Cleared")
 
             # Call notifications
             self.notify_man.notify(
-                fault.name, fault.notification_level, additional_info
+                fault.name,
+                fault.notification_level,
+                FaultState.CLEARED,
+                additional_info,
             )
 
-    def check_fault(self, fault_id : str) -> FaultState:
+    def check_fault(self, fault_id: str) -> FaultState:
         """
         Checks the current state of a specified fault.
 

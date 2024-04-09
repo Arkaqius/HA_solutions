@@ -1,5 +1,4 @@
-from shared.fault_manager import FaultState
-
+from shared.types_common import FaultState
 
 def test_faults_set_prefaults(mocked_hass_app):
 

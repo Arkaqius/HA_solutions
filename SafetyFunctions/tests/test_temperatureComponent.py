@@ -1,4 +1,4 @@
-from shared.fault_manager import FaultState
+from shared.types_common import FaultState
 from .fixtures.state_mock import MockBehavior, mock_get_state
 
 

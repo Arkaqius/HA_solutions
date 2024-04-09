@@ -101,7 +101,7 @@ class TemperatureComponent(SafetyComponent):
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
             )
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
+            self.debounce_states[name] = DebounceState(debounce=3, force_sm=False)
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
@@ -163,7 +163,7 @@ class TemperatureComponent(SafetyComponent):
             )
 
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=0, force_sm=False)
+            self.debounce_states[name] = DebounceState(debounce=3, force_sm=False)
 
             # Initialize cyclic runnable to get diverative
             self.hass_app.run_every( self.calculate_diff, "now", 60)
@@ -220,7 +220,7 @@ class TemperatureComponent(SafetyComponent):
 
         if force_sm:
             # Schedule to run `sm_tc_1` again after 30 seconds if inhibited
-            self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 30)
+            self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 3)
 
     @safety_mechanism_decorator
     def sm_tc_2(self, sm: SafetyMechanism, **kwargs: dict[str, dict]) -> None:
@@ -266,9 +266,7 @@ class TemperatureComponent(SafetyComponent):
         )
 
         # Retrieve the current debounce state for this mechanism
-        current_state = self.debounce_states.get(
-            sm.name, DebounceState(debounce=0, force_sm=False)
-        )
+        current_state = self.debounce_states[sm.name]
 
         # Perform SM logic
         new_debounce, inhibit = self.process_prefault(
@@ -276,7 +274,7 @@ class TemperatureComponent(SafetyComponent):
             current_counter=current_state.debounce,
             pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
             additional_info={"location": "office"},
-            debounce_limit=10,
+            debounce_limit=3,
         )
 
         # Update the debounce state with the new values
@@ -286,7 +284,7 @@ class TemperatureComponent(SafetyComponent):
 
         if inhibit:
             # Schedule to run `sm_tc_2` again after 30 seconds if inhibited
-            self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 30)
+            self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 3)
 
     def calculate_diff(self, _ : 'Any') -> None:
         
@@ -308,6 +306,6 @@ class TemperatureComponent(SafetyComponent):
         )
 
     @staticmethod
-    def RiskyTemperatureRecovery(self) -> None:
+    def RiskyTemperatureRecovery(self : Any) -> None:
         """Executes recovery actions for risky temperature conditions."""
         print("RiskyTemperatureRecovery called!")
