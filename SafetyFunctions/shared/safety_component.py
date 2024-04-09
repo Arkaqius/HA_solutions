@@ -361,7 +361,8 @@ class SafetyComponent:
             # Debouncing not necessary at all (Test failed and prefault already raised or
             #  test passed and fault already cleared)
             pass
-
+        
+        self.hass_app.log(f"Leaving  process_prefault for {prefault_id} with counter:{debounce_result.counter} and force_sm {force_sm}",level="DEBUG")
         return debounce_result.counter, force_sm
 
 
