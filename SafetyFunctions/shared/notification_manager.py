@@ -82,16 +82,14 @@ class NotificationManager:
                 level="DEBUG",
             )
         elif fault_status == FaultState.CLEARED:
-            self._clear_fault_notification(fault)
-            self.hass_app.log(
-                f"Notification for clear for {fault} was process", level="DEBUG"
-            )
+            pass # No clear for faults
+            #self._clear_fault_notification(fault)
         else:
             self.hass_app.log(f"Invalid fault status '{fault_status}'", level="WARNING")
 
     def _process_active_fault(self, level: int, message: str, fault_tag: str) -> None:
         self._notify_company_app(level, message, fault_tag)
-        self._set_dashboard_notification(message, level)
+        #self._set_dashboard_notification(message, level) # TODO Maybe to be deleted
         additional_actions = self.level_methods.get(level)
         if additional_actions:
             additional_actions()

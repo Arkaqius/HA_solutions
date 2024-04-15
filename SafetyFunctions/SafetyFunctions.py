@@ -110,5 +110,5 @@ class SafetyFunctions(hass.Hass):
         
     def register_entities(self, faults : dict[str, Fault]) -> None:
         for name, data in faults.items():
-            self.set_state('sensor.fault_'+ name, state="Not_tested")
+            self.set_state('sensor.fault_'+ name, state="Not_tested", attributes = {'friendly_name': name ,"location": "None"})
         

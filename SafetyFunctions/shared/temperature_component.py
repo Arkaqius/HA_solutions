@@ -304,9 +304,6 @@ class TemperatureComponent(SafetyComponent):
         sm.sm_args["diverative"] = temperature - sm.sm_args["prev_val"]
         sm.sm_args["prev_val"] = temperature
         self.hass_app.set_state('sensor.office_temperature_rate',state=sm.sm_args["diverative"])
-        self.hass_app.log(
-            f'diverative: {sm.sm_args["diverative"]}, prev_val: {sm.sm_args["prev_val"]}'
-        )
 
     @staticmethod
     def RiskyTemperatureRecovery(self : Any) -> None:
