@@ -69,7 +69,6 @@ class SafetyFunctions(hass.Hass):
 
         # Get and verify cfgs
         self.fault_dict = self.args["app_config"]["faults"]
-        self.log(self.args["user_config"])
         self.safety_components_cfg = self.args["user_config"]["safety_components"]
         self.notification_cfg = self.args["user_config"]["notification"]
 
@@ -82,7 +81,7 @@ class SafetyFunctions(hass.Hass):
         self.reco_man: RecoveryManager = RecoveryManager()
 
         # Initialize SM modules and prefaults
-        for component_name, component_cls in COMPONENT_DICT.items():
+        for component_name, component_cls  in COMPONENT_DICT.items():
             if component_name in self.safety_components_cfg:
                 # Instantiate the component with 'self' passed to its constructor
                 component_instance = component_cls(
@@ -121,7 +120,7 @@ class SafetyFunctions(hass.Hass):
         # Register all prefaults
         self.register_entities(self.faults)
 
-        # Enable prefaults
+        # Enable prefaults and init safety mechanisms
         self.fm.enable_prefaults()
 
         # Set the health status after initialization

@@ -98,7 +98,8 @@ class SafetyComponent:
         _debounce: Implements debouncing logic for state changes.
         process_prefault: Processes potential pre-fault conditions based on debouncing logic.
     """
-
+    component_name = "UNKNOWN"  # Default value for the parent class
+    
     def __init__(
         self,
         hass_app: hass.Hass,
@@ -111,6 +112,9 @@ class SafetyComponent:
         self.hass_app = hass_app
         self.fault_man: Optional[FaultManager] = None
 
+    def get_prefaults(self, modules : dict, component_cfg : str) -> dict:
+        raise NotImplementedError
+    
     def register_fm(self, fm: FaultManager) -> None:
         """
         Registers a FaultManager instance with this component, enabling interaction with the fault management system.
