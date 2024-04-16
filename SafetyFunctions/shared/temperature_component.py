@@ -27,10 +27,12 @@ from shared.safety_component import (
     DebounceState,
 )
 from shared.safety_mechanism import SafetyMechanism
+from types_common import PreFault
 
 # CONFIG
-DEBOUNCE_INIT  = 0
+DEBOUNCE_INIT = 0
 SM_TC_2_DEBOUNCE_LIMIT = 3
+
 
 class TemperatureComponent(SafetyComponent):
     """
@@ -46,6 +48,7 @@ class TemperatureComponent(SafetyComponent):
     # Static class variables to keep debounce
     safety_mechanisms: ClassVar[Dict[str, "SafetyMechanism"]] = {}
     debounce_states: ClassVar[Dict[str, DebounceState]] = {}
+    component_name = "TemperatureComponent"  # Default value for the parent class
 
     def __init__(self, hass_app: "SafetyFunctions"):  # type: ignore
         """
@@ -56,6 +59,98 @@ class TemperatureComponent(SafetyComponent):
             hass_app (hass.Hass): The Home Assistant application instance through which sensor data is accessed and actions are executed.
         """
         super().__init__(hass_app)
+
+    def get_prefaults(
+        self, sm_modules: dict, component_cfg: list[Dict[str, Dict[str, float]]]
+    ) -> Dict[str, "PreFault"]:
+        """
+        Retrieve pre-fault configurations from the component configuration and generate corresponding PreFault objects.
+
+        Args:
+            component_cfg (list[Dict[str, Dict[str, float]]]): A list of dictionaries where each dictionary
+                contains a single location as the key and a dictionary of configuration data for that location.
+
+        Returns:
+            Dict[str, PreFault]: A dictionary where keys are the names of the pre-faults and values are
+                the corresponding PreFault objects initialized with the provided configuration data.
+
+        Processes each location's configuration to create two types of pre-faults:
+        - One based on direct temperature thresholds.
+        - Another based on forecasted temperature conditions.
+        """
+        ret_val = {}
+
+        for location_dict in component_cfg:
+            for location, data in location_dict.items():
+                self.hass_app.log(
+                    f"Processing prefaults for location: {location}, data: {data}"
+                )
+
+                prefault_name, prefault = self._get_sm_tc_1_prefault(
+                    sm_modules, location, data
+                )
+                ret_val[prefault_name] = prefault
+
+                prefault_name, prefault = self._get_sm_tc_2_prefault(
+                    sm_modules, location, data
+                )
+                ret_val[prefault_name] = prefault
+
+        return ret_val
+
+    def _get_sm_tc_1_prefault(
+        self, modules: dict, location: str, data: dict
+    ) -> tuple[str, "PreFault"]:
+        """
+        Generates a PreFault object for direct temperature monitoring based on the given location and data.
+
+        Args:
+            location (str): The location identifier used to create a unique pre-fault name.
+            data (dict): Configuration data specific to this pre-fault, such as temperature thresholds.
+
+        Returns:
+            Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
+            The PreFault is configured to handle direct temperature conditions.
+        """
+        prefault_name = f"RiskyTemperature{location}"
+        prefault_params = data
+        sm_name = "sm_tc_1"
+
+        recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
+        return prefault_name, PreFault(
+            module=modules[self.__class__.__name__],
+            name=prefault_name,
+            parameters=prefault_params,
+            recover_actions=recovery_func,
+            sm_name=sm_name,
+        )
+
+    def _get_sm_tc_2_prefault(
+        self, modules: dict, location: str, data: dict
+    ) -> tuple[str, "PreFault"]:
+        """
+        Generates a PreFault object for forecast-based temperature monitoring based on the given location and data.
+
+        Args:
+            location (str): The location identifier used to create a unique pre-fault name.
+            data (dict): Configuration data specific to this pre-fault, including forecast timespan and other parameters.
+
+        Returns:
+            Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
+            The PreFault is configured to handle forecasted temperature conditions.
+        """
+        prefault_name = f"RiskyTemperature{location}ForeCast"
+        prefault_params = data
+        sm_name = "sm_tc_2"
+
+        recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
+        return prefault_name, PreFault(
+            module=modules[self.__class__.__name__],
+            name=prefault_name,
+            parameters=prefault_params,
+            recover_actions=recovery_func,
+            sm_name=sm_name,
+        )
 
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
@@ -104,7 +199,9 @@ class TemperatureComponent(SafetyComponent):
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
             )
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=DEBOUNCE_INIT, force_sm=False)
+            self.debounce_states[name] = DebounceState(
+                debounce=DEBOUNCE_INIT, force_sm=False
+            )
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
@@ -166,10 +263,12 @@ class TemperatureComponent(SafetyComponent):
             )
 
             # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(debounce=DEBOUNCE_INIT, force_sm=False)
+            self.debounce_states[name] = DebounceState(
+                debounce=DEBOUNCE_INIT, force_sm=False
+            )
 
             # Initialize cyclic runnable to get diverative
-            self.hass_app.run_every( self.calculate_diff, "now", 60)
+            self.hass_app.run_every(self.calculate_diff, "now", 60)
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
@@ -289,9 +388,11 @@ class TemperatureComponent(SafetyComponent):
             # Schedule to run `sm_tc_2` again after 30 seconds if inhibited
             self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 120)
 
-    def calculate_diff(self, _ : 'Any') -> None:
-        
-        sm: SafetyMechanism = self.safety_mechanisms['RiskyTemperatureOfficeForeCast'] # HARDCODED!
+    def calculate_diff(self, _: "Any") -> None:
+
+        sm: SafetyMechanism = self.safety_mechanisms[
+            "RiskyTemperatureOfficeForeCast"
+        ]  # HARDCODED!
         # Get inputs
         try:
             temperature = float(
@@ -303,9 +404,11 @@ class TemperatureComponent(SafetyComponent):
 
         sm.sm_args["diverative"] = temperature - sm.sm_args["prev_val"]
         sm.sm_args["prev_val"] = temperature
-        self.hass_app.set_state('sensor.office_temperature_rate',state=sm.sm_args["diverative"])
+        self.hass_app.set_state(
+            "sensor.office_temperature_rate", state=sm.sm_args["diverative"]
+        )
 
     @staticmethod
-    def RiskyTemperatureRecovery(self : Any) -> None:
+    def RiskyTemperatureRecovery(self: Any) -> None:
         """Executes recovery actions for risky temperature conditions."""
         print("RiskyTemperatureRecovery called!")
