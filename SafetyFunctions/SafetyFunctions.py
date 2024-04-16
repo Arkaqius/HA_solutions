@@ -101,9 +101,6 @@ class SafetyFunctions(hass.Hass):
                 # Update the prefaults dictionary with new PreFaults
                 self.prefaults.update(prefaults_data)
 
-        # Initialize prefaults
-        # self.prefaults = cfg_pr.get_prefaults(self.sm_modules, self.prefault_dict)
-
         # Initialize faults
         self.faults = cfg_pr.get_faults(self.fault_dict)
 
