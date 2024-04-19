@@ -4,161 +4,121 @@ import pytest
 @pytest.fixture(scope="module")
 def app_config_valid():
     return {
-        "log_level": "DEBUG",
-        "faults": {
-            "RiskyTemperature": {
-                "name": "Unsafe temperature",
-                "priority": 2,
-                "related_sms": ["sm_tc_1"],
-            },
-            "RiskyTemperatureForecast": {
-                "name": "Unsafe temperature forecast",
-                "priority": 3,
-                "related_sms": ["sm_tc_2"],
-            },
-        },
-        "notification": {
-            "light_entity": "light.warning_light"},
-        "prefaults": {
-            "RiskyTemperatureOffice": {
-                "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.office_temperature",
+        {
+            "SafetyFunctions": {
+                "module": "SafetyFunctions",
+                "class": "SafetyFunctions",
+                "log_level": "DEBUG",
+                "app_config": {
+                    "faults": {
+                        "RiskyTemperature": {
+                            "name": "Unsafe temperature",
+                            "priority": 2,
+                            "related_sms": ["sm_tc_1"],
+                        },
+                        "RiskyTemperatureForecast": {
+                            "name": "Unsafe temperature forecast",
+                            "priority": 3,
+                            "related_sms": ["sm_tc_2"],
+                        },
+                    }
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureKitchen": {
-                "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.kitchen_temperature",
+                "user_config": {
+                    "notification": {"light_entity": "light.warning_light"},
+                    "safety_components": {
+                        "TemperatureComponent": {
+                            "Office": {
+                                "CAL_LOW_TEMP_THRESHOLD": 18.0,
+                                "CAL_FORECAST_TIMESPAN": 2.0,  # hours # app cfg
+                                "temperature_sensor": "sensor.office_temperature",
+                                "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
+                                "window_sensor": "sensor.office_window_contact_contact",
+                            }
+                        }
+                    },
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureOfficeForeCast": {
-                "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_tc_2",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "CAL_FORECAST_TIMESPAN": 2.0,  # hours
-                    "temperature_sensor": "sensor.office_temperature",
-                    "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
-                },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-        },
+            }
+        }
     }
-    
+
+
 @pytest.fixture(scope="module")
 def app_config_2_faults_to_single_prefault():
     return {
-        "log_level": "DEBUG",
-        "faults": {
-            "RiskyTemperature": {
-                "name": "Unsafe temperature",
-                "priority": 2,
-                "related_sms": ["sm_tc_1"],
-            },
-            "RiskyTemperatureForecast": {
-                "name": "Unsafe temperature forecast",
-                "priority": 3,
-                "related_sms": ["sm_tc_1"],
-            },
-        },
-        "notification": {
-            "light_entity": "light.warning_light"},
-        "prefaults": {
-            "RiskyTemperatureOffice": {
-                "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.office_temperature",
+        {
+            "SafetyFunctions": {
+                "module": "SafetyFunctions",
+                "class": "SafetyFunctions",
+                "log_level": "DEBUG",
+                "app_config": {
+                    "faults": {
+                        "RiskyTemperature": {
+                            "name": "Unsafe temperature",
+                            "priority": 2,
+                            "related_sms": ["sm_tc_1"],
+                        },
+                        "RiskyTemperatureForecast": {
+                            "name": "Unsafe temperature forecast",
+                            "priority": 3,
+                            "related_sms": ["sm_tc_1"],
+                        },
+                    }
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureKitchen": {
-                "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.kitchen_temperature",
+                "user_config": {
+                    "notification": {"light_entity": "light.warning_light"},
+                    "safety_components": {
+                        "TemperatureComponent": {
+                            "Office": {
+                                "CAL_LOW_TEMP_THRESHOLD": 18.0,
+                                "CAL_FORECAST_TIMESPAN": 2.0,  # hours # app cfg
+                                "temperature_sensor": "sensor.office_temperature",
+                                "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
+                                "window_sensor": "sensor.office_window_contact_contact",
+                            }
+                        }
+                    },
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureOfficeForeCast": {
-                "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_tc_2",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 18.0,
-                    "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
-                    "temperature_sensor": "sensor.office_temperature",
-                    "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
-                },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-        },
+            }
+        }
     }
-    
+
+
 @pytest.fixture(scope="module")
 def app_config_fault_withou_smc():
     return {
-        "log_level": "DEBUG",
-        "faults": {
-            "RiskyTemperature": {
-                "name": "Unsafe temperature",
-                "priority": 2,
-                "related_sms": ["sm_wmc_9999"],
-            },
-            "RiskyTemperatureForecast": {
-                "name": "Unsafe temperature forecast",
-                "priority": 3,
-                "related_sms": ["sm_wmc_9999"],
-            },
-        },
-        "notification": {
-            "light_entity": "light.warning_light"},
-        "prefaults": {
-            "RiskyTemperatureOffice": {
-                "name": "RiskyTemperatureOffice",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.office_temperature",
+        {
+            "SafetyFunctions": {
+                "module": "SafetyFunctions",
+                "class": "SafetyFunctions",
+                "log_level": "DEBUG",
+                "app_config": {
+                    "faults": {
+                        "RiskyTemperature": {
+                            "name": "Unsafe temperature",
+                            "priority": 2,
+                            "related_sms": ["sm_tc_9999"],
+                        },
+                        "RiskyTemperatureForecast": {
+                            "name": "Unsafe temperature forecast",
+                            "priority": 3,
+                            "related_sms": ["sm_tc_9999"],
+                        },
+                    }
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureKitchen": {
-                "name": "RiskyTemperatureKitchen",
-                "safety_mechanism": "sm_tc_1",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "temperature_sensor": "sensor.kitchen_temperature",
+                "user_config": {
+                    "notification": {"light_entity": "light.warning_light"},
+                    "safety_components": {
+                        "TemperatureComponent": {
+                            "Office": {
+                                "CAL_LOW_TEMP_THRESHOLD": 18.0,
+                                "CAL_FORECAST_TIMESPAN": 2.0,  # hours # app cfg
+                                "temperature_sensor": "sensor.office_temperature",
+                                "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
+                                "window_sensor": "sensor.office_window_contact_contact",
+                            }
+                        }
+                    },
                 },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-            "RiskyTemperatureOfficeForeCast": {
-                "name": "RiskyTemperatureOfficeForeCast",
-                "safety_mechanism": "sm_tc_2",
-                "parameters": {
-                    "CAL_LOW_TEMP_THRESHOLD": 28.0,
-                    "CAL_FORECAST_TIMESPAN": 60.0,  # seconds
-                    "temperature_sensor": "sensor.office_temperature",
-                    "temperature_sensor_rate": "sensor.office_temperature_rate",  # sampling_rate = 1min
-                },
-                "component_name": "TemperatureComponent",
-                "recovery_actions": "RiskyTemperatureRecovery",
-            },
-        },
+            }
+        }
     }
