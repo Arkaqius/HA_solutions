@@ -71,20 +71,20 @@ class SafetyFunctions(hass.Hass):
         self.prefaults: dict[str, PreFault] = {}
         self.faults: dict[str, Fault] = {}
 
-        # Get and verify cfgs
+        # 10. Get and verify cfgs
         self.fault_dict = self.args["app_config"]["faults"]
         self.safety_components_cfg = self.args["user_config"]["safety_components"]
         self.notification_cfg = self.args["user_config"]["notification"]
 
-        # Initialize notification manager
+        # 20. Initialize notification manager
         self.notify_man: NotificationManager = NotificationManager(
             self, self.notification_cfg
         )
 
-        # Initialize recovery manager
+        # 30. Initialize recovery manager
         self.reco_man: RecoveryManager = RecoveryManager()
 
-        # Initialize SM modules and prefaults
+        # 40. Initialize SM modules and prefaults
         for component_name, component_cls  in COMPONENT_DICT.items():
             if component_name in self.safety_components_cfg:
                 # Instantiate the component with 'self' passed to its constructor
@@ -104,10 +104,10 @@ class SafetyFunctions(hass.Hass):
                 # Update the prefaults dictionary with new PreFaults
                 self.prefaults.update(prefaults_data)
 
-        # Initialize faults
+        # 50. Initialize faults
         self.faults = cfg_pr.get_faults(self.fault_dict)
 
-        # Initialize fault manager
+        # 60. Initialize fault manager
         self.fm: FaultManager = FaultManager(
             self,
             self.notify_man,
@@ -117,20 +117,20 @@ class SafetyFunctions(hass.Hass):
             self.faults,
         )
 
-        # Register fm to safety components
+        # 70. Register fm to safety components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # Register all prefaults
+        # 80. Register all prefaults
         self.register_entities(self.faults)
 
-        # Enable prefaults and init safety mechanisms
+        # 90. Enable prefaults and init safety mechanisms
         self.fm.enable_prefaults()
 
-        # Set the health status after initialization
+        # 100. Set the health status after initialization
         self.set_state("sensor.safety_app_health", state="good")
-        self.log("Safety app started")
-
+        self.log("Safety app started",level = "DEBUG")
+        
     def register_entities(self, faults: dict[str, Fault]) -> None:
         for name, data in faults.items():
             self.set_state(
