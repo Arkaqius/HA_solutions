@@ -65,6 +65,7 @@ class SafetyFunctions(hass.Hass):
         """
         # Disable all the no-member violations in this function
         # pylint: disable=attribute-defined-outside-init
+        self.set_state("sensor.safety_app_health", state="init")
         if DEBUG:
             RemotePdb('172.30.33.4', 5050).set_trace()
         self.sm_modules: dict = {}
