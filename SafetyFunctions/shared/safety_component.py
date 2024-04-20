@@ -26,7 +26,7 @@ from typing import Type, Any, get_origin, get_args, Callable, Optional, NamedTup
 import traceback
 from enum import Enum
 from shared.fault_manager import FaultManager
-from shared.types_common import FaultState, SMState
+from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 NO_NEEDED = False

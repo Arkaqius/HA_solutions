@@ -43,7 +43,10 @@ from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 import shared.cfg_parser as cfg_pr
 
-# from remote_pdb import RemotePdb
+DEBUG = True
+
+if DEBUG:
+    from remote_pdb import RemotePdb
 
 COMPONENT_DICT: dict[str, SafetyComponent] = {
     "TemperatureComponent": TemperatureComponent
@@ -62,7 +65,8 @@ class SafetyFunctions(hass.Hass):
         """
         # Disable all the no-member violations in this function
         # pylint: disable=attribute-defined-outside-init
-        # RemotePdb('172.30.33.4', 5050).set_trace()
+        if DEBUG:
+            RemotePdb('172.30.33.4', 5050).set_trace()
         self.sm_modules: dict = {}
         self.prefaults: dict[str, PreFault] = {}
         self.faults: dict[str, Fault] = {}

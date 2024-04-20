@@ -27,10 +27,10 @@ from shared.safety_component import (
     DebounceState,
 )
 from shared.safety_mechanism import SafetyMechanism
-from types_common import PreFault
+from shared.types_common import PreFault
 
 # CONFIG
-DEBOUNCE_INIT = 0
+DEBOUNCE_INIT = 1
 SM_TC_2_DEBOUNCE_LIMIT = 3
 
 

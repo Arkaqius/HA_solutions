@@ -5,8 +5,6 @@ This module defines the core components and logic necessary for managing faults 
 It facilitates the detection, tracking, and resolution of fault conditions, integrating closely with safety mechanisms to proactively address potential issues before they escalate into faults.
 
 Classes:
-    FaultState (Enum): Enumerates the possible states of faults within the system.
-    SMState (Enum): Enumerates the operational states of Safety Mechanisms (SMs).
     PreFault: Represents pre-fault conditions that are potential precursors to faults.
     Fault: Represents faults within the system, which are conditions requiring attention.
     FaultManager: Manages faults and pre-faults, orchestrating detection and response.
@@ -28,7 +26,7 @@ Note:
 """
 
 from enum import Enum
-from typing import Callable, Optional, Any
+from typing import Optional
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
 from shared.types_common import FaultState, SMState, PreFault, Fault
