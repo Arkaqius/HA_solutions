@@ -43,7 +43,7 @@ from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 import shared.cfg_parser as cfg_pr
 
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
     from remote_pdb import RemotePdb
