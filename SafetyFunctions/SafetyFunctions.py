@@ -122,7 +122,7 @@ class SafetyFunctions(hass.Hass):
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # 80. Register all prefaults
+        # 80. Register all prefaults 
         self.register_entities(self.faults)
 
         # 90. Enable prefaults and init safety mechanisms

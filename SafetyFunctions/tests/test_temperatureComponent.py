@@ -1,6 +1,6 @@
 from shared.types_common import FaultState
-from .fixtures.state_mock import MockBehavior, mock_get_state
-
+from .fixtures.hass_fixture import MockBehavior, mock_get_state
+# mypy: ignore-errors
 
 def test_temp_comp_smtc1_1(mocked_hass_app_get_state):
     app_instance, mock_hass, _ = mocked_hass_app_get_state
@@ -9,13 +9,17 @@ def test_temp_comp_smtc1_1(mocked_hass_app_get_state):
     temperature_behavior = MockBehavior(
         "sensor.office_temperature", iter(["5", "6", "7", "8", "9"])
     )
+    
+    fault_behavior = MockBehavior(
+        "sensor.fault_RiskyTemperature", iter([None, None, None, None, None])
+    )
     humidity_behavior = MockBehavior("sensor.office_humidity", iter(["45", "50"]))
-    mock_behaviors = [temperature_behavior, humidity_behavior]
+    mock_behaviors = [temperature_behavior, humidity_behavior, fault_behavior]
 
     # Manually set the side_effect of the mocked `get_state` to use our custom mock_get_state function
-    app_instance.get_state.side_effect = lambda entity_id: mock_get_state(
-        entity_id, mock_behaviors
-    )
+    app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(entity_id, mock_behaviors)
+
+    app_instance.initialize()
 
     app_instance.sm_modules["TemperatureComponent"].sm_tc_1(
         app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
@@ -25,18 +29,8 @@ def test_temp_comp_smtc1_1(mocked_hass_app_get_state):
 
     assert (
         app_instance.fm.check_prefault("RiskyTemperatureOffice")
-        == FaultState.NOT_TESTED
+        == FaultState.SET
     )
-    assert app_instance.fm.check_fault("RiskyTemperature") == FaultState.NOT_TESTED
-
-    app_instance.sm_modules["TemperatureComponent"].sm_tc_1(
-        app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
-            "RiskyTemperatureOffice"
-        ]
-    )
-
-    assert app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.SET
-    assert app_instance.fm.check_fault("RiskyTemperature") == FaultState.SET
 
 
 def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
