@@ -48,7 +48,7 @@ class TemperatureComponent(SafetyComponent):
     # Static class variables to keep debounce
     safety_mechanisms: ClassVar[Dict[str, "SafetyMechanism"]] = {}
     debounce_states: ClassVar[Dict[str, DebounceState]] = {}
-    component_name = "TemperatureComponent"  # Default value for the parent class
+    component_name = "TemperatureComponent"
 
     def __init__(self, hass_app: "SafetyFunctions"):  # type: ignore
         """
