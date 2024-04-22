@@ -1,0 +1,3 @@
+appdaemon==4.4.2
+pytest==8.1.1
+remote_pdb==2.1.0
