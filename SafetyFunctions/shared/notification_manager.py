@@ -19,90 +19,97 @@ Classes:
     NotificationManager: Manages the configuration and execution of notifications within the safety system.
 """
 
-from typing import Optional
-import appdaemon.plugins.hass.hassapi as hass # type: ignore
+from typing import Optional, Callable
+import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import FaultState
 
 
 class NotificationManager:
     """
-    Manages notifications within a Home Assistant-based safety system.
-
-    This class interfaces with Home Assistant to send notifications through various channels
-    based on the severity of events or faults detected within the system. It supports multiple
-    levels of notifications, from high-priority alerts that trigger immediate actions (such as
-    sending alerts to mobile devices and activating alarms) to informational updates displayed
-    on the Home Assistant dashboard.
+    A manager for sending notifications within a Home Assistant-based safety system, using various
+    methods like alerts to mobile devices, dashboard updates, and control of home automation entities
+    (e.g., lights, alarms) based on event severity.
 
     Attributes:
-        hass_app (hass.Hass): Instance of the Home Assistant application for service calls.
-        notification_config (dict): Configuration dict specifying notification preferences and
-            entity IDs for various notification methods and levels.
+        hass_app (hass.Hass): An instance of the Home Assistant application for service calls.
+        notification_config (dict): Configuration for notification preferences, including entity IDs.
 
     Args:
-        hass_app (hass.Hass): The Home Assistant application instance, used for making service calls.
-        notification_config (dict): A dictionary containing configurations for notification levels,
-            including entity IDs for alarms, lights, and dashboard notification entities.
+        hass_app (hass.Hass): The Home Assistant application instance.
+        notification_config (dict): Configuration for different notification levels and entities.
     """
 
     def __init__(self, hass_app: hass.Hass, notification_config: dict):
         """
-        Initialize the Notification Manager with specific configurations.
+        Initializes the NotificationManager with Home Assistant and notification configurations.
 
-        :param hass_app: The Home Assistant application instance.
-        :param notification_config: A dictionary containing the notification configuration.
+        Parameters:
+            hass_app: Home Assistant application instance for making service calls.
+            notification_config: Configurations for notification levels and corresponding entities.
         """
         self.hass_app = hass_app
         self.notification_config = notification_config
 
         # Map notification levels to their respective methods
-        self.level_methods = {
-            1: self.notify_level_1,
-            2: self.notify_level_2,
-            3: self.notify_level_3,
-            4: self.notify_level_4,
+        self.level_methods: dict[int, Callable | None] = {
+            1: self._notify_level_1_additional,
+            2: self._notify_level_2_additional,
+            3: None,
+            4: None,
         }
 
-    def notify(self, fault: str, level: int, additional_info: Optional[dict]):
+    def notify(self, fault: str, level: int, fault_status: "FaultState", additional_info: Optional[dict]) -> None:  # type: ignore
         """
-        Sends a notification based on the specified fault level and additional fault details.
+        Sends or clears notifications based on fault status, using the fault name as a unique tag.
 
-        Depending on the notification level, this method triggers different actions, such as
-        sending alerts to mobile devices, updating the Home Assistant dashboard, or controlling
-        home automation entities like lights and alarms to indicate the severity of the fault.
-
-        Args:
-            fault (str): Name of the fault.
-            level (int): The notification level, determining the type of notification to send.
-            additional_info (Optional[dict]): Additional details about the fault, which can be included
-                in the notification message. Defaults to None.
+        Parameters:
+            fault: The fault's name, used as a unique tag for the notification.
+            level: Notification level, dictating the notification type.
+            additional_info: Additional fault details (optional) for the notification message.
+            fault_status: Status of the fault ('active' or 'cleared').
         """
 
         # Construct the message to be sent
-        message = f"Fault Detected: {fault}\n"
+        message = f"{fault}\n"
         if additional_info:
             for key, value in additional_info.items():
                 message += f"{key}: {value}\n"
 
-        # Call the corresponding method for the notification level
-        notify_method = self.level_methods.get(level)
-        if notify_method:
-            notify_method(message)
+        if fault_status == FaultState.SET:
+            self._process_active_fault(level, message, fault)
+            self.hass_app.log(
+                f"Notification for set for {fault} was process with  message {message}",
+                level="DEBUG",
+            )
+        elif fault_status == FaultState.CLEARED:
+            pass # No clear for faults
+            #self._clear_fault_notification(fault)
+        else:
+            self.hass_app.log(f"Invalid fault status '{fault_status}'", level="WARNING")
+
+    def _process_active_fault(self, level: int, message: str, fault_tag: str) -> None:
+        self._notify_company_app(level, message, fault_tag)
+        #self._set_dashboard_notification(message, level) # TODO Maybe to be deleted
+        additional_actions = self.level_methods.get(level)
+        if additional_actions:
+            additional_actions()
         else:
             self.hass_app.log(
-                f"Notification level {level} is not supported.", level="WARNING"
+                f"Notification level {level} has not additional actions", level="DEBUG"
             )
 
-    def set_dashboard_notification(self, message: str, level: str):
+    def _clear_fault_notification(self, fault_tag: str) -> None:
+        self.hass_app.call_service(
+            "notify/notify", message="clear_notification", data={"tag": fault_tag}
+        )
+
+    def _set_dashboard_notification(self, message: str, level: int) -> None:
         """
-        Displays a message on the Home Assistant dashboard corresponding to the specified level.
+        Displays a notification message on the Home Assistant dashboard based on severity level.
 
-        This method is used for informational purposes, providing updates or alerts on the Home Assistant
-        dashboard based on the severity level of the message.
-
-        Args:
-            message (str): The message to display on the dashboard.
-            level (str): The severity level ('info', 'warning', or 'hazard') of the message, which may
-                determine the style or placement of the notification on the dashboard.
+        Parameters:
+            message: The message to be displayed.
+            level: The message's severity level, influencing its presentation.
         """
         # This function assumes that you have an entity in Home Assistant that represents
         # a text field on a dashboard. You would need to create this entity and configure it
@@ -115,14 +122,15 @@ class NotificationManager:
                 f"No dashboard entity configured for level '{level}'", level="WARNING"
             )
 
-    def notify_level_1(self, message):
-        # Send a high-priority notification to the phone, sound alarm, and turn light red
-        self.hass_app.call_service(
-            "notify/notify",
-            message=message,
-            title="High Priority Alert",
-            data={"priority": "high"},
-        )
+    def _notify_level_1_additional(self) -> None:
+        """
+        Triggers an immediate response for level 1 notifications by sounding an alarm and turning lights red.
+        This method represents the highest priority action, indicating an immediate emergency.
+
+        Args:
+            message (str): The detailed message for the notification, not directly used in this method but
+                           required for consistency with the interface.
+        """
         self.hass_app.call_service(
             "alarm_control_panel/alarm_trigger",
             entity_id=self.notification_config["alarm_entity"],
@@ -133,23 +141,104 @@ class NotificationManager:
             color_name="red",
         )
 
-    def notify_level_2(self, message):
-        # Send a high-priority notification to the phone and dashboard, turn light yellow
-        self.hass_app.call_service(
-            "notify/notify", message=message, title="Alert", data={"priority": "high"}
-        )
-        self.set_dashboard_notification(message, "hazard")
+    def _notify_level_2_additional(self) -> None:
+        """
+        Handles level 2 notifications by turning lights yellow, symbolizing a hazard that may not require
+        immediate evacuation but still demands attention.
+
+        Args:
+            message (str): The detailed message for the notification, not directly used in this method but
+                           required for consistency with the interface.
+        """
         self.hass_app.call_service(
             "light/turn_on",
             entity_id=self.notification_config["light_entity"],
             color_name="yellow",
         )
 
-    def notify_level_3(self, message):
-        # Send a normal notification to the phone and as a warning to the dashboard
-        self.hass_app.call_service("notify/notify", message=message, title="Warning")
-        self.set_dashboard_notification(message, "warning")
+    def _prepare_notification_data(
+        self, level: int, message: str, fault_tag: str
+    ) -> dict:
+        """
+        Prepares the notification data based on the level and fault details.
 
-    def notify_level_4(self, message):
-        # Only display the information on the dashboard
-        self.set_dashboard_notification(message, "info")
+        Args:
+            level (int): The urgency level of the notification.
+            fault (str): The fault identifier.
+            message (str): The message to be sent.
+
+        Returns:
+            dict: The notification data ready to be sent.
+        """
+        base_url = "/home-safety/home_safety_overview"
+        common_data = {"persistent": True, "clickAction": base_url, "tag": fault_tag}
+
+        notification_configs = {
+            1: {
+                "title": "Immediate Emergency!",
+                "message": message,
+                "data": {
+                    **common_data,
+                    "color": "#FF0000",  # Red for immediate emergencies.
+                    "vibrationPattern": "100, 1000, 100, 1000, 100",
+                    "sticky": True,
+                    "notification_icon": "mdi:exit-run",
+                    "importance": "high",  # Setting high importance for level 1 notifications
+                },
+            },
+            2: {
+                "title": "Hazard!",
+                "message": message,
+                "data": {
+                    **common_data,
+                    "color": "#FFA500",  # Orange, a mix of yellow and red.
+                    "sticky": True,
+                    "notification_icon": "mdi:hazard-lights",
+                },
+            },
+            3: {
+                "title": "Warning!",
+                "message": message,
+                "data": {
+                    **common_data,
+                    "color": "#FFFF00",  # Hex code for yellow.
+                    "sticky": True,
+                    "notification_icon": "mdi:home-alert",
+                },
+            },
+            # Level 4 is intentionally left out as per previous instructions
+        }
+
+        return notification_configs.get(level, {})
+
+    def _notify_company_app(self, level: int, message: str, fault_tag: str) -> None:
+        """
+        Sends a company app notification based on the specified level and fault details.
+
+        Args:
+            level (int): The notification level.
+            fault (str): The fault identifier.
+            message (str): The detailed message for the notification.
+        """
+        if level == 4:
+            # No notification is sent for level 4.
+            return
+
+        notification_data = self._prepare_notification_data(level, message, fault_tag)
+        if notification_data:
+            # Convert dict to JSON string if necessary or use as is for service call.
+            # json_data = json.dumps(notification_data['data'])
+            self.hass_app.call_service(
+                "notify/notify",
+                title=notification_data["title"],
+                message=notification_data["message"],
+                data=notification_data["data"],
+            )
+            self.hass_app.log(
+                f'Notification details for {fault_tag} : {notification_data["title"]} {notification_data["message"]} {notification_data["data"]}',
+                level="DEBUG",
+            )
+        else:
+            self.hass_app.log(
+                f"No notification configuration for level {level}", level="WARNING"
+            )

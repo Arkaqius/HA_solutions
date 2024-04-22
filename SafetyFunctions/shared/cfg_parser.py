@@ -53,7 +53,6 @@ def get_prefaults(
 
     ret_val: dict[str, PreFault] = {}
     # Initialize all prefaults
-    print(prefault_dict)
     for prefault_name, prefault_data in prefault_dict.items():
         sm_name = prefault_data["safety_mechanism"]
         module = prefault_data["component_name"]

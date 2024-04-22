@@ -36,13 +36,21 @@ Note:
 """
 
 import appdaemon.plugins.hass.hassapi as hass
+from shared.safety_component import SafetyComponent
 from shared.temperature_component import TemperatureComponent
 from shared.fault_manager import FaultManager, Fault, PreFault
 from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 import shared.cfg_parser as cfg_pr
 
-# from remote_pdb import RemotePdb
+DEBUG = False
+
+if DEBUG:
+    from remote_pdb import RemotePdb
+
+COMPONENT_DICT: dict[str, SafetyComponent] = {
+    "TemperatureComponent": TemperatureComponent
+}
 
 
 class SafetyFunctions(hass.Hass):
@@ -57,34 +65,50 @@ class SafetyFunctions(hass.Hass):
         """
         # Disable all the no-member violations in this function
         # pylint: disable=attribute-defined-outside-init
-        # RemotePdb('172.30.33.4', 5050).set_trace()
+        self.set_state("sensor.safety_app_health", state="init")
+        if DEBUG:
+            RemotePdb('172.30.33.4', 5050).set_trace()
         self.sm_modules: dict = {}
         self.prefaults: dict[str, PreFault] = {}
         self.faults: dict[str, Fault] = {}
 
-        # Get and verify cfgs
-        self.prefault_dict = self.args["prefaults"]
-        self.fault_dict = self.args["faults"]
-        self.notification_cfg = self.args["notification"]
+        # 10. Get and verify cfgs
+        self.fault_dict = self.args["app_config"]["faults"]
+        self.safety_components_cfg = self.args["user_config"]["safety_components"]
+        self.notification_cfg = self.args["user_config"]["notification"]
 
-        # Initialize notification manager
+        # 20. Initialize notification manager
         self.notify_man: NotificationManager = NotificationManager(
             self, self.notification_cfg
         )
 
-        # Initialize recovery manager
+        # 30. Initialize recovery manager
         self.reco_man: RecoveryManager = RecoveryManager()
 
-        # Initalize SM modules
-        self.sm_modules["TemperatureComponent"] = TemperatureComponent(self)
+        # 40. Initialize SM modules and prefaults
+        for component_name, component_cls  in COMPONENT_DICT.items():
+            if component_name in self.safety_components_cfg:
+                # Instantiate the component with 'self' passed to its constructor
+                component_instance = component_cls(
+                    self
+                )  # Assuming the constructor expects a reference to `self`
 
-        # Initialize prefaults
-        self.prefaults = cfg_pr.get_prefaults(self.sm_modules, self.prefault_dict)
+                # Store the instance in a dictionary
+                self.sm_modules[component_name] = component_instance
 
-        # Initialize faults
+                # Get configuration for this component
+                component_cfg = self.safety_components_cfg[component_name]
+
+                # Get pre-faults from the component instance
+                prefaults_data = component_instance.get_prefaults(self.sm_modules,component_cfg)
+
+                # Update the prefaults dictionary with new PreFaults
+                self.prefaults.update(prefaults_data)
+
+        # 50. Initialize faults
         self.faults = cfg_pr.get_faults(self.fault_dict)
 
-        # Initialize fault manager
+        # 60. Initialize fault manager
         self.fm: FaultManager = FaultManager(
             self,
             self.notify_man,
@@ -94,13 +118,24 @@ class SafetyFunctions(hass.Hass):
             self.faults,
         )
 
-        # Register fm to safety components
+        # 70. Register fm to safety components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # Enable prefaults
+        # 80. Register all prefaults 
+        self.register_entities(self.faults)
+
+        # 90. Enable prefaults and init safety mechanisms
         self.fm.enable_prefaults()
 
-        # Set the health status after initialization
+        # 100. Set the health status after initialization
         self.set_state("sensor.safety_app_health", state="good")
-        self.log("Safety app started")
+        self.log("Safety app started",level = "DEBUG")
+        
+    def register_entities(self, faults: dict[str, Fault]) -> None:
+        for name, data in faults.items():
+            self.set_state(
+                "sensor.fault_" + name,
+                state="Not_tested",
+                attributes={"friendly_name": name, "location": "None"},
+            )

@@ -5,8 +5,6 @@ This module defines the core components and logic necessary for managing faults 
 It facilitates the detection, tracking, and resolution of fault conditions, integrating closely with safety mechanisms to proactively address potential issues before they escalate into faults.
 
 Classes:
-    FaultState (Enum): Enumerates the possible states of faults within the system.
-    SMState (Enum): Enumerates the operational states of Safety Mechanisms (SMs).
     PreFault: Represents pre-fault conditions that are potential precursors to faults.
     Fault: Represents faults within the system, which are conditions requiring attention.
     FaultManager: Manages faults and pre-faults, orchestrating detection and response.
@@ -28,104 +26,11 @@ Note:
 """
 
 from enum import Enum
-from typing import Callable, Optional
+from typing import Optional
 from shared.recovery_manager import RecoveryManager
 from shared.notification_manager import NotificationManager
-
-
-class FaultState(Enum):
-    """
-    Represents the possible states of a fault and prefaults within the safety management system.
-
-    Attributes:
-        NOT_TESTED: Initial state, indicating the fault has not yet been tested.
-        SET: Indicates that the fault condition has been detected.
-        CLEARED: Indicates that the fault condition has been resolved.
-    """
-
-    NOT_TESTED = 0
-    SET = 1
-    CLEARED = 2
-
-
-class SMState(Enum):
-    """
-    Represents the operational states of a Safety Mechanism (SM).
-
-    Attributes:
-        DISABLED: Indicates the SM is currently inactive or turned off.
-        ENABLED: Indicates the SM is active and monitoring for conditions.
-    """
-
-    DISABLED = 0
-    ENABLED = 1
-
-
-class PreFault:
-    """
-    Represents a pre-fault condition within the system, potentially leading to a fault.
-
-    Pre-faults are conditions identified as precursors to faults, allowing preemptive actions
-    to avoid faults altogether or mitigate their effects.
-
-    Attributes:
-        name (str): The name of the pre-fault.
-        sm_name (str): The name of the safety mechanism associated with this pre-fault.
-        module: The module where the safety mechanism is defined.
-        parameters (dict): Configuration parameters for the pre-fault.
-        recover_actions (Callable | None): The recovery action to execute if this pre-fault is triggered.
-        state (FaultState): The current state of the pre-fault.
-        sm_state (SMState): The operational state of the associated safety mechanism.
-
-    Args:
-        name (str): The name identifier of the pre-fault.
-        sm_name (str): The safety mechanism's name associated with this pre-fault.
-        module: The module object where the safety mechanism's logic is implemented.
-        parameters (dict): A dictionary of parameters relevant to the pre-fault condition.
-        recover_actions (Callable | None, optional): A callable that executes recovery actions for this pre-fault. Defaults to None.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        sm_name: str,
-        module,
-        parameters: dict,
-        recover_actions: Callable | None = None,
-    ) -> None:
-        self.name: str = name
-        self.sm_name: str = sm_name
-        self.module = module
-        self.state: FaultState = FaultState.NOT_TESTED
-        self.recover_actions: Callable | None = recover_actions
-        self.parameters: dict = parameters
-        self.sm_state = SMState.DISABLED
-
-
-class Fault:
-    """
-    Represents a fault within the safety management system.
-
-    A fault is a condition that has been identified as an error or failure state within
-    the system, requiring notification and possibly recovery actions.
-
-    Attributes:
-        name (str): The name of the fault.
-        state (FaultState): The current state of the fault.
-        related_prefaults (list): A list of pre-faults related to this fault.
-        notification_level (int): The severity level of the fault for notification purposes.
-
-    Args:
-        name (str): The name identifier of the fault.
-        related_prefaults (list): List of names of safety mechanism that can trigger this fault.
-        notification_level (int): The severity level assigned to this fault for notification purposes.
-    """
-
-    def __init__(self, name, related_prefaults: list, notification_level: int):
-        self.name: str = name
-        self.state: FaultState = FaultState.NOT_TESTED
-        self.related_prefaults = related_prefaults
-        self.notification_level: int = notification_level
+from shared.types_common import FaultState, SMState, PreFault, Fault
+import appdaemon.plugins.hass.hassapi as hass
 
 
 class FaultManager:
@@ -152,8 +57,8 @@ class FaultManager:
 
     def __init__(
         self,
-        hass,
-        notify_man,
+        hass: hass,
+        notify_man: NotificationManager,
         recovery_man: RecoveryManager,
         sm_modules: dict,
         prefault_dict: dict,
@@ -171,7 +76,7 @@ class FaultManager:
         self.sm_modules = sm_modules
         self.hass = hass
 
-    def enable_prefaults(self):
+    def enable_prefaults(self) -> None:
         """
         Enables all pre-faults by initializing them with their respective safety mechanisms.
 
@@ -194,8 +99,13 @@ class FaultManager:
             result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
                 prefault_data.sm_state = SMState.ENABLED
+                # Force each sm to get state if possible
+                sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+                sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
 
-    def set_prefault(self, prefault_id, additional_info=None):
+    def set_prefault(
+        self, prefault_id: str, additional_info: Optional[dict] = None
+    ) -> None:
         """
         Sets a pre-fault to its active state, indicating a potential fault condition.
 
@@ -214,7 +124,7 @@ class FaultManager:
         # Call Related Fault
         self._set_fault(prefault_id, additional_info)
 
-    def clear_prefault(self, prefault_id, additional_info):
+    def clear_prefault(self, prefault_id: str, additional_info: dict) -> None:
         """
         Clears a pre-fault state, indicating that the condition leading to a potential fault has been resolved.
 
@@ -239,7 +149,7 @@ class FaultManager:
         # Call Related Fault
         self._clear_fault(prefault_id, additional_info)
 
-    def check_prefault(self, prefault_id) -> FaultState:
+    def check_prefault(self, prefault_id: str) -> FaultState:
         """
         Checks the current state of a specified pre-fault.
 
@@ -261,7 +171,7 @@ class FaultManager:
         """
         return self.prefaults[prefault_id].state
 
-    def _set_fault(self, prefault_id: str, additional_info: Optional[dict]):
+    def _set_fault(self, prefault_id: str, additional_info: Optional[dict]) -> None:
         """
         Sets the state of a fault based on a triggered pre-fault condition.
 
@@ -291,10 +201,29 @@ class FaultManager:
         if fault:
             # Set Fault
             fault.state = FaultState.SET
+            self.hass.log(f"Fault {fault.name} was set", level="DEBUG")
 
+            # Determinate additional info
+            info_to_send = self._determinate_info(
+                "sensor.fault_" + fault.name, additional_info, FaultState.SET
+            )
+
+            # Prepare the attributes for the state update
+            attributes = info_to_send if info_to_send else {}
+
+            # Clear HA entity
+            self.hass.set_state(
+                "sensor.fault_" + fault.name,
+                state="Set",
+                attributes=attributes
+            )
+            
             # Call notifications
             self.notify_man.notify(
-                fault.name, fault.notification_level, additional_info
+                fault.name,
+                fault.notification_level,
+                FaultState.SET,
+                additional_info,
             )
 
             # Call recovery actions (specific for prefault)
@@ -305,7 +234,76 @@ class FaultManager:
         else:
             pass  # Error logged in previous call
 
-    def _clear_fault(self, prefault_id: str, additional_info):
+    def _determinate_info(
+        self, entity_id: str, additional_info: Optional[dict], fault_state: FaultState
+    ) -> Optional[dict]:
+        """
+        Determine the information to send based on the current state and attributes of the entity,
+        merging or clearing it with additional information provided based on the fault state.
+
+        Args:
+            entity_id (str): The Home Assistant entity ID to check.
+            additional_info (Optional[dict]): Additional details to merge with or clear from the entity's current attributes.
+            fault_state (FaultState): The state of the fault, either Set or Cleared.
+
+        Returns:
+            Optional[dict]: The updated information as a dictionary, or None if there is no additional info.
+        """
+        # If no additional info is provided, return None
+        if not additional_info:
+            return None
+
+        # Retrieve the current state object for the entity
+        state = self.hass.get_state(entity_id, attribute="all")
+        # If the entity does not exist, simply return the additional info if the fault is being set
+        if not state:
+            return additional_info if fault_state == FaultState.SET else {}
+
+        # Get the current attributes of the entity; if none exist, initialize to an empty dict
+        current_attributes = state.get("attributes", {})
+        if fault_state == FaultState.SET:
+            # Prepare the information to send by merging or updating current attributes with additional info
+            info_to_send = current_attributes.copy()
+            for key, value in additional_info.items():
+                if key in current_attributes and current_attributes[key] not in [
+                    None,
+                    "None",
+                    "",
+                ]:
+                    # If the current attribute exists and is not None, check if the value needs updating
+                    current_value = current_attributes[key]
+                    # If the current attribute is a comma-separated string, append new value if it's not already included
+                    if isinstance(
+                        current_value, str
+                    ) and value not in current_value.split(", "):
+                        current_value += ", " + value
+                    info_to_send[key] = current_value
+                else:
+                    # If the current attribute is None or does not exist, set it to the new value
+                    info_to_send[key] = value
+            return info_to_send
+        elif fault_state == FaultState.CLEARED:
+            # Clear specified keys from the current attributes if they exist
+            info_to_send = current_attributes.copy()
+            for key in additional_info.keys():
+                if key in info_to_send:
+                    # Check if other values need to remain (if it was a list converted to string)
+                    if ", " in info_to_send[key]:
+                        # Remove only the specified value and leave others if any
+                        new_values = [
+                            val
+                            for val in info_to_send[key].split(", ")
+                            if val != additional_info[key]
+                        ]
+                        info_to_send[key] = ", ".join(new_values)
+                    else:
+                        # Completely remove the key if only one value was stored
+                        del info_to_send[key]
+            return info_to_send
+
+        return additional_info
+
+    def _clear_fault(self, prefault_id: str, additional_info: dict) -> None:
         """
         Clears the state of a fault based on the resolution of a triggering pre-fault condition.
 
@@ -342,13 +340,32 @@ class FaultManager:
         ):  # If Fault was found and if other fault related prefaults are not raised
             # Clear Fault
             fault.state = FaultState.CLEARED
+            self.hass.log(f"Fault {fault.name} was cleared", level="DEBUG")
+
+            # Determinate additional info
+            info_to_send = self._determinate_info(
+                "sensor.fault_" + fault.name, additional_info, FaultState.SET
+            )
+            
+            # Prepare the attributes for the state update
+            attributes = info_to_send if info_to_send else {}
+
+            # Clear HA entity
+            self.hass.set_state(
+                "sensor.fault_" + fault.name,
+                state="Cleared",
+                attributes=attributes
+            )
 
             # Call notifications
             self.notify_man.notify(
-                fault.name, fault.notification_level, additional_info
+                fault.name,
+                fault.notification_level,
+                FaultState.CLEARED,
+                additional_info,
             )
 
-    def check_fault(self, fault_id):
+    def check_fault(self, fault_id: str) -> FaultState:
         """
         Checks the current state of a specified fault.
 

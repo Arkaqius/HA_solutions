@@ -45,7 +45,7 @@ class RecoveryManager:
     strategies for different fault scenarios.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Recovery Manager.
 
@@ -54,7 +54,7 @@ class RecoveryManager:
         """
         pass
 
-    def recovery(self, recovery_action: Callable, additional_info):
+    def recovery(self, recovery_action: Callable, additional_info : dict | None) -> None:
         """
         Executes a specified recovery action with the given additional information.
 

@@ -1,7 +1,7 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from shared.temperature_component import TemperatureComponent
-from shared.fault_manager import FaultState
+from shared.types_common import FaultState
 
 # Assuming SafetyFunctions is in the correct import path
 from SafetyFunctions import SafetyFunctions
