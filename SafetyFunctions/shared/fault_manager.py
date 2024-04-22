@@ -99,9 +99,9 @@ class FaultManager:
             result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
                 prefault_data.sm_state = SMState.ENABLED
-            # Force each sm to get state if possible
-            sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
-            sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
+                # Force each sm to get state if possible
+                sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+                sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
 
     def set_prefault(
         self, prefault_id: str, additional_info: Optional[dict] = None

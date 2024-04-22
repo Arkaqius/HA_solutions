@@ -59,6 +59,9 @@ class TemperatureComponent(SafetyComponent):
             hass_app (hass.Hass): The Home Assistant application instance through which sensor data is accessed and actions are executed.
         """
         super().__init__(hass_app)
+        # Initialize instance variables
+        self.safety_mechanisms = {}  # Ensures each instance has its own mechanisms
+        self.debounce_states = {}    # Ensures each instance has its own debounce states
 
     def get_prefaults(
         self, sm_modules: dict, component_cfg: list[Dict[str, Dict[str, float]]]
