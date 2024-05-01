@@ -76,32 +76,53 @@ class FaultManager:
         self.sm_modules = sm_modules
         self.hass = hass
 
-    def enable_prefaults(self) -> None:
+    def init_safety_mechanisms(self) -> None:
         """
-        Enables all pre-faults by initializing them with their respective safety mechanisms.
+        Initializes safety mechanisms for each pre-fault condition.
 
-        This method iterates through all registered pre-faults, retrieves the initialization function
-        for each pre-fault's associated safety mechanism, and calls this function with the pre-fault's
-        name and parameters. This is typically used to set up and activate monitoring for conditions
-        that could lead to faults, ensuring that the safety mechanisms are ready to detect and
-        respond to potential issues.
+        This function iterates over all pre-faults defined in the system, initializing their respective
+        safety mechanisms as specified by the safety mechanism's name (`sm_name`). It also sets the initial state
+        of the pre-faults to DISABLED if initialization is successful, or to ERROR otherwise.
 
-        Each pre-fault's associated module must contain an initialization function named after
-        the pattern 'init_{sm_name}', where {sm_name} is the safety mechanism's name associated
-        with the pre-fault. This function is expected to configure or activate the safety mechanism
-        as necessary.
-
-        Raises:
-            AttributeError: If the initialization function for a pre-fault's safety mechanism is not found.
+        It uses dynamic function invocation based on the `sm_name` to call the initialization function of each
+        safety mechanism. If the initialization is successful, the safety mechanism state for the pre-fault is
+        set to DISABLED; if it fails, it is set to ERROR.
         """
         for prefault_name, prefault_data in self.prefaults.items():
             init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
             result: bool = init_fcn(prefault_name, prefault_data.parameters)
             if result:
-                prefault_data.sm_state = SMState.ENABLED
-                # Force each sm to get state if possible
-                sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
-                sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
+                prefault_data.sm_state = SMState.DISABLED
+            else:
+                prefault_data.sm_state = SMState.ERROR
+
+    def enable_all_prefaults(self) -> None:
+        """
+        Enables all pre-fault safety mechanisms that are currently disabled.
+
+        This method iterates through all pre-faults stored in the system, and for each one that is in a DISABLED
+        state, it attempts to enable the safety mechanism associated with it. The enabling function is dynamically
+        invoked based on the `sm_name`. If the enabling operation is successful, the pre-fault state is updated
+        to ENABLED, otherwise, it remains in ERROR.
+
+        During the enabling process, the system also attempts to fetch and update the state of the safety mechanisms
+        directly through the associated safety mechanism's function, updating the system's understanding of each
+        pre-fault's current status.
+        """
+        for prefault_name, prefault_data in self.prefaults.items():
+            if prefault_data.sm_state == SMState.DISABLED:
+
+                enable_fcn = getattr(
+                    prefault_data.module, "enable_" + prefault_data.sm_name
+                )
+                result: bool = enable_fcn(prefault_name, SMState.ENABLED)
+                if result:
+                    prefault_data.sm_state = SMState.ENABLED
+                    # Force each sm to get state if possible
+                    sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+                    sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
+                else:
+                    prefault_data.sm_state = SMState.ERROR
 
     def set_prefault(
         self, prefault_id: str, additional_info: Optional[dict] = None
@@ -213,11 +234,9 @@ class FaultManager:
 
             # Clear HA entity
             self.hass.set_state(
-                "sensor.fault_" + fault.name,
-                state="Set",
-                attributes=attributes
+                "sensor.fault_" + fault.name, state="Set", attributes=attributes
             )
-            
+
             # Call notifications
             self.notify_man.notify(
                 fault.name,
@@ -346,15 +365,13 @@ class FaultManager:
             info_to_send = self._determinate_info(
                 "sensor.fault_" + fault.name, additional_info, FaultState.SET
             )
-            
+
             # Prepare the attributes for the state update
             attributes = info_to_send if info_to_send else {}
 
             # Clear HA entity
             self.hass.set_state(
-                "sensor.fault_" + fault.name,
-                state="Cleared",
-                attributes=attributes
+                "sensor.fault_" + fault.name, state="Cleared", attributes=attributes
             )
 
             # Call notifications

@@ -28,6 +28,7 @@ from enum import Enum
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import PreFault, RecoveryAction, SMState
 
 NO_NEEDED = False
 
@@ -98,8 +99,9 @@ class SafetyComponent:
         _debounce: Implements debouncing logic for state changes.
         process_prefault: Processes potential pre-fault conditions based on debouncing logic.
     """
+
     component_name = "UNKNOWN"  # Default value for the parent class
-    
+
     def __init__(
         self,
         hass_app: hass.Hass,
@@ -112,9 +114,11 @@ class SafetyComponent:
         self.hass_app = hass_app
         self.fault_man: Optional[FaultManager] = None
 
-    def get_prefaults(self, modules : dict, component_cfg : str) -> dict:
+    def get_prefaults_data(
+        self, modules: dict, component_cfg: list[dict[str, Any]]
+    ) -> tuple[dict[str, PreFault], dict[str, RecoveryAction]]:
         raise NotImplementedError
-    
+
     def register_fm(self, fm: FaultManager) -> None:
         """
         Registers a FaultManager instance with this component, enabling interaction with the fault management system.
@@ -365,8 +369,11 @@ class SafetyComponent:
             # Debouncing not necessary at all (Test failed and prefault already raised or
             #  test passed and fault already cleared)
             pass
-        
-        self.hass_app.log(f"Leaving  process_prefault for {prefault_id} with counter:{debounce_result.counter} and force_sm {force_sm}",level="DEBUG")
+
+        self.hass_app.log(
+            f"Leaving  process_prefault for {prefault_id} with counter:{debounce_result.counter} and force_sm {force_sm}",
+            level="DEBUG",
+        )
         return debounce_result.counter, force_sm
 
 

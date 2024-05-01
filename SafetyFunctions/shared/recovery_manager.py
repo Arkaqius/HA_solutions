@@ -28,6 +28,7 @@ This module's approach to fault recovery empowers developers to construct robust
 """
 
 from typing import Callable
+import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 
 class RecoveryManager:
@@ -45,16 +46,29 @@ class RecoveryManager:
     strategies for different fault scenarios.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, hass_app: hass.Hass, recovery_config: dict) -> None:
         """
-        Initializes the Recovery Manager.
+        Initializes the RecoveryManager with the necessary application context and recovery configuration.
 
-        Currently, no configuration parameters are required upon initialization, but this method
-        provides a placeholder for future enhancements and configuration options.
+        The constructor sets up the RecoveryManager by assigning the Home Assistant application context and
+        a dictionary that contains configuration details for various recovery actions. This configuration
+        dictionary is expected to map fault identifiers or types to specific callable functions that
+        represent the recovery actions for those faults.
+
+        Args:
+            hass_app (hass.Hass): The Home Assistant application context, providing access to system-wide
+                functionality and enabling the RecoveryManager to interact with other components and entities
+                within the Home Assistant environment.
+            recovery_config (dict):
+
+        This setup allows the RecoveryManager to dynamically execute the appropriate recovery actions
+        based on the faults detected within the system, promoting a flexible and responsive fault management
+        framework.
         """
-        pass
+        self.hass_app = hass_app
+        self.recovery_dict: dict = recovery_config
 
-    def recovery(self, recovery_action: Callable, additional_info : dict | None) -> None:
+    def recovery(self, recovery_action: Callable, additional_info: dict | None) -> None:
         """
         Executes a specified recovery action with the given additional information.
 

@@ -27,7 +27,7 @@ from shared.safety_component import (
     DebounceState,
 )
 from shared.safety_mechanism import SafetyMechanism
-from shared.types_common import PreFault
+from shared.types_common import PreFault, RecoveryAction, SMState
 
 # CONFIG
 DEBOUNCE_INIT = 1
@@ -61,11 +61,12 @@ class TemperatureComponent(SafetyComponent):
         super().__init__(hass_app)
         # Initialize instance variables
         self.safety_mechanisms = {}  # Ensures each instance has its own mechanisms
-        self.debounce_states = {}    # Ensures each instance has its own debounce states
+        self.debounce_states = {}  # Ensures each instance has its own debounce states
+        self.rec_actions = {}  # Ensures each instance has its own debounce states
 
-    def get_prefaults(
-        self, sm_modules: dict, component_cfg: list[Dict[str, Dict[str, float]]]
-    ) -> Dict[str, "PreFault"]:
+    def get_prefaults_data(
+        self, sm_modules: dict, component_cfg: list[dict[str, Any]]
+    ) -> tuple[Dict[str, PreFault], Dict[str, RecoveryAction]]:
         """
         Retrieve pre-fault configurations from the component configuration and generate corresponding PreFault objects.
 
@@ -81,7 +82,8 @@ class TemperatureComponent(SafetyComponent):
         - One based on direct temperature thresholds.
         - Another based on forecasted temperature conditions.
         """
-        ret_val = {}
+        ret_val_pr: dict[str, PreFault] = {}
+        ret_val_ra: dataict[str, RecoveryAction] = {}
 
         for location_dict in component_cfg:
             for location, data in location_dict.items():
@@ -89,21 +91,38 @@ class TemperatureComponent(SafetyComponent):
                     f"Processing prefaults for location: {location}, data: {data}"
                 )
 
-                prefault_name, prefault = self._get_sm_tc_1_prefault(
-                    sm_modules, location, data
+                # SM TC 1
+                prefault_name = self._get_sm_tc_1_pr_name(location)
+                prefault = self._get_sm_tc_1_prefault(
+                    sm_modules, location, data, prefault_name
                 )
-                ret_val[prefault_name] = prefault
-
-                prefault_name, prefault = self._get_sm_tc_2_prefault(
-                    sm_modules, location, data
+                recovery_action = self._get_sm_tc_1_recovery_action(
+                    sm_modules, location, data, prefault_name
                 )
-                ret_val[prefault_name] = prefault
 
-        return ret_val
+                ret_val_pr[prefault_name] = prefault
+                ret_val_ra[prefault_name] = recovery_action
+
+                # SM TC 2
+                prefault_name = self._get_sm_tc_2_pr_name(location)
+                prefault = self._get_sm_tc_2_prefault(
+                    sm_modules, location, data, prefault_name
+                )
+                recovery_action = self._get_sm_tc_2_recovery_action(
+                    sm_modules, location, data, prefault_name
+                )
+
+                ret_val_pr[prefault_name] = prefault
+                ret_val_ra[prefault_name] = recovery_action
+
+        return (ret_val_pr, ret_val_ra)
+
+    def _get_sm_tc_1_pr_name(self, location: str) -> str:
+        return f"RiskyTemperature{location}"
 
     def _get_sm_tc_1_prefault(
-        self, modules: dict, location: str, data: dict
-    ) -> tuple[str, "PreFault"]:
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> PreFault:
         """
         Generates a PreFault object for direct temperature monitoring based on the given location and data.
 
@@ -115,12 +134,11 @@ class TemperatureComponent(SafetyComponent):
             Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
             The PreFault is configured to handle direct temperature conditions.
         """
-        prefault_name = f"RiskyTemperature{location}"
         prefault_params = data
         sm_name = "sm_tc_1"
 
         recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
-        return prefault_name, PreFault(
+        return PreFault(
             module=modules[self.__class__.__name__],
             name=prefault_name,
             parameters=prefault_params,
@@ -128,9 +146,18 @@ class TemperatureComponent(SafetyComponent):
             sm_name=sm_name,
         )
 
+    def _get_sm_tc_1_recovery_action(
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> RecoveryAction:
+        name = f"{prefault_name}_recovery_test"
+        return RecoveryAction(name)
+
+    def _get_sm_tc_2_pr_name(self, location: str) -> str:
+        return f"RiskyTemperature{location}ForeCast"
+
     def _get_sm_tc_2_prefault(
-        self, modules: dict, location: str, data: dict
-    ) -> tuple[str, "PreFault"]:
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> PreFault:
         """
         Generates a PreFault object for forecast-based temperature monitoring based on the given location and data.
 
@@ -142,18 +169,23 @@ class TemperatureComponent(SafetyComponent):
             Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
             The PreFault is configured to handle forecasted temperature conditions.
         """
-        prefault_name = f"RiskyTemperature{location}ForeCast"
         prefault_params = data
         sm_name = "sm_tc_2"
 
         recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
-        return prefault_name, PreFault(
+        return PreFault(
             module=modules[self.__class__.__name__],
             name=prefault_name,
             parameters=prefault_params,
             recover_actions=recovery_func,
             sm_name=sm_name,
         )
+
+    def _get_sm_tc_2_recovery_action(
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> RecoveryAction:
+        name = f"{prefault_name}_recovery_test"
+        return RecoveryAction(name)
 
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
@@ -198,6 +230,7 @@ class TemperatureComponent(SafetyComponent):
                 self.hass_app,
                 self.sm_tc_1,  # The method to call
                 name,
+                isEnabled=False,
                 temperature_sensor=parameters["temperature_sensor"],
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
             )
@@ -205,6 +238,7 @@ class TemperatureComponent(SafetyComponent):
             self.debounce_states[name] = DebounceState(
                 debounce=DEBOUNCE_INIT, force_sm=False
             )
+            # Add recovery actions
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
@@ -258,6 +292,7 @@ class TemperatureComponent(SafetyComponent):
                 self.hass_app,
                 self.sm_tc_2,  # The method to call for sm_tc_2
                 name,
+                isEnabled=False,
                 temperature_sensor=parameters["temperature_sensor"],
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
                 forecast_timespan=parameters["CAL_FORECAST_TIMESPAN"],
@@ -275,6 +310,26 @@ class TemperatureComponent(SafetyComponent):
             return True
         else:
             self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
+            return False
+
+    def enable_sm_tc_1(self, name: str, state: SMState) -> bool:
+        if state == SMState.ENABLED:
+            self.safety_mechanisms[name].isEnabled = True
+            return True
+        elif state == SMState.DISABLED:
+            self.safety_mechanisms[name].isEnabled = False
+            return True
+        else:
+            return False
+
+    def enable_sm_tc_2(self, name: str, state: SMState) -> bool:
+        if state == SMState.ENABLED:
+            self.safety_mechanisms[name].isEnabled = True
+            return True
+        elif state == SMState.DISABLED:
+            self.safety_mechanisms[name].isEnabled = False
+            return True
+        else:
             return False
 
     @safety_mechanism_decorator
@@ -296,36 +351,37 @@ class TemperatureComponent(SafetyComponent):
         Note:
             This method is wrapped with a decorator to log its execution and handle any exceptions gracefully.
         """
-        temperature: float = 0.0
+        if sm.isEnabled:
+            temperature: float = 0.0
 
-        # Get inputs
-        try:
-            temperature = float(
-                self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+            # Get inputs
+            try:
+                temperature = float(
+                    self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+                )
+            except ValueError as e:
+                self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
+                return  # Exit if temperature conversion fails
+
+            # Retrieve the current debounce state for this mechanism
+            current_state = self.debounce_states[sm.name]
+
+            # Perform SM logic
+            new_debounce, force_sm = self.process_prefault(
+                prefault_id=sm.name,
+                current_counter=current_state.debounce,
+                pr_test=temperature < sm.sm_args["cold_thr"],
+                additional_info={"location": "office"},  # Example additional info
             )
-        except ValueError as e:
-            self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
-            return  # Exit if temperature conversion fails
 
-        # Retrieve the current debounce state for this mechanism
-        current_state = self.debounce_states[sm.name]
+            # Update the debounce state with the new values
+            self.debounce_states[sm.name] = DebounceState(
+                debounce=new_debounce, force_sm=force_sm
+            )
 
-        # Perform SM logic
-        new_debounce, force_sm = self.process_prefault(
-            prefault_id=sm.name,
-            current_counter=current_state.debounce,
-            pr_test=temperature < sm.sm_args["cold_thr"],
-            additional_info={"location": "office"},  # Example additional info
-        )
-
-        # Update the debounce state with the new values
-        self.debounce_states[sm.name] = DebounceState(
-            debounce=new_debounce, force_sm=force_sm
-        )
-
-        if force_sm:
-            # Schedule to run `sm_tc_1` again after 30 seconds if inhibited
-            self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 30)
+            if force_sm:
+                # Schedule to run `sm_tc_1` again after 30 seconds if inhibited
+                self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 30)
 
     @safety_mechanism_decorator
     def sm_tc_2(self, sm: SafetyMechanism, **kwargs: dict[str, dict]) -> None:
@@ -346,50 +402,51 @@ class TemperatureComponent(SafetyComponent):
         Note:
             Enhanced with a decorator for execution logging and error management, ensuring robust operation.
         """
-        temperature: float = 0.0
-        temperature_rate: float = 0.0
+        if sm.isEnabled:
+            temperature: float = 0.0
+            temperature_rate: float = 0.0
 
-        # Get inputs
-        try:
-            temperature = float(
-                self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+            # Get inputs
+            try:
+                temperature = float(
+                    self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+                )
+            except ValueError as e:
+                self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
+                return  # Exit if there's a conversion error
+            temperature_rate = sm.sm_args["diverative"]
+
+            # Ensure sm_args["forecast_timespan"] is in hours for this calculation
+            forecast_timespan_in_minutes = (
+                sm.sm_args["forecast_timespan"] * 60
+            )  # Convert hours to minutes
+
+            # Calculate forecasted temperature for the specified timespan
+            # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
+            forecasted_temperature = (
+                temperature + temperature_rate * forecast_timespan_in_minutes
             )
-        except ValueError as e:
-            self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
-            return  # Exit if there's a conversion error
-        temperature_rate = sm.sm_args["diverative"]
 
-        # Ensure sm_args["forecast_timespan"] is in hours for this calculation
-        forecast_timespan_in_minutes = (
-            sm.sm_args["forecast_timespan"] * 60
-        )  # Convert hours to minutes
+            # Retrieve the current debounce state for this mechanism
+            current_state = self.debounce_states[sm.name]
 
-        # Calculate forecasted temperature for the specified timespan
-        # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
-        forecasted_temperature = (
-            temperature + temperature_rate * forecast_timespan_in_minutes
-        )
+            # Perform SM logic
+            new_debounce, inhibit = self.process_prefault(
+                prefault_id=sm.name,  # Example ID, ensure this is dynamically managed or correctly assigned
+                current_counter=current_state.debounce,
+                pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
+                additional_info={"location": "office"},
+                debounce_limit=SM_TC_2_DEBOUNCE_LIMIT,
+            )
 
-        # Retrieve the current debounce state for this mechanism
-        current_state = self.debounce_states[sm.name]
+            # Update the debounce state with the new values
+            self.debounce_states[sm.name] = DebounceState(
+                debounce=new_debounce, force_sm=inhibit
+            )
 
-        # Perform SM logic
-        new_debounce, inhibit = self.process_prefault(
-            prefault_id=sm.name,  # Example ID, ensure this is dynamically managed or correctly assigned
-            current_counter=current_state.debounce,
-            pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
-            additional_info={"location": "office"},
-            debounce_limit=SM_TC_2_DEBOUNCE_LIMIT,
-        )
-
-        # Update the debounce state with the new values
-        self.debounce_states[sm.name] = DebounceState(
-            debounce=new_debounce, force_sm=inhibit
-        )
-
-        if inhibit:
-            # Schedule to run `sm_tc_2` again after 30 seconds if inhibited
-            self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 120)
+            if inhibit:
+                # Schedule to run `sm_tc_2` again after 30 seconds if inhibited
+                self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 120)
 
     def calculate_diff(self, _: "Any") -> None:
 

@@ -18,6 +18,7 @@ offering both ease of use for common use cases and the flexibility to support co
 """
 
 from typing import Callable, List, Any
+import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 
 class SafetyMechanism:
@@ -42,7 +43,14 @@ class SafetyMechanism:
         extract_entities: Utility method to extract entity IDs from keyword arguments.
     """
 
-    def __init__(self, hass_app, callback: Callable[..., Any], name: str, **kwargs):
+    def __init__(
+        self,
+        hass_app: hass,
+        callback: Callable[..., Any],
+        name: str,
+        isEnabled: bool,
+        **kwargs: Any,
+    ):
         """
         Initializes a new instance of the SafetyMechanism class.
 
@@ -51,6 +59,7 @@ class SafetyMechanism:
             callback: The callback function to be executed when the state of a monitored entity changes.
                       The function is expected to accept a single argument: an instance of `SafetyMechanism`.
             name: A descriptive name for this safety mechanism.
+            isEnabled: A flag that indicate if logic shall be executed
             **kwargs: Additional keyword arguments representing entities to monitor and other parameters
                       relevant to the specific safety mechanism being implemented. These arguments are
                       passed through to the callback function.
@@ -59,10 +68,11 @@ class SafetyMechanism:
         self.entities = self.extract_entities(kwargs)
         self.callback = callback
         self.name = name
-        self.setup_listeners()
+        self.isEnabled = isEnabled
         self.sm_args = kwargs
+        self.setup_listeners()
 
-    def setup_listeners(self):
+    def setup_listeners(self) -> None:
         """
         Configures the Home Assistant listeners for state changes on all entities this safety mechanism is monitoring.
 
@@ -73,7 +83,9 @@ class SafetyMechanism:
             self.hass_app.log(f"Setting up listener for entity: {entity}")
             self.hass_app.listen_state(self.entity_changed, entity)
 
-    def entity_changed(self, entity: str, _: str, __: Any, ___: Any, ____: dict):
+    def entity_changed(
+        self, entity: str, _: str, __: Any, ___: Any, ____: dict
+    ) -> None:
         """
         Invoked when a state change is detected for any of the monitored entities, triggering the safety mechanism's callback.
 
