@@ -28,9 +28,9 @@ from enum import Enum
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import PreFault, RecoveryAction, SMState
 
 NO_NEEDED = False
-
 
 class DebounceState(NamedTuple):
     """
@@ -112,7 +112,7 @@ class SafetyComponent:
         self.hass_app = hass_app
         self.fault_man: Optional[FaultManager] = None
 
-    def get_prefaults(self, modules : dict, component_cfg : str) -> dict:
+    def get_prefaults_data(self, modules : dict, component_cfg : list[dict[str, Any]]) -> tuple[dict[str, PreFault],dict[str, RecoveryAction]]:
         raise NotImplementedError
     
     def register_fm(self, fm: FaultManager) -> None:

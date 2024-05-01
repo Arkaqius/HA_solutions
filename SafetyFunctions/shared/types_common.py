@@ -18,7 +18,7 @@ fault management and safety mechanism state tracking. This centralizes state def
 facilitating easier maintenance and updates.
 """
 from enum import Enum
-from typing import Callable
+from typing import Callable, Any
 
 class FaultState(Enum):
     """
@@ -37,15 +37,22 @@ class FaultState(Enum):
 
 class SMState(Enum):
     """
-    Represents the operational states of a Safety Mechanism (SM).
+    Defines the operational states of Safety Mechanisms (SMs) within the safety management system.
+
+    This enumeration helps to clearly define and track the current status of each safety mechanism,
+    facilitating status checks and transitions in response to system events or conditions.
 
     Attributes:
-        DISABLED: Indicates the SM is currently inactive or turned off.
-        ENABLED: Indicates the SM is active and monitoring for conditions.
+        ERROR: Represents a state where the safety mechanism has encountered an error.
+        NON_INITIALIZED: Indicates that the safety mechanism has not been initialized yet.
+        DISABLED: The safety mechanism is initialized but currently disabled, not actively monitoring or acting on safety conditions.
+        ENABLED: The safety mechanism is fully operational and actively engaged in monitoring or controlling its designated safety parameters.
     """
-
-    DISABLED = 0
-    ENABLED = 1
+    ERROR = 0
+    NON_INITIALIZED = 1
+    DISABLED = 2
+    ENABLED = 3
+    
     
 class PreFault:
     """
@@ -85,7 +92,7 @@ class PreFault:
         self.state: FaultState = FaultState.NOT_TESTED
         self.recover_actions: Callable | Any = recover_actions
         self.parameters: dict = parameters
-        self.sm_state = SMState.DISABLED
+        self.sm_state = SMState.NON_INITIALIZED
 
 
 class Fault:
@@ -112,3 +119,27 @@ class Fault:
         self.state: FaultState = FaultState.NOT_TESTED
         self.related_prefaults = related_prefaults
         self.notification_level: int = notification_level
+        
+        
+class RecoveryAction:
+    """
+    Represents a specific recovery action within the safety management system.
+
+    Each instance of this class represents a discrete recovery action that can be invoked in response to a fault condition.
+    The class encapsulates the basic information necessary to identify and describe a recovery action, making it
+    easier to manage and invoke these actions within the system.
+
+    Attributes:
+        name (str): The name of the recovery action, used to identify and reference the action within the system.
+    """
+    def  __init___(self, name: str) -> None:
+        """
+        Initializes a new instance of the RecoveryAction with a specific name.
+
+        This constructor sets the name of the recovery action, which is used to identify and manage the action within
+        the safety management system. The name should be unique and descriptive enough to clearly indicate the action's purpose.
+
+        Args:
+            name (str): The name of the recovery action, providing a unique identifier for the action within the system.
+        """
+        self.name: str = name
