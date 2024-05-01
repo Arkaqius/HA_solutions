@@ -132,7 +132,7 @@ class RecoveryAction:
     Attributes:
         name (str): The name of the recovery action, used to identify and reference the action within the system.
     """
-    def  __init___(self, name: str) -> None:
+    def  __init__(self, name: str) -> None:
         """
         Initializes a new instance of the RecoveryAction with a specific name.
 
