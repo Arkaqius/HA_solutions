@@ -61,12 +61,12 @@ class TemperatureComponent(SafetyComponent):
         super().__init__(hass_app)
         # Initialize instance variables
         self.safety_mechanisms = {}  # Ensures each instance has its own mechanisms
-        self.debounce_states = {}    # Ensures each instance has its own debounce states
+        self.debounce_states = {}  # Ensures each instance has its own debounce states
         self.rec_actions = {}  # Ensures each instance has its own debounce states
 
     def get_prefaults_data(
         self, sm_modules: dict, component_cfg: list[dict[str, Any]]
-    ) -> tuple[Dict[str, PreFault],Dict[str, RecoveryAction]]:
+    ) -> tuple[Dict[str, PreFault], Dict[str, RecoveryAction]]:
         """
         Retrieve pre-fault configurations from the component configuration and generate corresponding PreFault objects.
 
@@ -82,8 +82,8 @@ class TemperatureComponent(SafetyComponent):
         - One based on direct temperature thresholds.
         - Another based on forecasted temperature conditions.
         """
-        ret_val_pr : dict[str,PreFault] = {}
-        ret_val_ra : dataict[str,RecoveryAction] = {}
+        ret_val_pr: dict[str, PreFault] = {}
+        ret_val_ra: dataict[str, RecoveryAction] = {}
 
         for location_dict in component_cfg:
             for location, data in location_dict.items():
@@ -97,9 +97,9 @@ class TemperatureComponent(SafetyComponent):
                     sm_modules, location, data, prefault_name
                 )
                 recovery_action = self._get_sm_tc_1_recovery_action(
-                    sm_modules, location, data,prefault_name
+                    sm_modules, location, data, prefault_name
                 )
-                
+
                 ret_val_pr[prefault_name] = prefault
                 ret_val_ra[prefault_name] = recovery_action
 
@@ -109,17 +109,17 @@ class TemperatureComponent(SafetyComponent):
                     sm_modules, location, data, prefault_name
                 )
                 recovery_action = self._get_sm_tc_2_recovery_action(
-                    sm_modules, location, data,prefault_name
+                    sm_modules, location, data, prefault_name
                 )
-                
+
                 ret_val_pr[prefault_name] = prefault
                 ret_val_ra[prefault_name] = recovery_action
-                
-        return (ret_val_pr,ret_val_ra)
-    
-    def _get_sm_tc_1_pr_name(self,location: str) -> str:
+
+        return (ret_val_pr, ret_val_ra)
+
+    def _get_sm_tc_1_pr_name(self, location: str) -> str:
         return f"RiskyTemperature{location}"
-    
+
     def _get_sm_tc_1_prefault(
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> PreFault:
@@ -146,14 +146,15 @@ class TemperatureComponent(SafetyComponent):
             sm_name=sm_name,
         )
 
-    def _get_sm_tc_1_recovery_action(self, modules: dict, location: str, data: dict, prefault_name: str
+    def _get_sm_tc_1_recovery_action(
+        self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
-        name = f'{prefault_name}_recovery_test'
+        name = f"{prefault_name}_recovery_test"
         return RecoveryAction(name)
-    
-    def _get_sm_tc_2_pr_name(self,location: str) -> str:
+
+    def _get_sm_tc_2_pr_name(self, location: str) -> str:
         return f"RiskyTemperature{location}ForeCast"
-    
+
     def _get_sm_tc_2_prefault(
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> PreFault:
@@ -180,11 +181,12 @@ class TemperatureComponent(SafetyComponent):
             sm_name=sm_name,
         )
 
-    def _get_sm_tc_2_recovery_action(self, modules: dict, location: str, data: dict, prefault_name: str
+    def _get_sm_tc_2_recovery_action(
+        self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
-        name = f'{prefault_name}_recovery_test'
+        name = f"{prefault_name}_recovery_test"
         return RecoveryAction(name)
-    
+
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
         Initializes a new temperature threshold-based safety mechanism. This process involves validating
@@ -228,7 +230,7 @@ class TemperatureComponent(SafetyComponent):
                 self.hass_app,
                 self.sm_tc_1,  # The method to call
                 name,
-                isEnabled = False,
+                isEnabled=False,
                 temperature_sensor=parameters["temperature_sensor"],
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
             )
@@ -290,7 +292,7 @@ class TemperatureComponent(SafetyComponent):
                 self.hass_app,
                 self.sm_tc_2,  # The method to call for sm_tc_2
                 name,
-                isEnabled = False,
+                isEnabled=False,
                 temperature_sensor=parameters["temperature_sensor"],
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
                 forecast_timespan=parameters["CAL_FORECAST_TIMESPAN"],
@@ -302,7 +304,7 @@ class TemperatureComponent(SafetyComponent):
             self.debounce_states[name] = DebounceState(
                 debounce=DEBOUNCE_INIT, force_sm=False
             )
-                        
+
             # Initialize cyclic runnable to get diverative
             self.hass_app.run_every(self.calculate_diff, "now", 60)
             return True
@@ -319,7 +321,7 @@ class TemperatureComponent(SafetyComponent):
             return True
         else:
             return False
-        
+
     def enable_sm_tc_2(self, name: str, state: SMState) -> bool:
         if state == SMState.ENABLED:
             self.safety_mechanisms[name].isEnabled = True
@@ -329,7 +331,7 @@ class TemperatureComponent(SafetyComponent):
             return True
         else:
             return False
-    
+
     @safety_mechanism_decorator
     def sm_tc_1(self, sm: SafetyMechanism, **kwargs: dict[str, dict]) -> None:
         """

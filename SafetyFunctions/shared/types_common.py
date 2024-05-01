@@ -17,8 +17,10 @@ Import the necessary enums into your module to leverage these predefined states 
 fault management and safety mechanism state tracking. This centralizes state definitions,
 facilitating easier maintenance and updates.
 """
+
 from enum import Enum
 from typing import Callable, Any
+
 
 class FaultState(Enum):
     """
@@ -48,12 +50,13 @@ class SMState(Enum):
         DISABLED: The safety mechanism is initialized but currently disabled, not actively monitoring or acting on safety conditions.
         ENABLED: The safety mechanism is fully operational and actively engaged in monitoring or controlling its designated safety parameters.
     """
+
     ERROR = 0
     NON_INITIALIZED = 1
     DISABLED = 2
     ENABLED = 3
-    
-    
+
+
 class PreFault:
     """
     Represents a pre-fault condition within the system, potentially leading to a fault.
@@ -119,8 +122,8 @@ class Fault:
         self.state: FaultState = FaultState.NOT_TESTED
         self.related_prefaults = related_prefaults
         self.notification_level: int = notification_level
-        
-        
+
+
 class RecoveryAction:
     """
     Represents a specific recovery action within the safety management system.
@@ -132,7 +135,8 @@ class RecoveryAction:
     Attributes:
         name (str): The name of the recovery action, used to identify and reference the action within the system.
     """
-    def  __init__(self, name: str) -> None:
+
+    def __init__(self, name: str) -> None:
         """
         Initializes a new instance of the RecoveryAction with a specific name.
 

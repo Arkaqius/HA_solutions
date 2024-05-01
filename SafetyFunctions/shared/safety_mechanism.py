@@ -20,6 +20,7 @@ offering both ease of use for common use cases and the flexibility to support co
 from typing import Callable, List, Any
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
+
 class SafetyMechanism:
     """
     A class designed to define and manage safety mechanisms within a Home Assistant environment,
@@ -42,7 +43,14 @@ class SafetyMechanism:
         extract_entities: Utility method to extract entity IDs from keyword arguments.
     """
 
-    def __init__(self, hass_app : hass, callback: Callable[..., Any], name: str, isEnabled: bool, **kwargs : Any):
+    def __init__(
+        self,
+        hass_app: hass,
+        callback: Callable[..., Any],
+        name: str,
+        isEnabled: bool,
+        **kwargs: Any,
+    ):
         """
         Initializes a new instance of the SafetyMechanism class.
 
@@ -75,7 +83,9 @@ class SafetyMechanism:
             self.hass_app.log(f"Setting up listener for entity: {entity}")
             self.hass_app.listen_state(self.entity_changed, entity)
 
-    def entity_changed(self, entity: str, _: str, __: Any, ___: Any, ____: dict) -> None:
+    def entity_changed(
+        self, entity: str, _: str, __: Any, ___: Any, ____: dict
+    ) -> None:
         """
         Invoked when a state change is detected for any of the monitored entities, triggering the safety mechanism's callback.
 

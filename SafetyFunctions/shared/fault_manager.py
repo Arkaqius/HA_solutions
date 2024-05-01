@@ -95,7 +95,7 @@ class FaultManager:
                 prefault_data.sm_state = SMState.DISABLED
             else:
                 prefault_data.sm_state = SMState.ERROR
-        
+
     def enable_all_prefaults(self) -> None:
         """
         Enables all pre-fault safety mechanisms that are currently disabled.
@@ -111,8 +111,10 @@ class FaultManager:
         """
         for prefault_name, prefault_data in self.prefaults.items():
             if prefault_data.sm_state == SMState.DISABLED:
-                
-                enable_fcn = getattr(prefault_data.module, "enable_" + prefault_data.sm_name)
+
+                enable_fcn = getattr(
+                    prefault_data.module, "enable_" + prefault_data.sm_name
+                )
                 result: bool = enable_fcn(prefault_name, SMState.ENABLED)
                 if result:
                     prefault_data.sm_state = SMState.ENABLED
@@ -121,7 +123,6 @@ class FaultManager:
                     sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name])
                 else:
                     prefault_data.sm_state = SMState.ERROR
-
 
     def set_prefault(
         self, prefault_id: str, additional_info: Optional[dict] = None
@@ -233,11 +234,9 @@ class FaultManager:
 
             # Clear HA entity
             self.hass.set_state(
-                "sensor.fault_" + fault.name,
-                state="Set",
-                attributes=attributes
+                "sensor.fault_" + fault.name, state="Set", attributes=attributes
             )
-            
+
             # Call notifications
             self.notify_man.notify(
                 fault.name,
@@ -366,15 +365,13 @@ class FaultManager:
             info_to_send = self._determinate_info(
                 "sensor.fault_" + fault.name, additional_info, FaultState.SET
             )
-            
+
             # Prepare the attributes for the state update
             attributes = info_to_send if info_to_send else {}
 
             # Clear HA entity
             self.hass.set_state(
-                "sensor.fault_" + fault.name,
-                state="Cleared",
-                attributes=attributes
+                "sensor.fault_" + fault.name, state="Cleared", attributes=attributes
             )
 
             # Call notifications

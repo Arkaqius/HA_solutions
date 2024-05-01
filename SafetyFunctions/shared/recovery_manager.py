@@ -30,6 +30,7 @@ This module's approach to fault recovery empowers developers to construct robust
 from typing import Callable
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
+
 class RecoveryManager:
     """
     Manages the recovery processes for faults within the safety management system.
@@ -58,16 +59,16 @@ class RecoveryManager:
             hass_app (hass.Hass): The Home Assistant application context, providing access to system-wide
                 functionality and enabling the RecoveryManager to interact with other components and entities
                 within the Home Assistant environment.
-            recovery_config (dict): 
+            recovery_config (dict):
 
         This setup allows the RecoveryManager to dynamically execute the appropriate recovery actions
         based on the faults detected within the system, promoting a flexible and responsive fault management
         framework.
         """
         self.hass_app = hass_app
-        self.recovery_dict : dict = recovery_config
-        
-    def recovery(self, recovery_action: Callable, additional_info : dict | None) -> None:
+        self.recovery_dict: dict = recovery_config
+
+    def recovery(self, recovery_action: Callable, additional_info: dict | None) -> None:
         """
         Executes a specified recovery action with the given additional information.
 
