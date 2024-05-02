@@ -57,6 +57,33 @@ class SMState(Enum):
     ENABLED = 3
 
 
+class RecoveryAction:
+    """
+    Represents a specific recovery action within the safety management system.
+
+    Each instance of this class represents a discrete recovery action that can be invoked in response to a fault condition.
+    The class encapsulates the basic information necessary to identify and describe a recovery action, making it
+    easier to manage and invoke these actions within the system.
+
+    Attributes:
+        name (str): The name of the recovery action, used to identify and reference the action within the system.
+    """
+
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the RecoveryAction with a specific name.
+
+        This constructor sets the name of the recovery action, which is used to identify and manage the action within
+        the safety management system. The name should be unique and descriptive enough to clearly indicate the action's purpose.
+
+        Args:
+            name (str): The name of the recovery action, providing a unique identifier for the action within the system.
+        """
+        self.name: str = name
+        self.type = None
+        self.params = {}
+        self.rec_fun = None
+
 class PreFault:
     """
     Represents a pre-fault condition within the system, potentially leading to a fault.
@@ -87,16 +114,15 @@ class PreFault:
         sm_name: str,
         module: "SafetyComponent",  # type: ignore
         parameters: dict,
-        recover_actions: Callable | None = None,
+        recover_actions: RecoveryAction,
     ) -> None:
         self.name: str = name
         self.sm_name: str = sm_name
         self.module = module
         self.state: FaultState = FaultState.NOT_TESTED
-        self.recover_actions: Callable | Any = recover_actions
+        self.recover_actions: RecoveryAction = recover_actions
         self.parameters: dict = parameters
         self.sm_state = SMState.NON_INITIALIZED
-
 
 class Fault:
     """
@@ -122,28 +148,3 @@ class Fault:
         self.state: FaultState = FaultState.NOT_TESTED
         self.related_prefaults = related_prefaults
         self.notification_level: int = notification_level
-
-
-class RecoveryAction:
-    """
-    Represents a specific recovery action within the safety management system.
-
-    Each instance of this class represents a discrete recovery action that can be invoked in response to a fault condition.
-    The class encapsulates the basic information necessary to identify and describe a recovery action, making it
-    easier to manage and invoke these actions within the system.
-
-    Attributes:
-        name (str): The name of the recovery action, used to identify and reference the action within the system.
-    """
-
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the RecoveryAction with a specific name.
-
-        This constructor sets the name of the recovery action, which is used to identify and manage the action within
-        the safety management system. The name should be unique and descriptive enough to clearly indicate the action's purpose.
-
-        Args:
-            name (str): The name of the recovery action, providing a unique identifier for the action within the system.
-        """
-        self.name: str = name

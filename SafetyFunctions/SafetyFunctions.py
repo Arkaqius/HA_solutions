@@ -72,12 +72,13 @@ class SafetyFunctions(hass.Hass):
         self.sm_modules: dict = {}
         self.prefaults: dict[str, PreFault] = {}
         self.faults: dict[str, Fault] = {}
-        self.recovery: dict[str, RecoveryAction] = {}
+        self.recovery_actions: dict[str, RecoveryAction] = {}
 
         # 10. Get and verify cfgs
         self.fault_dict = self.args["app_config"]["faults"]
         self.safety_components_cfg = self.args["user_config"]["safety_components"]
         self.notification_cfg = self.args["user_config"]["notification"]
+        self.recovery_cfg = self.args["app_config"]["recovery_actions"]  
 
         # 20. Initialize SM modules and get prefaults and recovery data
         for component_name, component_cls in COMPONENT_DICT.items():
@@ -100,7 +101,7 @@ class SafetyFunctions(hass.Hass):
 
                 # Update the prefaults dictionary with new PreFaults
                 self.prefaults.update(prefaults_data)
-                self.recovery.update(recovery_data)
+                self.recovery_actions.update(recovery_data)
 
         # 30. Get faults data
         self.faults = cfg_pr.get_faults(self.fault_dict)
@@ -111,7 +112,7 @@ class SafetyFunctions(hass.Hass):
         )
 
         # 60. Initialize recovery manager
-        self.reco_man: RecoveryManager = RecoveryManager(self, self.recovery)
+        self.reco_man: RecoveryManager = RecoveryManager(self, self.recovery_cfg, self.recovery_actions)
 
         # 40. Initialize fault manager
         self.fm: FaultManager = FaultManager(

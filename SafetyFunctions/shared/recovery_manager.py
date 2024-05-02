@@ -29,6 +29,7 @@ This module's approach to fault recovery empowers developers to construct robust
 
 from typing import Callable
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import RecoveryAction
 
 
 class RecoveryManager:
@@ -68,7 +69,7 @@ class RecoveryManager:
         self.hass_app = hass_app
         self.recovery_dict: dict = recovery_config
 
-    def recovery(self, recovery_action: Callable, additional_info: dict | None) -> None:
+    def recovery(self, recovery_action: RecoveryAction) -> None:
         """
         Executes a specified recovery action with the given additional information.
 
@@ -89,4 +90,5 @@ class RecoveryManager:
             mitigate fault conditions. It is essential that recovery actions are defined with careful
             consideration of the fault scenarios they are intended to address.
         """
-        recovery_action(additional_info)
+        # Perform some logic, priority etc
+        recovery_action.rec_fun(RecoveryAction)
