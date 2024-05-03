@@ -56,7 +56,12 @@ class SMState(Enum):
     DISABLED = 2
     ENABLED = 3
 
-
+class RecoveryActionState(Enum):
+    ERROR = 0
+    NON_INITIALIZED = 1
+    DISABLED = 2
+    ENABLED = 3
+    
 class RecoveryAction:
     """
     Represents a specific recovery action within the safety management system.
@@ -69,7 +74,7 @@ class RecoveryAction:
         name (str): The name of the recovery action, used to identify and reference the action within the system.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, type: Any, params : Any, recovery_action : Any) -> None:
         """
         Initializes a new instance of the RecoveryAction with a specific name.
 
@@ -79,10 +84,9 @@ class RecoveryAction:
         Args:
             name (str): The name of the recovery action, providing a unique identifier for the action within the system.
         """
-        self.name: str = name
-        self.type = None
-        self.params = {}
-        self.rec_fun = None
+        self.type : Any = type
+        self.params : dict = params
+        self.rec_fun : Any = recovery_action
 
 class PreFault:
     """
@@ -114,13 +118,11 @@ class PreFault:
         sm_name: str,
         module: "SafetyComponent",  # type: ignore
         parameters: dict,
-        recover_actions: RecoveryAction,
     ) -> None:
         self.name: str = name
         self.sm_name: str = sm_name
         self.module = module
         self.state: FaultState = FaultState.NOT_TESTED
-        self.recover_actions: RecoveryAction = recover_actions
         self.parameters: dict = parameters
         self.sm_state = SMState.NON_INITIALIZED
 

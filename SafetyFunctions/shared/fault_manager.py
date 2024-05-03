@@ -246,9 +246,7 @@ class FaultManager:
             )
 
             # Call recovery actions (specific for prefault)
-            if self.prefaults[prefault_id].recover_actions:
-                self.recovery_man.recovery(
-                    self.prefaults[prefault_id].recover_actions)
+            self.recovery_man.recovery(self.prefaults[prefault_id])
         else:
             pass  # Error logged in previous call
 

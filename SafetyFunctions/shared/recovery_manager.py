@@ -29,7 +29,7 @@ This module's approach to fault recovery empowers developers to construct robust
 
 from typing import Callable
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
-from shared.types_common import RecoveryAction
+from shared.types_common import RecoveryAction, PreFault
 
 
 class RecoveryManager:
@@ -47,7 +47,7 @@ class RecoveryManager:
     strategies for different fault scenarios.
     """
 
-    def __init__(self, hass_app: hass.Hass, recovery_config: dict) -> None:
+    def __init__(self, hass_app: hass.Hass, recovery_actions: dict) -> None:
         """
         Initializes the RecoveryManager with the necessary application context and recovery configuration.
 
@@ -67,28 +67,19 @@ class RecoveryManager:
         framework.
         """
         self.hass_app = hass_app
-        self.recovery_dict: dict = recovery_config
+        self.recovery_actions: dict[str,RecoveryAction] = recovery_actions
 
-    def recovery(self, recovery_action: RecoveryAction) -> None:
+    def recovery(self, prefault: PreFault) -> None:
         """
-        Executes a specified recovery action with the given additional information.
-
-        This method invokes a recovery action — a callable function designed to address or mitigate
-        a fault condition. The additional information provided can include context or parameters
-        necessary for the recovery action to effectively resolve the fault.
-
-        Args:
-            recovery_action (Callable): A callable function that embodies the recovery logic for a fault.
-                This function is expected to take a single argument: `additional_info`, which contains
-                context or parameters relevant to the fault condition.
-            additional_info (dict): A dictionary containing additional details or parameters necessary for
-                the execution of the recovery action. The structure and contents of this dictionary are
-                dependent on the specific requirements of the `recovery_action` callable.
-
-        Note:
-            The recovery process is critical to the fault management system's ability to respond to and
-            mitigate fault conditions. It is essential that recovery actions are defined with careful
-            consideration of the fault scenarios they are intended to address.
+        TODO
         """
-        # Perform some logic, priority etc
-        recovery_action.rec_fun(RecoveryAction)
+        # 10. Check if rec actions exist
+        if prefault.name in self.recovery_actions:
+            # 20. Check if existing rec actions are not present 
+            
+            # 30. Check if existing rec actions are not in conflict
+            
+            # 40 Run actions
+            self.recovery_actions[prefault.name].rec_fun(**self.recovery_actions[prefault.name].params)
+        else:
+            self.hass_app.log(f"No recovery actions for {prefault.name}",level='DEBUG')

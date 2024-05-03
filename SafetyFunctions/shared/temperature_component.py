@@ -97,7 +97,7 @@ class TemperatureComponent(SafetyComponent):
                     sm_modules, location, data, prefault_name
                 )
                 prefault = self._get_sm_tc_1_prefault(
-                    sm_modules, location, data, prefault_name, recovery_action 
+                    sm_modules, location, data, prefault_name 
                 )
 
                 ret_val_pr[prefault_name] = prefault
@@ -121,8 +121,7 @@ class TemperatureComponent(SafetyComponent):
         return f"RiskyTemperature{location}"
 
     def _get_sm_tc_1_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str, recovery_action : RecoveryAction
-    ) -> PreFault:
+        self, modules: dict, location: str, data: dict, prefault_name: str) -> PreFault:
         """
         Generates a PreFault object for direct temperature monitoring based on the given location and data.
 
@@ -142,7 +141,6 @@ class TemperatureComponent(SafetyComponent):
             module=modules[self.__class__.__name__],
             name=prefault_name,
             parameters=prefault_params,
-            recover_actions=recovery_action,
             sm_name=sm_name,
         )
 
@@ -150,8 +148,8 @@ class TemperatureComponent(SafetyComponent):
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
         type = "ManipulateWindowInRoom"
-        params = {"location" : data['location'], "actuator" : None}
-        recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
+        params = {"location" : location, "actuator" : None}
+        recovery_func = self.RiskyTemperature_recovery
         return RecoveryAction(type, params, recovery_func)
 
     def _get_sm_tc_2_pr_name(self, location: str) -> str:
@@ -174,20 +172,21 @@ class TemperatureComponent(SafetyComponent):
         prefault_params = data
         sm_name = "sm_tc_2"
 
-        recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
         return PreFault(
             module=modules[self.__class__.__name__],
             name=prefault_name,
             parameters=prefault_params,
-            recover_actions=recovery_func,
             sm_name=sm_name,
         )
 
     def _get_sm_tc_2_recovery_action(
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
-        name = f"{prefault_name}_recovery_test"
-        return RecoveryAction(name)
+        type = "ManipulateWindowInRoom"
+        params = {"location" : location, "actuator" : None}
+        recovery_func = self.RiskyTemperature_recovery
+        return RecoveryAction(type, params, recovery_func)
+
 
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
@@ -471,6 +470,6 @@ class TemperatureComponent(SafetyComponent):
         )
 
     @staticmethod
-    def RiskyTemperatureRecovery(self: Any) -> None:
+    def RiskyTemperature_recovery(**kwargs) -> None:
         """Executes recovery actions for risky temperature conditions."""
-        print("RiskyTemperatureRecovery called!")
+        print(f"RiskyTemperatureRecovery called {kwargs}!")

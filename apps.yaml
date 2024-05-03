@@ -117,11 +117,6 @@ SafetyFunctions:
         priority: 3
         related_sms:
           - "sm_tc_2"
-    recovery_actions:
-      - ManipulateWindowInRoom:
-          params: 
-            - "location"
-            - "actuator"
 
   # User specyfic config
   user_config:
