@@ -118,12 +118,12 @@ def test_fault_manager_initialization(mocked_hass_app_get_state_tc):
 
     # Verify that FaultManager uses the same NotificationManager as SafetyFunctions
     assert (
-        app_instance.fm.notify_man == app_instance.notify_man
+        app_instance.fm.notify_interface == app_instance.notify_man.notify
     ), "FaultManager does not use the same NotificationManager instance."
 
     # Verify that FaultManager uses the same RecoveryManager as SafetyFunctions
     assert (
-        app_instance.fm.recovery_man == app_instance.reco_man
+        app_instance.fm.recovery_interface == app_instance.reco_man.recovery
     ), "FaultManager does not use the same RecoveryManager instance."
 
     # Verify that FaultManager's sm_modules dictionary contains the correct TemperatureComponent instance

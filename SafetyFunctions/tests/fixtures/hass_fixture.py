@@ -208,7 +208,7 @@ def mocked_hass_app_get_state(app_config_valid):
         
         # Preparations
         temperature_behavior = MockBehavior(
-        "sensor.office_temperature", iter(["5", "6", "7", "8", "9"])
+        "sensor.office_temperature", iter(["5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9"])
         )
 
         fault_behavior = MockBehavior(
@@ -248,7 +248,7 @@ def mocked_hass_app_get_state_tc(app_config_valid):
         
         # Preparations
         temperature_behavior = MockBehavior(
-        "sensor.office_temperature", iter(["5", "6", "7", "8", "9"])
+        "sensor.office_temperature", iter(["5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9", "5", "6", "7", "8", "9"])
         )
 
         fault_behavior = MockBehavior(

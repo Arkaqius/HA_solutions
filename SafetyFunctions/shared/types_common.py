@@ -1,13 +1,13 @@
 """
 Module: types_enums.py
 
-This module defines enumeration types used throughout the Safety Functions application, 
-particularly within the Home Assistant-based safety management system. These enums 
+This module defines enumeration types used throughout the Safety Functions application,
+particularly within the Home Assistant-based safety management system. These enums
 provide a standardized set of possible states for faults (FaultState) and safety mechanisms (SMState),
 ensuring consistency and clarity in state management and logic flow across the application.
 
 Enums:
-- FaultState: Enumerates the possible states of faults and pre-faults, aiding in the 
+- FaultState: Enumerates the possible states of faults and pre-faults, aiding in the
   identification and management of safety system conditions.
 - SMState: Defines the operational states of Safety Mechanisms (SMs), offering insight
   into the activity and readiness of these mechanisms.
@@ -19,7 +19,7 @@ facilitating easier maintenance and updates.
 """
 
 from enum import Enum
-from typing import Callable, Any
+from typing import Any
 
 
 class FaultState(Enum):
@@ -56,12 +56,14 @@ class SMState(Enum):
     DISABLED = 2
     ENABLED = 3
 
+
 class RecoveryActionState(Enum):
     ERROR = 0
     NON_INITIALIZED = 1
     DISABLED = 2
     ENABLED = 3
-    
+
+
 class RecoveryAction:
     """
     Represents a specific recovery action within the safety management system.
@@ -74,7 +76,7 @@ class RecoveryAction:
         name (str): The name of the recovery action, used to identify and reference the action within the system.
     """
 
-    def __init__(self, type: Any, params : Any, recovery_action : Any) -> None:
+    def __init__(self, type: Any, params: Any, recovery_action: Any) -> None:
         """
         Initializes a new instance of the RecoveryAction with a specific name.
 
@@ -84,9 +86,10 @@ class RecoveryAction:
         Args:
             name (str): The name of the recovery action, providing a unique identifier for the action within the system.
         """
-        self.type : Any = type
-        self.params : dict = params
-        self.rec_fun : Any = recovery_action
+        self.type: Any = type
+        self.params: dict = params
+        self.rec_fun: Any = recovery_action
+
 
 class PreFault:
     """
@@ -125,6 +128,7 @@ class PreFault:
         self.state: FaultState = FaultState.NOT_TESTED
         self.parameters: dict = parameters
         self.sm_state = SMState.NON_INITIALIZED
+
 
 class Fault:
     """

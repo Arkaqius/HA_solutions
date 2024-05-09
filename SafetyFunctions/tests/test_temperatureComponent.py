@@ -7,7 +7,7 @@ def test_temp_comp_smtc1_1(mocked_hass_app_get_state):
 
     # Preparations
     temperature_behavior = MockBehavior(
-        "sensor.office_temperature", iter(["5", "6", "7", "8", "9"])
+        "sensor.office_temperature", iter(["5", "6", "7", "8", "9","5", "6", "7", "8", "9","5", "6", "7", "8", "9","5", "6", "7", "8", "9"])
     )
     
     fault_behavior = MockBehavior(
@@ -39,7 +39,7 @@ def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
     app_instance.initialize()
     # Preparations
     temperature_behavior = MockBehavior(
-        "sensor.office_temperature", iter(["35", "36", "37", "37","8", "9", "10", "10"])
+        "sensor.office_temperature", iter(["35", "36", "37", "37","8", "9", "10", "10", "8", "9", "10", "10", "8", "9", "10", "10", "8", "9", "10", "10"])
     )
     humidity_behavior = MockBehavior("sensor.office_humidity", iter(["45", "50"]))
     mock_behaviors = [temperature_behavior, humidity_behavior]
@@ -175,7 +175,7 @@ def test_temp_comp_smtc2_1(mocked_hass_app_get_state):
     app_instance.sm_modules["TemperatureComponent"].safety_mechanisms["RiskyTemperatureOfficeForeCast"].sm_args["diverative"] = -0.0125
     assert (
         app_instance.fm.check_prefault("RiskyTemperatureOfficeForeCast")
-        == FaultState.NOT_TESTED
+        == FaultState.SET
     )
 
     app_instance.sm_modules["TemperatureComponent"].sm_tc_2(

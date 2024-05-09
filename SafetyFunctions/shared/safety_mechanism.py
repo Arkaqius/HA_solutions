@@ -1,11 +1,11 @@
 """
 This module defines the SafetyMechanism class for integrating safety-related features into Home Assistant applications.
-It provides a framework for monitoring changes in entity states and executing custom callback functions in response to those changes. 
+It provides a framework for monitoring changes in entity states and executing custom callback functions in response to those changes.
 This enables the creation and management of dynamic safety mechanisms tailored to specific needs within a smart home environment.
 
-The SafetyMechanism class within this module serves as a foundational component for developing safety mechanisms. 
-By monitoring specified entities within the Home Assistant environment, it allows for the implementation of custom logic to respond to state changes, 
-facilitating automated safety responses and alerts. This mechanism supports a wide range of use cases, from simple notifications to complex safety procedures 
+The SafetyMechanism class within this module serves as a foundational component for developing safety mechanisms.
+By monitoring specified entities within the Home Assistant environment, it allows for the implementation of custom logic to respond to state changes,
+facilitating automated safety responses and alerts. This mechanism supports a wide range of use cases, from simple notifications to complex safety procedures
 involving multiple entities and conditions.
 
 Key Features:
@@ -13,7 +13,7 @@ Key Features:
 - Execution of custom callback functions in response to monitored state changes, allowing for the implementation of bespoke safety logic.
 - Flexible configuration of monitored entities and additional parameters passed to callback functions, supporting a broad array of safety mechanism designs.
 
-This module is designed to be utilized by developers looking to enhance the safety features of their Home Assistant setups, 
+This module is designed to be utilized by developers looking to enhance the safety features of their Home Assistant setups,
 offering both ease of use for common use cases and the flexibility to support complex safety scenarios.
 """
 

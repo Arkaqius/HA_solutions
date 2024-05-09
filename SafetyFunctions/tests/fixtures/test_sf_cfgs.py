@@ -23,6 +23,7 @@ def app_config_valid():
         },
         "user_config": {
             "notification": {"light_entity": "light.warning_light"},
+            "common_entities": {"outside_temp": "sensor.outside_temp"},
             "safety_components": {
                 "TemperatureComponent": [
                     {
@@ -70,6 +71,7 @@ def app_config_2_faults_to_single_prefault():
             },
             "user_config": {
                 "notification": {"light_entity": "light.warning_light"},
+                "common_entities": {"outside_temp": "sensor.outside_temp"},
                 "safety_components": {
                     "TemperatureComponent": {
                         "Office": {
@@ -109,6 +111,7 @@ def app_config_fault_withou_smc():
             },
             "user_config": {
                 "notification": {"light_entity": "light.warning_light"},
+                "common_entities": {"outside_temp": "sensor.outside_temp"},
                 "safety_components": {
                     "TemperatureComponent": {
                         "Office": {

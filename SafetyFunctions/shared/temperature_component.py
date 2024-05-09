@@ -20,14 +20,17 @@ Note:
 This module is part of a larger system designed for enhancing safety through Home Assistant. It should be integrated with the appropriate Home Assistant setup and configured according to the specific needs and safety requirements of the environment being monitored.
 """
 
-from typing import Dict, ClassVar, Any
+from typing import Dict, Any
 from shared.safety_component import (
     SafetyComponent,
     safety_mechanism_decorator,
     DebounceState,
+    SafetyMechanismResult,
 )
 from shared.safety_mechanism import SafetyMechanism
 from shared.types_common import PreFault, RecoveryAction, SMState
+from shared.common_entities import CommonEntities
+import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 # CONFIG
 DEBOUNCE_INIT = 1
@@ -45,12 +48,9 @@ class TemperatureComponent(SafetyComponent):
     each designed to monitor specific conditions and execute defined actions, such as sending alerts or triggering automations.
     """
 
-    # Static class variables to keep debounce
-    safety_mechanisms: ClassVar[Dict[str, "SafetyMechanism"]] = {}
-    debounce_states: ClassVar[Dict[str, DebounceState]] = {}
     component_name = "TemperatureComponent"
 
-    def __init__(self, hass_app: "SafetyFunctions"):  # type: ignore
+    def __init__(self, hass_app: hass, common_entities: CommonEntities) -> None:  # type: ignore
         """
         Initializes the TemperatureComponent instance with the Home Assistant application context, setting up the foundation
         for temperature-related safety management within the smart home environment.
@@ -58,11 +58,7 @@ class TemperatureComponent(SafetyComponent):
         Args:
             hass_app (hass.Hass): The Home Assistant application instance through which sensor data is accessed and actions are executed.
         """
-        super().__init__(hass_app)
-        # Initialize instance variables
-        self.safety_mechanisms = {}  # Ensures each instance has its own mechanisms
-        self.debounce_states = {}  # Ensures each instance has its own debounce states
-        self.rec_actions = {}  # Ensures each instance has its own debounce states
+        super().__init__(hass_app, common_entities)
 
     def get_prefaults_data(
         self, sm_modules: dict, component_cfg: list[dict[str, Any]]
@@ -92,12 +88,12 @@ class TemperatureComponent(SafetyComponent):
                 )
 
                 # SM TC 1
-                prefault_name = self._get_sm_tc_1_pr_name(location)
-                recovery_action = self._get_sm_tc_1_recovery_action(
+                prefault_name: str = self._get_sm_tc_1_pr_name(location)
+                recovery_action: RecoveryAction = self._get_sm_tc_1_recovery_action(
                     sm_modules, location, data, prefault_name
                 )
-                prefault = self._get_sm_tc_1_prefault(
-                    sm_modules, location, data, prefault_name 
+                prefault: PreFault = self._get_sm_tc_1_prefault(
+                    sm_modules, location, data, prefault_name
                 )
 
                 ret_val_pr[prefault_name] = prefault
@@ -121,7 +117,8 @@ class TemperatureComponent(SafetyComponent):
         return f"RiskyTemperature{location}"
 
     def _get_sm_tc_1_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str) -> PreFault:
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> PreFault:
         """
         Generates a PreFault object for direct temperature monitoring based on the given location and data.
 
@@ -136,7 +133,10 @@ class TemperatureComponent(SafetyComponent):
         prefault_params = data
         sm_name = "sm_tc_1"
 
-        #recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
+        # Add location to parametrs
+        prefault_params["location"] = location
+
+        # recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
         return PreFault(
             module=modules[self.__class__.__name__],
             name=prefault_name,
@@ -148,7 +148,7 @@ class TemperatureComponent(SafetyComponent):
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
         type = "ManipulateWindowInRoom"
-        params = {"location" : location, "actuator" : None}
+        params = {"location": location, "actuator": None}
         recovery_func = self.RiskyTemperature_recovery
         return RecoveryAction(type, params, recovery_func)
 
@@ -172,6 +172,9 @@ class TemperatureComponent(SafetyComponent):
         prefault_params = data
         sm_name = "sm_tc_2"
 
+        # Add location to parametrs
+        prefault_params["location"] = location
+
         return PreFault(
             module=modules[self.__class__.__name__],
             name=prefault_name,
@@ -183,10 +186,9 @@ class TemperatureComponent(SafetyComponent):
         self, modules: dict, location: str, data: dict, prefault_name: str
     ) -> RecoveryAction:
         type = "ManipulateWindowInRoom"
-        params = {"location" : location, "actuator" : None}
+        params = {"sensor": "sensor", "actuator": None}
         recovery_func = self.RiskyTemperature_recovery
         return RecoveryAction(type, params, recovery_func)
-
 
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
@@ -215,13 +217,18 @@ class TemperatureComponent(SafetyComponent):
         try:
             temperature_sensor = parameters["temperature_sensor"]
             cold_thr = parameters["CAL_LOW_TEMP_THRESHOLD"]
+            location = parameters["location"]
         except KeyError as e:
             self.hass_app.log(f"Key not found in sm_cfg: {e}", level="ERROR")
             is_param_ok = False
         else:
             is_param_ok = self.validate_entities(
-                {"temperature_sensor": temperature_sensor, "cold_thr": cold_thr},
-                {"temperature_sensor": str, "cold_thr": float},
+                {
+                    "temperature_sensor": temperature_sensor,
+                    "cold_thr": cold_thr,
+                    "location": location,
+                },
+                {"temperature_sensor": str, "cold_thr": float, "location": str},
             )
 
         if is_param_ok:
@@ -232,8 +239,9 @@ class TemperatureComponent(SafetyComponent):
                 self.sm_tc_1,  # The method to call
                 name,
                 isEnabled=False,
-                temperature_sensor=parameters["temperature_sensor"],
-                cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
+                temperature_sensor=temperature_sensor,
+                cold_thr=cold_thr,
+                location=location,
             )
             # Initialize the debounce state for this mechanism
             self.debounce_states[name] = DebounceState(
@@ -270,6 +278,7 @@ class TemperatureComponent(SafetyComponent):
             temperature_sensor = parameters["temperature_sensor"]
             cold_thr = parameters["CAL_LOW_TEMP_THRESHOLD"]
             forecast_timespan = parameters["CAL_FORECAST_TIMESPAN"]
+            location = parameters["location"]
         except KeyError as e:
             self.hass_app.log(f"Key not found in sm_cfg: {e}", level="ERROR")
             is_param_ok = False
@@ -279,11 +288,13 @@ class TemperatureComponent(SafetyComponent):
                     "temperature_sensor": temperature_sensor,
                     "cold_thr": cold_thr,
                     "forecast_timespan": forecast_timespan,
+                    "location": location,
                 },
                 {
                     "temperature_sensor": str,
                     "cold_thr": float,
                     "forecast_timespan": float,
+                    "location": str,
                 },
             )
         if is_param_ok:
@@ -297,6 +308,7 @@ class TemperatureComponent(SafetyComponent):
                 temperature_sensor=parameters["temperature_sensor"],
                 cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
                 forecast_timespan=parameters["CAL_FORECAST_TIMESPAN"],
+                location=location,
                 diverative=0.0,
                 prev_val=0.0,
             )
@@ -334,7 +346,9 @@ class TemperatureComponent(SafetyComponent):
             return False
 
     @safety_mechanism_decorator
-    def sm_tc_1(self, sm: SafetyMechanism, **kwargs: dict[str, dict]) -> None:
+    def sm_tc_1(
+        self, sm: SafetyMechanism, entities_changes: dict[str, str] | None = None
+    ) -> SafetyMechanismResult:
         """
         The core logic for a direct temperature threshold safety mechanism. It reads current temperature
         data, compares it against defined thresholds, and, if a risk condition is detected, executes configured
@@ -352,40 +366,34 @@ class TemperatureComponent(SafetyComponent):
         Note:
             This method is wrapped with a decorator to log its execution and handle any exceptions gracefully.
         """
-        if sm.isEnabled:
-            temperature: float = 0.0
+        temperature_sensor: str = sm.sm_args["temperature_sensor"]
+        cold_threshold: float = sm.sm_args["cold_thr"]
+        location: str = sm.sm_args["location"]
 
-            # Get inputs
-            try:
-                temperature = float(
-                    self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+        try:
+            # Check if a stubbed value is provided in entities_changes
+            if entities_changes and temperature_sensor in entities_changes:
+                temperature = float(entities_changes[temperature_sensor])
+                self.hass_app.log(
+                    f"Using stubbed value for {temperature_sensor}: {temperature}",
+                    level="DEBUG",
                 )
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
-                return  # Exit if temperature conversion fails
+            else:
+                temperature = float(self.hass_app.get_state(temperature_sensor))
 
-            # Retrieve the current debounce state for this mechanism
-            current_state = self.debounce_states[sm.name]
+        except (ValueError, TypeError) as e:
+            self.hass_app.log(f"Error handling temperature: {e}", level="ERROR")
+            return SafetyMechanismResult(False, None)
 
-            # Perform SM logic
-            new_debounce, force_sm = self.process_prefault(
-                prefault_id=sm.name,
-                current_counter=current_state.debounce,
-                pr_test=temperature < sm.sm_args["cold_thr"],
-                additional_info={"location": "office"},  # Example additional info
-            )
+        sm_result: bool = temperature < cold_threshold
+        additional_info: dict[str, str] = {"location": location}
 
-            # Update the debounce state with the new values
-            self.debounce_states[sm.name] = DebounceState(
-                debounce=new_debounce, force_sm=force_sm
-            )
-
-            if force_sm:
-                # Schedule to run `sm_tc_1` again after 30 seconds if inhibited
-                self.hass_app.run_in(lambda _: self.sm_tc_1(sm), 30)
+        return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
 
     @safety_mechanism_decorator
-    def sm_tc_2(self, sm: SafetyMechanism, **kwargs: dict[str, dict]) -> None:
+    def sm_tc_2(
+        self, sm: SafetyMechanism, entities_changes: dict[str, str] | None = None
+    ) -> tuple[bool, dict[str, Any] | None]:
         """
         Implements logic for a forecast-based temperature change safety mechanism. This method analyzes
         temperature trends and forecasts future conditions to proactively address potential risks based
@@ -403,51 +411,42 @@ class TemperatureComponent(SafetyComponent):
         Note:
             Enhanced with a decorator for execution logging and error management, ensuring robust operation.
         """
-        if sm.isEnabled:
-            temperature: float = 0.0
-            temperature_rate: float = 0.0
+        temperature_sensor: str = sm.sm_args["temperature_sensor"]
+        cold_threshold: float = sm.sm_args["cold_thr"]
+        location: str = sm.sm_args["location"]
+        forecast_timespan: float = sm.sm_args["forecast_timespan"]
+        temperature_rate = sm.sm_args["diverative"]
 
-            # Get inputs
-            try:
-                temperature = float(
-                    self.hass_app.get_state(sm.sm_args["temperature_sensor"])
+        try:
+            # Check if a stubbed value is provided in entities_changes
+            if entities_changes and temperature_sensor in entities_changes:
+                temperature = float(entities_changes[temperature_sensor])
+                self.hass_app.log(
+                    f"Using stubbed value for {temperature_sensor}: {temperature}",
+                    level="DEBUG",
                 )
-            except ValueError as e:
-                self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
-                return  # Exit if there's a conversion error
-            temperature_rate = sm.sm_args["diverative"]
+            else:
+                temperature = float(self.hass_app.get_state(temperature_sensor))
 
-            # Ensure sm_args["forecast_timespan"] is in hours for this calculation
-            forecast_timespan_in_minutes = (
-                sm.sm_args["forecast_timespan"] * 60
-            )  # Convert hours to minutes
+        except (ValueError, TypeError) as e:
+            self.hass_app.log(f"Error handling temperature: {e}", level="ERROR")
+            SafetyMechanismResult(False, None)
 
-            # Calculate forecasted temperature for the specified timespan
-            # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
-            forecasted_temperature = (
-                temperature + temperature_rate * forecast_timespan_in_minutes
-            )
+        # Ensure sm_args["forecast_timespan"] is in hours for this calculation
+        forecast_timespan_in_minutes: float = (
+            forecast_timespan * 60
+        )  # Convert hours to minutes
 
-            # Retrieve the current debounce state for this mechanism
-            current_state = self.debounce_states[sm.name]
+        # Calculate forecasted temperature for the specified timespan
+        # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
+        forecasted_temperature = (
+            temperature + temperature_rate * forecast_timespan_in_minutes
+        )
 
-            # Perform SM logic
-            new_debounce, inhibit = self.process_prefault(
-                prefault_id=sm.name,  # Example ID, ensure this is dynamically managed or correctly assigned
-                current_counter=current_state.debounce,
-                pr_test=forecasted_temperature < sm.sm_args["cold_thr"],
-                additional_info={"location": "office"},
-                debounce_limit=SM_TC_2_DEBOUNCE_LIMIT,
-            )
+        sm_result: bool = forecasted_temperature < cold_threshold
+        additional_info: dict[str, str] = {"location": location}
 
-            # Update the debounce state with the new values
-            self.debounce_states[sm.name] = DebounceState(
-                debounce=new_debounce, force_sm=inhibit
-            )
-
-            if inhibit:
-                # Schedule to run `sm_tc_2` again after 30 seconds if inhibited
-                self.hass_app.run_in(lambda _: self.sm_tc_2(sm), 120)
+        return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
 
     def calculate_diff(self, _: "Any") -> None:
 
@@ -470,6 +469,51 @@ class TemperatureComponent(SafetyComponent):
         )
 
     @staticmethod
-    def RiskyTemperature_recovery(**kwargs) -> None:
-        """Executes recovery actions for risky temperature conditions."""
-        print(f"RiskyTemperatureRecovery called {kwargs}!")
+    def RiskyTemperature_recovery(
+        hass_app: hass,
+        prefault: PreFault,
+        common_entities: CommonEntities,
+        **kwargs: dict[str, Any],
+    ) -> dict | None:
+        """Executes recovery actions for risky temperature conditions.
+        params = {"location" : location, "actuator" : None}
+        """
+
+        changed_entities: dict = {}
+        # Get inputs
+        try:
+            meas_room_temp = float(
+                hass_app.get_state(prefault.parameters["temperature_sensor"])
+            )
+        except ValueError as e:
+            hass_app.log(f"Float conversion error: {e}", level="ERROR")
+            return None  # Exit if temperature conversion fails
+        # First we shall close windows if outisde temperature is lower that in room
+        outside_temp_raw: str | None = common_entities.get_outisde_temperature()
+        if not outside_temp_raw:
+            return None
+        else:
+            outside_temp = float(outside_temp_raw)
+            if outside_temp < meas_room_temp:
+                changed_entities[
+                    TemperatureComponent.safety_mechanisms[prefault.name].sm_args[
+                        "temperature_sensor"
+                    ]
+                ] = "off"
+                # Check if we have actuator
+                if kwargs["params"]["actuator"]:
+                    changed_entities[kwargs["params"]["actuator"]] = (
+                        "off"  # TODO Check it!
+                    )
+            else:
+                changed_entities[
+                    TemperatureComponent.safety_mechanisms[prefault.name].sm_args[
+                        "temperature_sensor"
+                    ]
+                ] = "on"
+                # Check if we have actuator
+                if kwargs["params"]["actuator"]:
+                    changed_entities[kwargs["params"]["actuator"]] = (
+                        "on"  # TODO Check it!
+                    )
+            return changed_entities

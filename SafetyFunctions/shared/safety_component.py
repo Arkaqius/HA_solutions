@@ -22,13 +22,22 @@ A developer might create a `TemperatureSafetyComponent` subclass that monitors t
 This module streamlines the creation of safety mechanisms, emphasizing reliability, flexibility, and integration with Home Assistant's dynamic ecosystem.
 """
 
-from typing import Type, Any, get_origin, get_args, Callable, Optional, NamedTuple
+from typing import (
+    Type,
+    Any,
+    get_origin,
+    get_args,
+    Callable,
+    Optional,
+    NamedTuple,
+)
 import traceback
 from enum import Enum
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
-from shared.types_common import PreFault, RecoveryAction, SMState
+from shared.types_common import PreFault, RecoveryAction
+from shared.common_entities import CommonEntities
 
 NO_NEEDED = False
 
@@ -102,17 +111,21 @@ class SafetyComponent:
 
     component_name = "UNKNOWN"  # Default value for the parent class
 
-    def __init__(
-        self,
-        hass_app: hass.Hass,
-    ):
+    def __init__(self, hass_app: hass.Hass, common_entities: CommonEntities) -> None:
         """
         Initialize the safety component.
 
         :param hass_app: The Home Assistant application instance.
         """
-        self.hass_app = hass_app
+        self.hass_app: hass.Hass = hass_app
         self.fault_man: Optional[FaultManager] = None
+        self.common_entities: CommonEntities = common_entities
+        self.init_safety_mechanisms()
+
+    def init_safety_mechanisms(self) -> None:
+        # Initialize dictionaries that need to be unique to each instance
+        self.safety_mechanisms: dict = {}
+        self.debounce_states: dict = {}
 
     def get_prefaults_data(
         self, modules: dict, component_cfg: list[dict[str, Any]]
@@ -168,9 +181,9 @@ class SafetyComponent:
         """
         # Check for generic types like List[type]
         if get_origin(expected_type):
-            if not isinstance(entity, get_origin(expected_type)):
+            if not isinstance(entity, get_origin(expected_type)):  # type: ignore
                 self.hass_app.log(
-                    f"Entity {entity_name} should be a {get_origin(expected_type).__name__}",
+                    f"Entity {entity_name} should be a {get_origin(expected_type).__name__}",  # type: ignore
                     level="ERROR",
                 )
                 return False
@@ -393,7 +406,9 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         Callable: A wrapped version of the input function with added pre- and post-execution logic.
     """
 
-    def wrapper(self, sm: Any) -> Any:
+    def safety_machanism_wrapper(
+        self: SafetyComponent, sm: Any, entities_changes: dict[str, str] | None = None
+    ) -> Any:
         """
         Wrapper function for the safety mechanism.
 
@@ -404,10 +419,46 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         """
         self.hass_app.log(f"{func.__name__} was started!")
 
-        result = func(self, sm)
+        if not sm.isEnabled:
+            self.hass_app.log(f"{func.__name__} is disabled, skipping execution.")
+            return False
+
+        if not entities_changes:
+            # Retrieve the current debounce state for this mechanism
+            current_state: DebounceState = self.debounce_states[sm.name]
+
+            # Get sm result!
+            sm_return = func(self, sm, entities_changes)
+
+            # Perform SM logic
+            new_debounce, force_sm = self.process_prefault(
+                prefault_id=sm.name,
+                current_counter=current_state.debounce,
+                pr_test=sm_return.result,
+                additional_info=sm_return.additional_info,
+            )
+
+            # Update the debounce state with the new values
+            self.debounce_states[sm.name] = DebounceState(
+                debounce=new_debounce, force_sm=force_sm
+            )
+
+            if force_sm:
+                # If force_sm is true, schedule to run the function again after 30 seconds
+                self.hass_app.run_in(lambda _: func(self, sm), 30)
+
+        else:
+            self.hass_app.log(
+                f"{func.__name__} running in dry mode with changes: {entities_changes}"
+            )
+            sm_return = func(self, sm, entities_changes)
 
         self.hass_app.log(f"{func.__name__} was ended!")
+        return sm_return.result
 
-        return result
+    return safety_machanism_wrapper
 
-    return wrapper
+
+class SafetyMechanismResult(NamedTuple):
+    result: bool
+    additional_info: Optional[dict[str, Any]] = None

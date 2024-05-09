@@ -1,7 +1,7 @@
 """
 Fault Management Module for Home Assistant Safety System
 
-This module defines the core components and logic necessary for managing faults and pre-faults within a Home Assistant-based safety system. 
+This module defines the core components and logic necessary for managing faults and pre-faults within a Home Assistant-based safety system.
 It facilitates the detection, tracking, and resolution of fault conditions, integrating closely with safety mechanisms to proactively address potential issues before they escalate into faults.
 
 Classes:
@@ -9,7 +9,7 @@ Classes:
     Fault: Represents faults within the system, which are conditions requiring attention.
     FaultManager: Manages faults and pre-faults, orchestrating detection and response.
 
-The module supports a many-to-one mapping of pre-faults to faults, allowing multiple pre-fault conditions to contribute to or influence the state of a single fault. 
+The module supports a many-to-one mapping of pre-faults to faults, allowing multiple pre-fault conditions to contribute to or influence the state of a single fault.
 This design enables a nuanced and responsive fault management system capable of handling complex scenarios and dependencies within the safety system architecture.
 
 Primary functionalities include:
@@ -17,19 +17,16 @@ Primary functionalities include:
 - Dynamically updating fault states in response to changes in associated pre-fault conditions.
 - Executing defined recovery actions and notifications as part of the fault resolution process.
 
-This module is integral to the safety system's ability to maintain operational integrity and respond effectively to detected issues, 
+This module is integral to the safety system's ability to maintain operational integrity and respond effectively to detected issues,
 ensuring a high level of safety and reliability.
 
 Note:
-    This module is designed for internal use within the Home Assistant safety system 
+    This module is designed for internal use within the Home Assistant safety system
     and relies on configurations and interactions with other system components, including safety mechanisms and recovery action definitions.
 """
 
-from enum import Enum
-from typing import Optional
-from shared.recovery_manager import RecoveryManager
-from shared.notification_manager import NotificationManager
-from shared.types_common import FaultState, SMState, PreFault, Fault, RecoveryAction
+from typing import Optional, Callable
+from shared.types_common import FaultState, SMState, PreFault, Fault
 import appdaemon.plugins.hass.hassapi as hass
 
 
@@ -58,8 +55,6 @@ class FaultManager:
     def __init__(
         self,
         hass: hass,
-        notify_man: NotificationManager,
-        recovery_man: RecoveryManager,
         sm_modules: dict,
         prefault_dict: dict,
         fault_dict: dict,
@@ -69,12 +64,22 @@ class FaultManager:
 
         :param config_path: Path to the YAML configuration file.
         """
-        self.notify_man: NotificationManager = notify_man
-        self.recovery_man: RecoveryManager = recovery_man
+        self.notify_interface: (
+            Callable[[str, int, FaultState, dict | None], None] | None
+        ) = None
+        self.recovery_interface: Callable[[PreFault], None] | None = None
         self.faults: dict[str, Fault] = fault_dict
         self.prefaults: dict[str, PreFault] = prefault_dict
-        self.sm_modules = sm_modules
-        self.hass = hass
+        self.sm_modules: dict = sm_modules
+        self.hass: hass.Hass = hass
+
+    def register_callbacks(
+        self,
+        recovery_interface: Callable[[PreFault], None],
+        notify_interface: Callable[[str, int, FaultState, dict | None], None],
+    ) -> None:
+        self.recovery_interface = recovery_interface
+        self.notify_interface = notify_interface
 
     def init_safety_mechanisms(self) -> None:
         """
@@ -95,6 +100,12 @@ class FaultManager:
                 prefault_data.sm_state = SMState.DISABLED
             else:
                 prefault_data.sm_state = SMState.ERROR
+
+    def get_all_prefault(self) -> dict[str, PreFault]:
+        """
+        TODO
+        """
+        return self.prefaults
 
     def enable_all_prefaults(self) -> None:
         """
@@ -215,22 +226,22 @@ class FaultManager:
             appropriate fault state updates based on pre-fault triggers.
         """
         # Get sm name based on prefault_id
-        sm_name = self.prefaults[prefault_id].sm_name
+        sm_name: str = self.prefaults[prefault_id].sm_name
 
         # Collect all faults mapped from that prefault
-        fault = self._found_mapped_fault(prefault_id, sm_name)
+        fault: Fault | None = self._found_mapped_fault(prefault_id, sm_name)
         if fault:
             # Set Fault
             fault.state = FaultState.SET
             self.hass.log(f"Fault {fault.name} was set", level="DEBUG")
 
             # Determinate additional info
-            info_to_send = self._determinate_info(
+            info_to_send: dict | None = self._determinate_info(
                 "sensor.fault_" + fault.name, additional_info, FaultState.SET
             )
 
             # Prepare the attributes for the state update
-            attributes = info_to_send if info_to_send else {}
+            attributes: dict = info_to_send if info_to_send else {}
 
             # Clear HA entity
             self.hass.set_state(
@@ -238,15 +249,22 @@ class FaultManager:
             )
 
             # Call notifications
-            self.notify_man.notify(
-                fault.name,
-                fault.notification_level,
-                FaultState.SET,
-                additional_info,
-            )
+            if self.notify_interface:
+                self.notify_interface(
+                    fault.name,
+                    fault.notification_level,
+                    FaultState.SET,
+                    additional_info,
+                )
+            else:
+                self.hass.log("No notification interface", level="WARNING")
 
             # Call recovery actions (specific for prefault)
-            self.recovery_man.recovery(self.prefaults[prefault_id])
+            if self.recovery_interface:
+                self.recovery_interface(self.prefaults[prefault_id])
+            else:
+                self.hass.log("No recovery interface", level="WARNING")
+
         else:
             pass  # Error logged in previous call
 
@@ -344,10 +362,10 @@ class FaultManager:
         """
 
         # Get sm name based on prefault_id
-        sm_name = self.prefaults[prefault_id].sm_name
+        sm_name: str = self.prefaults[prefault_id].sm_name
 
         # Collect all faults mapped from that prefault
-        fault = self._found_mapped_fault(prefault_id, sm_name)
+        fault: Fault | None = self._found_mapped_fault(prefault_id, sm_name)
 
         if fault and not any(
             prefault.state == FaultState.SET
@@ -372,12 +390,15 @@ class FaultManager:
             )
 
             # Call notifications
-            self.notify_man.notify(
-                fault.name,
-                fault.notification_level,
-                FaultState.CLEARED,
-                additional_info,
-            )
+            if self.notify_interface:
+                self.notify_interface(
+                    fault.name,
+                    fault.notification_level,
+                    FaultState.CLEARED,
+                    additional_info,
+                )
+            else:
+                self.hass.log("No notification interface", level="WARNING")
 
     def check_fault(self, fault_id: str) -> FaultState:
         """

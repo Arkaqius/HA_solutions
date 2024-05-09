@@ -27,9 +27,10 @@ recovery_manager.recovery(cool_down_system, {'component': 'CPU', 'target_temp': 
 This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems.
 """
 
-from typing import Callable
+from typing import NoReturn
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
-from shared.types_common import RecoveryAction, PreFault
+from shared.types_common import RecoveryAction, PreFault, SMState
+from shared.common_entities import CommonEntities
 
 
 class RecoveryManager:
@@ -47,7 +48,13 @@ class RecoveryManager:
     strategies for different fault scenarios.
     """
 
-    def __init__(self, hass_app: hass.Hass, recovery_actions: dict) -> None:
+    def __init__(
+        self,
+        hass_app: hass.Hass,
+        fm: 'FaultManager',
+        recovery_actions: dict,
+        common_entities: CommonEntities,
+    ) -> None:
         """
         Initializes the RecoveryManager with the necessary application context and recovery configuration.
 
@@ -66,20 +73,50 @@ class RecoveryManager:
         based on the faults detected within the system, promoting a flexible and responsive fault management
         framework.
         """
-        self.hass_app = hass_app
-        self.recovery_actions: dict[str,RecoveryAction] = recovery_actions
+        self.hass_app: hass.Hass = hass_app
+        self.recovery_actions: dict[str, RecoveryAction] = recovery_actions
+        self.common_entities: CommonEntities = common_entities
+        self.fm: 'FaultManager' = fm
 
+    def _isRecoveryConflict(self) -> NoReturn:
+        raise NotImplementedError
+
+    def _perform_recovery(self) -> NoReturn:
+        raise NotImplementedError
+    
+    def _run_dry_test(self, entities_changes: dict[str, str] ) -> None:
+        # Iterate all sms and check if any will result in fault
+        
+        for _, prefault_data in self.fm.get_all_prefault().items():
+            if prefault_data.sm_state == SMState.ENABLED:
+                # Force each sm to get state if possible
+                sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+                sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name],entities_changes)
+                
     def recovery(self, prefault: PreFault) -> None:
         """
         TODO
         """
         # 10. Check if rec actions exist
         if prefault.name in self.recovery_actions:
-            # 20. Check if existing rec actions are not present 
-            
-            # 30. Check if existing rec actions are not in conflict
-            
-            # 40 Run actions
-            self.recovery_actions[prefault.name].rec_fun(**self.recovery_actions[prefault.name].params)
+            # 40 Run recovery action to get potential changes
+            entities_changes: dict[str, str] = self.recovery_actions[
+                prefault.name
+            ].rec_fun(
+                self.hass_app,
+                prefault,
+                self.common_entities,
+                **self.recovery_actions[prefault.name].params,
+            )
+            if entities_changes:
+                # 20. Check if existing rec action can cause another faults
+                self._run_dry_test(entities_changes)
+                # 30. Check if existing rec action is not in conflicts with diffrent one
+                if not self._isRecoveryConflict():
+                    self._perform_recovery(entities_changes)
+                else:
+                    self.hass_app.log(
+                        f"Recovery confict for {prefault.name}", level="DEBUG"
+                    )
         else:
-            self.hass_app.log(f"No recovery actions for {prefault.name}",level='DEBUG')
+            self.hass_app.log(f"No recovery actions for {prefault.name}", level="DEBUG")

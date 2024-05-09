@@ -24,8 +24,8 @@ SafetyFunctions:
   prefaults: {...}
   faults: {...}
   notification: {...}
-  
-This module exemplifies a holistic approach to safety management within Home Assistant, 
+
+This module exemplifies a holistic approach to safety management within Home Assistant,
 offering a framework for the development and integration of comprehensive safety features.
 
 Note:
@@ -42,15 +42,16 @@ from shared.fault_manager import FaultManager
 from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 from shared.types_common import Fault, PreFault, RecoveryAction
+from shared.common_entities import CommonEntities
 import shared.cfg_parser as cfg_pr
 
 DEBUG = False
 
 if DEBUG:
-    from remote_pdb import RemotePdb
+    from remote_pdb import RemotePdb  # type: ignore
 
 COMPONENT_DICT: dict[str, SafetyComponent] = {
-    "TemperatureComponent": TemperatureComponent
+    "TemperatureComponent": TemperatureComponent  # type: ignore
 }
 
 
@@ -75,16 +76,22 @@ class SafetyFunctions(hass.Hass):
         self.recovery_actions: dict[str, RecoveryAction] = {}
 
         # 10. Get and verify cfgs
-        self.fault_dict = self.args["app_config"]["faults"]
-        self.safety_components_cfg = self.args["user_config"]["safety_components"]
-        self.notification_cfg = self.args["user_config"]["notification"]
+        self.fault_dict: dict = self.args["app_config"]["faults"]
+        self.safety_components_cfg: dict = self.args["user_config"]["safety_components"]
+        self.notification_cfg: dict = self.args["user_config"]["notification"]
+        self.common_entities_cfg: dict = self.args["user_config"]["common_entities"]
+
+        # TODO
+        self.common_entities: CommonEntities = CommonEntities(
+            self, self.common_entities_cfg
+        )
 
         # 20. Initialize SM modules and get prefaults and recovery data
         for component_name, component_cls in COMPONENT_DICT.items():
             if component_name in self.safety_components_cfg:
                 # Instantiate the component with 'self' passed to its constructor
                 component_instance = component_cls(  # type: ignore
-                    self
+                    self, self.common_entities
                 )  # Assuming the constructor expects a reference to `self`
 
                 # Store the instance in a dictionary
@@ -105,38 +112,41 @@ class SafetyFunctions(hass.Hass):
         # 30. Get faults data
         self.faults = cfg_pr.get_faults(self.fault_dict)
 
-        # 50. Initialize notification manager
-        self.notify_man: NotificationManager = NotificationManager(
-            self, self.notification_cfg
-        )
-
-        # 60. Initialize recovery manager
-        self.reco_man: RecoveryManager = RecoveryManager(self, self.recovery_actions)
-
         # 40. Initialize fault manager
         self.fm: FaultManager = FaultManager(
             self,
-            self.notify_man,
-            self.reco_man,
             self.sm_modules,
             self.prefaults,
             self.faults,
         )
 
-        # 70. Register fm to safety components
+        # 50. Initialize recovery manager
+        self.reco_man: RecoveryManager = RecoveryManager(
+            self, self.fm, self.recovery_actions, self.common_entities
+        )
+
+        # 60. Initialize notification manager
+        self.notify_man: NotificationManager = NotificationManager(
+            self, self.notification_cfg
+        )
+
+        # 70. Initialize notification manager
+        self.fm.register_callbacks(self.reco_man.recovery, self.notify_man.notify)
+
+        # 80. Register fm to safety components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # 80. Register all prefaults
+        # 90. Register all prefaults
         self.register_entities(self.faults)
 
-        # 90. Init safety mechanisms
+        # 100. Init safety mechanisms
         self.fm.init_safety_mechanisms()
 
-        # 100. Enable safety mechanisms
+        # 110. Enable safety mechanisms
         self.fm.enable_all_prefaults()
 
-        # 110. Set the health status after initialization
+        # 120. Set the health status after initialization
         self.set_state("sensor.safety_app_health", state="good")
         self.log("Safety app started", level="DEBUG")
 

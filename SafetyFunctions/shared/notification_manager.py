@@ -1,11 +1,11 @@
 """
 Notification Manager Module for Home Assistant Safety System
 
-This module contains the NotificationManager class, designed to handle various types of notifications within a Home Assistant-based safety system. 
-It facilitates the delivery of notifications through Home Assistant's notification services, dashboard updates, and other notification mechanisms 
+This module contains the NotificationManager class, designed to handle various types of notifications within a Home Assistant-based safety system.
+It facilitates the delivery of notifications through Home Assistant's notification services, dashboard updates, and other notification mechanisms
 such as lights and alarms. The NotificationManager is configurable, allowing for dynamic notification behaviors based on the severity of detected faults and system states.
 
-The NotificationManager class provides a structured way to manage and execute notifications based on predefined levels of urgency. It maps different 
+The NotificationManager class provides a structured way to manage and execute notifications based on predefined levels of urgency. It maps different
 notification levels to specific methods that handle the logic for each notification type, ensuring that users are informed of system states and faults in a timely and appropriate manner.
 
 Features include:

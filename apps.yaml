@@ -122,6 +122,8 @@ SafetyFunctions:
   user_config:
     notification:
       light_entity: 'light.warning_light'
+    common_entities:
+      outside_temp : 'sensor.outside_temp' # TODO
     safety_components:
       TemperatureComponent:
         - Office:
