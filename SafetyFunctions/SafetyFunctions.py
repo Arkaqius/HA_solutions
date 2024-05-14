@@ -151,7 +151,7 @@ class SafetyFunctions(hass.Hass):
         self.log("Safety app started", level="DEBUG")
 
     def register_entities(self, faults: dict[str, Fault]) -> None:
-        for name, data in faults.items():
+        for name, _ in faults.items():
             self.set_state(
                 "sensor.fault_" + name,
                 state="Not_tested",

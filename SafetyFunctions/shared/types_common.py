@@ -58,10 +58,8 @@ class SMState(Enum):
 
 
 class RecoveryActionState(Enum):
-    ERROR = 0
-    NON_INITIALIZED = 1
-    DISABLED = 2
-    ENABLED = 3
+    NOT_PERFORMED = 0
+    PERFORMED = 1
 
 
 class RecoveryAction:
@@ -76,7 +74,7 @@ class RecoveryAction:
         name (str): The name of the recovery action, used to identify and reference the action within the system.
     """
 
-    def __init__(self, type: Any, params: Any, recovery_action: Any) -> None:
+    def __init__(self, name: Any, params: Any, recovery_action: Any) -> None:
         """
         Initializes a new instance of the RecoveryAction with a specific name.
 
@@ -86,9 +84,10 @@ class RecoveryAction:
         Args:
             name (str): The name of the recovery action, providing a unique identifier for the action within the system.
         """
-        self.type: Any = type
+        self.name: Any = name
         self.params: dict = params
         self.rec_fun: Any = recovery_action
+        self.current_status: RecoveryActionState = RecoveryActionState.NOT_PERFORMED
 
 
 class PreFault:
@@ -152,5 +151,6 @@ class Fault:
     def __init__(self, name: str, related_prefaults: list, notification_level: int):
         self.name: str = name
         self.state: FaultState = FaultState.NOT_TESTED
-        self.related_prefaults = related_prefaults
+        self.related_prefaults: list = related_prefaults
         self.notification_level: int = notification_level
+        self.priority = 2

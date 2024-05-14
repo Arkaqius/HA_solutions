@@ -30,9 +30,11 @@ from typing import (
     Callable,
     Optional,
     NamedTuple,
+    Literal,
 )
 import traceback
 from enum import Enum
+
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
@@ -109,7 +111,7 @@ class SafetyComponent:
         process_prefault: Processes potential pre-fault conditions based on debouncing logic.
     """
 
-    component_name = "UNKNOWN"  # Default value for the parent class
+    component_name: str = "UNKNOWN"  # Default value for the parent class
 
     def __init__(self, hass_app: hass.Hass, common_entities: CommonEntities) -> None:
         """
@@ -148,26 +150,6 @@ class SafetyComponent:
             to ensure the component can appropriately respond to and manage fault conditions.
         """
         self.fault_man = fm
-
-    # @staticmethod
-    # def is_valid_binary_sensor(entity_name: str) -> bool:
-    #     """
-    #     Check if a given entity name is a valid binary sensor.
-
-    #     :param entity_name: The entity name to validate.
-    #     :return: True if valid binary sensor, False otherwise.
-    #     """
-    #     return isinstance(entity_name, str) and entity_name.startswith("binary_sensor.")
-
-    # @staticmethod
-    # def is_valid_sensor(entity_name: str) -> bool:
-    #     """
-    #     Check if a given entity name is a valid sensor.
-
-    #     :param entity_name: The entity name to validate.
-    #     :return: True if valid sensor, False otherwise.
-    #     """
-    #     return isinstance(entity_name, str) and entity_name.startswith("sensor.")
 
     def validate_entity(
         self, entity_name: str, entity: Any, expected_type: Type
@@ -285,7 +267,7 @@ class SafetyComponent:
             DebounceResult: A named tuple containing the action to be taken (DebounceAction) and the updated counter (int).
         """
         if pr_test:
-            new_counter = min(debounce_limit, current_counter + 1)
+            new_counter: int = min(debounce_limit, current_counter + 1)
             action = (
                 DebounceAction.PREFAULT_SET
                 if new_counter >= debounce_limit
@@ -293,7 +275,10 @@ class SafetyComponent:
             )
         else:
             new_counter = max(-debounce_limit, current_counter - 1)
-            action = (
+            action: (
+                Literal[DebounceAction.PREFAULT_HEALED]
+                | Literal[DebounceAction.NO_ACTION]
+            ) = (
                 DebounceAction.PREFAULT_HEALED
                 if new_counter <= -debounce_limit
                 else DebounceAction.NO_ACTION

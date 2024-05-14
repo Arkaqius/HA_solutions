@@ -27,10 +27,11 @@ recovery_manager.recovery(cool_down_system, {'component': 'CPU', 'target_temp': 
 This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems.
 """
 
-from typing import NoReturn
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
+from shared.types_common import Fault
 from shared.types_common import RecoveryAction, PreFault, SMState
 from shared.common_entities import CommonEntities
+from shared.fault_manager import FaultManager
 
 
 class RecoveryManager:
@@ -51,7 +52,7 @@ class RecoveryManager:
     def __init__(
         self,
         hass_app: hass.Hass,
-        fm: 'FaultManager',
+        fm: FaultManager,
         recovery_actions: dict,
         common_entities: CommonEntities,
     ) -> None:
@@ -76,23 +77,95 @@ class RecoveryManager:
         self.hass_app: hass.Hass = hass_app
         self.recovery_actions: dict[str, RecoveryAction] = recovery_actions
         self.common_entities: CommonEntities = common_entities
-        self.fm: 'FaultManager' = fm
+        self.fm: FaultManager = fm
 
-    def _isRecoveryConflict(self) -> NoReturn:
-        raise NotImplementedError
+    def _isRecoveryConflict(self, prefault: PreFault) -> bool:
+        matching_actions: list[str] = self._get_matching_actions(prefault)
 
-    def _perform_recovery(self) -> NoReturn:
-        raise NotImplementedError
-    
-    def _run_dry_test(self, entities_changes: dict[str, str] ) -> None:
+        if not matching_actions:
+            rec_fault: Fault | None = self.fm.found_mapped_fault(
+                prefault.name, prefault.sm_name
+            )
+            if rec_fault:
+                rec_fault_prio: int = rec_fault.priority
+                return self._check_conflict_with_matching_actions(
+                    matching_actions, rec_fault_prio, prefault
+                )
+
+        return False
+
+    def _get_matching_actions(self, prefault: PreFault) -> list[str]:
+        return [
+            name
+            for name, action in self.recovery_actions.items()
+            if action.name in self.recovery_actions[prefault.name].name
+        ]
+
+    def _check_conflict_with_matching_actions(
+        self, matching_actions: list[str], rec_fault_prio: int, prefault: PreFault
+    ) -> bool:
+        for found_prefault_name in matching_actions:
+            found_prefault: PreFault = self.fm.prefaults[found_prefault_name]
+            if found_prefault:
+                found_fault: Fault | None = self.fm.found_mapped_fault(
+                    prefault.name, prefault.sm_name
+                )
+                if found_fault and found_fault.priority > rec_fault_prio:
+                    return True
+        return False
+
+    def _perform_recovery(
+        self, prefault: PreFault, notifications: list, entities_changes: dict[str, str]
+    ) -> None:
+        # Perform notify
+        for notification in notifications:
+            self.hass_app.log(f"Try to send notify {notification}", level="DEBUG")
+        # Set recovery entity
+        rec: RecoveryAction | None = self._find_recovery(prefault.name)
+        if rec:
+            self._set_rec_entity(rec)
+            # Set entitity actions as recovery
+            for entity, value in entities_changes.items():
+                try:
+                    self.hass_app.set_state(entity, value)
+                except Exception as err:
+                    self.hass_app.log(
+                        f"Exception during setting {entity} to {value} value. {err}",
+                        level="ERROR",
+                    )
+        else:
+            self.hass_app.log(
+                f"Recovery action for {prefault.name} was not found!", level="WARNING"
+            )
+
+    def _find_recovery(self, prefault_name: str) -> RecoveryAction | None:
+        for name, rec in self.recovery_actions.items():
+            if name == prefault_name:
+                return rec
+        return None
+
+    def _set_rec_entity(self, recovery: RecoveryAction) -> None:
+        sensor_name: str = f"sensor.{recovery.name}"
+        sensor_value: str = str(recovery.current_status.name)
+        self.hass_app.set_state(sensor_name, sensor_value)
+
+    def _run_dry_test(
+        self, prefaul_name: str, entities_changes: dict[str, str]
+    ) -> bool:
         # Iterate all sms and check if any will result in fault
-        
+
         for _, prefault_data in self.fm.get_all_prefault().items():
             if prefault_data.sm_state == SMState.ENABLED:
                 # Force each sm to get state if possible
                 sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
-                sm_fcn(prefault_data.module.safety_mechanisms[prefault_data.name],entities_changes)
-                
+                isFaultTrigged = sm_fcn(
+                    prefault_data.module.safety_mechanisms[prefault_data.name],
+                    entities_changes,
+                )
+                if isFaultTrigged and prefault_data.sm_name is not prefaul_name:
+                    return True
+        return False
+
     def recovery(self, prefault: PreFault) -> None:
         """
         TODO
@@ -100,7 +173,7 @@ class RecoveryManager:
         # 10. Check if rec actions exist
         if prefault.name in self.recovery_actions:
             # 40 Run recovery action to get potential changes
-            entities_changes: dict[str, str] = self.recovery_actions[
+            entities_changes, notifications = self.recovery_actions[
                 prefault.name
             ].rec_fun(
                 self.hass_app,
@@ -108,15 +181,22 @@ class RecoveryManager:
                 self.common_entities,
                 **self.recovery_actions[prefault.name].params,
             )
-            if entities_changes:
+            if True:
                 # 20. Check if existing rec action can cause another faults
-                self._run_dry_test(entities_changes)
-                # 30. Check if existing rec action is not in conflicts with diffrent one
-                if not self._isRecoveryConflict():
-                    self._perform_recovery(entities_changes)
+                if True:
+                    if not self._run_dry_test(prefault.name, entities_changes):
+                        # 30. Check if existing rec action is not in conflicts with diffrent one
+                        if not self._isRecoveryConflict(prefault):
+                            self._perform_recovery(
+                                prefault, notifications, entities_changes
+                            )
+                        else:
+                            self.hass_app.log(
+                                f"Recovery confict for {prefault.name}", level="DEBUG"
+                            )
                 else:
                     self.hass_app.log(
-                        f"Recovery confict for {prefault.name}", level="DEBUG"
+                        "Recovery will raise another fault.", level="DEBUG"
                     )
         else:
             self.hass_app.log(f"No recovery actions for {prefault.name}", level="DEBUG")

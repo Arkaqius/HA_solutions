@@ -48,7 +48,7 @@ class TemperatureComponent(SafetyComponent):
     each designed to monitor specific conditions and execute defined actions, such as sending alerts or triggering automations.
     """
 
-    component_name = "TemperatureComponent"
+    component_name: str = "TemperatureComponent"
 
     def __init__(self, hass_app: hass, common_entities: CommonEntities) -> None:  # type: ignore
         """
@@ -145,12 +145,16 @@ class TemperatureComponent(SafetyComponent):
         )
 
     def _get_sm_tc_1_recovery_action(
-        self, modules: dict, location: str, data: dict, prefault_name: str
+        self, _: dict, location: str, data: dict, ___: str
     ) -> RecoveryAction:
-        type = "ManipulateWindowInRoom"
-        params = {"location": location, "actuator": None}
+        name: str = f"ManipulateWindowIn{location}"
+        params = {
+            "location": location,
+            "actuator": None,
+            "window_sensor": data["window_sensor"],
+        }
         recovery_func = self.RiskyTemperature_recovery
-        return RecoveryAction(type, params, recovery_func)
+        return RecoveryAction(name, params, recovery_func)
 
     def _get_sm_tc_2_pr_name(self, location: str) -> str:
         return f"RiskyTemperature{location}ForeCast"
@@ -183,12 +187,16 @@ class TemperatureComponent(SafetyComponent):
         )
 
     def _get_sm_tc_2_recovery_action(
-        self, modules: dict, location: str, data: dict, prefault_name: str
+        self, _: dict, location: str, data: dict, ___: str
     ) -> RecoveryAction:
-        type = "ManipulateWindowInRoom"
-        params = {"sensor": "sensor", "actuator": None}
+        name = "ManipulateWindowInRoom"
+        params = {
+            "location": location,
+            "actuator": None,
+            "window_sensor": data["window_sensor"],
+        }
         recovery_func = self.RiskyTemperature_recovery
-        return RecoveryAction(type, params, recovery_func)
+        return RecoveryAction(name, params, recovery_func)
 
     def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
         """
@@ -473,13 +481,14 @@ class TemperatureComponent(SafetyComponent):
         hass_app: hass,
         prefault: PreFault,
         common_entities: CommonEntities,
-        **kwargs: dict[str, Any],
-    ) -> dict | None:
-        """Executes recovery actions for risky temperature conditions.
-        params = {"location" : location, "actuator" : None}
-        """
+        **kwargs: dict[str, str],
+    ) -> None | tuple[dict[str, str], list[str]]:
 
-        changed_entities: dict = {}
+        changed_entities: dict[str, str] = {}
+        notifications: list[str] = []
+        location: str = kwargs["location"]
+        actuator: str = kwargs["actuator"]
+        window_sensor: str = kwargs["window_sensor"]
         # Get inputs
         try:
             meas_room_temp = float(
@@ -491,29 +500,27 @@ class TemperatureComponent(SafetyComponent):
         # First we shall close windows if outisde temperature is lower that in room
         outside_temp_raw: str | None = common_entities.get_outisde_temperature()
         if not outside_temp_raw:
-            return None
+            return changed_entities, notifications
         else:
             outside_temp = float(outside_temp_raw)
             if outside_temp < meas_room_temp:
-                changed_entities[
-                    TemperatureComponent.safety_mechanisms[prefault.name].sm_args[
-                        "temperature_sensor"
-                    ]
-                ] = "off"
+                # Forecasted chagnes
+                changed_entities = {sensor: "off" for sensor in window_sensor}
                 # Check if we have actuator
-                if kwargs["params"]["actuator"]:
-                    changed_entities[kwargs["params"]["actuator"]] = (
-                        "off"  # TODO Check it!
+                if actuator:
+                    changed_entities[actuator] = "off"  # TODO Check it!
+                else:
+                    notifications.append(
+                        f"Please close windows in {location} as recovery action"
                     )
+
             else:
-                changed_entities[
-                    TemperatureComponent.safety_mechanisms[prefault.name].sm_args[
-                        "temperature_sensor"
-                    ]
-                ] = "on"
+                changed_entities = {sensor: "on" for sensor in window_sensor}
                 # Check if we have actuator
-                if kwargs["params"]["actuator"]:
-                    changed_entities[kwargs["params"]["actuator"]] = (
-                        "on"  # TODO Check it!
+                if actuator:
+                    changed_entities[actuator] = "on"  # TODO Check it!
+                else:
+                    notifications.append(
+                        f"Please open windows in {location} as recovery action"
                     )
-            return changed_entities
+            return changed_entities, notifications

@@ -229,7 +229,7 @@ class FaultManager:
         sm_name: str = self.prefaults[prefault_id].sm_name
 
         # Collect all faults mapped from that prefault
-        fault: Fault | None = self._found_mapped_fault(prefault_id, sm_name)
+        fault: Fault | None = self.found_mapped_fault(prefault_id, sm_name)
         if fault:
             # Set Fault
             fault.state = FaultState.SET
@@ -365,7 +365,7 @@ class FaultManager:
         sm_name: str = self.prefaults[prefault_id].sm_name
 
         # Collect all faults mapped from that prefault
-        fault: Fault | None = self._found_mapped_fault(prefault_id, sm_name)
+        fault: Fault | None = self.found_mapped_fault(prefault_id, sm_name)
 
         if fault and not any(
             prefault.state == FaultState.SET
@@ -422,7 +422,7 @@ class FaultManager:
         """
         return self.faults[fault_id].state
 
-    def _found_mapped_fault(self, prefault_id: str, sm_id: str) -> Optional[Fault]:
+    def found_mapped_fault(self, prefault_id: str, sm_id: str) -> Optional[Fault]:
         """
         Finds the fault associated with a given pre-fault identifier.
 
@@ -451,7 +451,7 @@ class FaultManager:
         """
 
         # Collect all faults mapped from that prefault
-        matching_objects = [
+        matching_objects: list[Fault] = [
             fault for fault in self.faults.values() if sm_id in fault.related_prefaults
         ]
 

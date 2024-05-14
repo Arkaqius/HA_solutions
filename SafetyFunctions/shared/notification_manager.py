@@ -70,7 +70,7 @@ class NotificationManager:
         """
 
         # Construct the message to be sent
-        message = f"{fault}\n"
+        message: str = f"{fault}\n"
         if additional_info:
             for key, value in additional_info.items():
                 message += f"{key}: {value}\n"

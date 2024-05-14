@@ -50,7 +50,7 @@ class SafetyMechanism:
         name: str,
         isEnabled: bool,
         **kwargs: Any,
-    ):
+    ) -> None:
         """
         Initializes a new instance of the SafetyMechanism class.
 
