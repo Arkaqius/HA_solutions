@@ -88,14 +88,11 @@ class FaultManager:
         This function iterates over all pre-faults defined in the system, initializing their respective
         safety mechanisms as specified by the safety mechanism's name (`sm_name`). It also sets the initial state
         of the pre-faults to DISABLED if initialization is successful, or to ERROR otherwise.
-
-        It uses dynamic function invocation based on the `sm_name` to call the initialization function of each
-        safety mechanism. If the initialization is successful, the safety mechanism state for the pre-fault is
-        set to DISABLED; if it fails, it is set to ERROR.
         """
         for prefault_name, prefault_data in self.prefaults.items():
-            init_fcn = getattr(prefault_data.module, "init_" + prefault_data.sm_name)
-            result: bool = init_fcn(prefault_name, prefault_data.parameters)
+            result: bool = prefault_data.module.init_safety_mechanism(
+                prefault_data.sm_name, prefault_name, prefault_data.parameters
+            )
             if result:
                 prefault_data.sm_state = SMState.DISABLED
             else:
@@ -122,11 +119,9 @@ class FaultManager:
         """
         for prefault_name, prefault_data in self.prefaults.items():
             if prefault_data.sm_state == SMState.DISABLED:
-
-                enable_fcn = getattr(
-                    prefault_data.module, "enable_" + prefault_data.sm_name
+                result: bool = prefault_data.module.enable_safety_mechanism(
+                    prefault_name, SMState.ENABLED
                 )
-                result: bool = enable_fcn(prefault_name, SMState.ENABLED)
                 if result:
                     prefault_data.sm_state = SMState.ENABLED
                     # Force each sm to get state if possible

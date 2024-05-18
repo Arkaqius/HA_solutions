@@ -20,7 +20,7 @@ Note:
 This module is part of a larger system designed for enhancing safety through Home Assistant. It should be integrated with the appropriate Home Assistant setup and configured according to the specific needs and safety requirements of the environment being monitored.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 from shared.safety_component import (
     SafetyComponent,
     safety_mechanism_decorator,
@@ -50,6 +50,7 @@ class TemperatureComponent(SafetyComponent):
 
     component_name: str = "TemperatureComponent"
 
+    # region Init and enables
     def __init__(self, hass_app: hass, common_entities: CommonEntities) -> None:  # type: ignore
         """
         Initializes the TemperatureComponent instance with the Home Assistant application context, setting up the foundation
@@ -57,6 +58,7 @@ class TemperatureComponent(SafetyComponent):
 
         Args:
             hass_app (hass.Hass): The Home Assistant application instance through which sensor data is accessed and actions are executed.
+            common_entities (CommonEntities): A shared object providing access to common entities used across different safety mechanisms.
         """
         super().__init__(hass_app, common_entities)
 
@@ -67,16 +69,12 @@ class TemperatureComponent(SafetyComponent):
         Retrieve pre-fault configurations from the component configuration and generate corresponding PreFault objects.
 
         Args:
-            component_cfg (list[Dict[str, Dict[str, float]]]): A list of dictionaries where each dictionary
+            sm_modules (dict): A dictionary of system modules.
+            component_cfg (list[dict[str, Any]]): A list of dictionaries where each dictionary
                 contains a single location as the key and a dictionary of configuration data for that location.
 
         Returns:
-            Dict[str, PreFault]: A dictionary where keys are the names of the pre-faults and values are
-                the corresponding PreFault objects initialized with the provided configuration data.
-
-        Processes each location's configuration to create two types of pre-faults:
-        - One based on direct temperature thresholds.
-        - Another based on forecasted temperature conditions.
+            Tuple[Dict[str, PreFault], Dict[str, RecoveryAction]]: Two dictionaries, one for PreFaults and one for RecoveryActions.
         """
         ret_val_pr: dict[str, PreFault] = {}
         ret_val_ra: dict[str, RecoveryAction] = {}
@@ -86,254 +84,56 @@ class TemperatureComponent(SafetyComponent):
                 self.hass_app.log(
                     f"Processing prefaults for location: {location}, data: {data}"
                 )
-
-                # SM TC 1
-                prefault_name: str = self._get_sm_tc_1_pr_name(location)
-                recovery_action: RecoveryAction = self._get_sm_tc_1_recovery_action(
-                    sm_modules, location, data, prefault_name
+                self._process_prefaults_for_location(
+                    sm_modules, location, data, ret_val_pr, ret_val_ra
                 )
-                prefault: PreFault = self._get_sm_tc_1_prefault(
-                    sm_modules, location, data, prefault_name
-                )
-
-                ret_val_pr[prefault_name] = prefault
-                ret_val_ra[prefault_name] = recovery_action
-
-                # SM TC 2
-                prefault_name = self._get_sm_tc_2_pr_name(location)
-                prefault = self._get_sm_tc_2_prefault(
-                    sm_modules, location, data, prefault_name
-                )
-                recovery_action = self._get_sm_tc_2_recovery_action(
-                    sm_modules, location, data, prefault_name
-                )
-
-                ret_val_pr[prefault_name] = prefault
-                ret_val_ra[prefault_name] = recovery_action
 
         return (ret_val_pr, ret_val_ra)
 
-    def _get_sm_tc_1_pr_name(self, location: str) -> str:
-        return f"RiskyTemperature{location}"
-
-    def _get_sm_tc_1_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str
-    ) -> PreFault:
+    def init_safety_mechanism(self, sm_name: str, name: str, parameters: dict) -> bool:
         """
-        Generates a PreFault object for direct temperature monitoring based on the given location and data.
+        Initializes a safety mechanism based on the provided safety mechanism name.
 
         Args:
-            location (str): The location identifier used to create a unique pre-fault name.
-            data (dict): Configuration data specific to this pre-fault, such as temperature thresholds.
+            sm_name (str): The name of the safety mechanism (e.g., "sm_tc_1" or "sm_tc_2").
+            name (str): The unique name identifying this safety mechanism.
+            parameters (dict): Configuration parameters for the safety mechanism.
 
         Returns:
-            Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
-            The PreFault is configured to handle direct temperature conditions.
+            bool: True if the initialization is successful, False otherwise.
         """
-        prefault_params = data
-        sm_name = "sm_tc_1"
+        if sm_name == "sm_tc_1":
+            required_keys = ["temperature_sensor", "CAL_LOW_TEMP_THRESHOLD", "location"]
+            sm_method = self.sm_tc_1
+        elif sm_name == "sm_tc_2":
+            required_keys = [
+                "temperature_sensor",
+                "CAL_LOW_TEMP_THRESHOLD",
+                "CAL_FORECAST_TIMESPAN",
+                "location",
+            ]
+            sm_method = self.sm_tc_2
+        else:
+            self.hass_app.log(f"Unknown safety mechanism {sm_name}", level="ERROR")
+            return False
 
-        # Add location to parametrs
-        prefault_params["location"] = location
+        return self._init_sm(name, parameters, sm_method, required_keys)
 
-        # recovery_func = getattr(self.__class__, f"{prefault_name}_recovery", None)
-        return PreFault(
-            module=modules[self.__class__.__name__],
-            name=prefault_name,
-            parameters=prefault_params,
-            sm_name=sm_name,
-        )
-
-    def _get_sm_tc_1_recovery_action(
-        self, _: dict, location: str, data: dict, ___: str
-    ) -> RecoveryAction:
-        name: str = f"ManipulateWindowIn{location}"
-        params = {
-            "location": location,
-            "actuator": None,
-            "window_sensor": data["window_sensor"],
-        }
-        recovery_func = self.RiskyTemperature_recovery
-        return RecoveryAction(name, params, recovery_func)
-
-    def _get_sm_tc_2_pr_name(self, location: str) -> str:
-        return f"RiskyTemperature{location}ForeCast"
-
-    def _get_sm_tc_2_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str
-    ) -> PreFault:
+    def enable_safety_mechanism(self, name: str, state: SMState) -> bool:
         """
-        Generates a PreFault object for forecast-based temperature monitoring based on the given location and data.
+        Enables or disables a safety mechanism based on the provided state.
 
         Args:
-            location (str): The location identifier used to create a unique pre-fault name.
-            data (dict): Configuration data specific to this pre-fault, including forecast timespan and other parameters.
+            name (str): The unique name identifying this safety mechanism.
+            state (SMState): The state to set for the safety mechanism (ENABLED or DISABLED).
 
         Returns:
-            Tuple[str, PreFault]: A tuple containing the pre-fault's name and the PreFault object itself.
-            The PreFault is configured to handle forecasted temperature conditions.
+            bool: True if the state change is successful, False otherwise.
         """
-        prefault_params = data
-        sm_name = "sm_tc_2"
-
-        # Add location to parametrs
-        prefault_params["location"] = location
-
-        return PreFault(
-            module=modules[self.__class__.__name__],
-            name=prefault_name,
-            parameters=prefault_params,
-            sm_name=sm_name,
-        )
-
-    def _get_sm_tc_2_recovery_action(
-        self, _: dict, location: str, data: dict, ___: str
-    ) -> RecoveryAction:
-        name = "ManipulateWindowInRoom"
-        params = {
-            "location": location,
-            "actuator": None,
-            "window_sensor": data["window_sensor"],
-        }
-        recovery_func = self.RiskyTemperature_recovery
-        return RecoveryAction(name, params, recovery_func)
-
-    def init_sm_tc_1(self, name: str, parameters: dict) -> bool:
-        """
-        Initializes a new temperature threshold-based safety mechanism. This process involves validating
-        configuration parameters, setting up debounce states for reliable condition detection, and registering
-        the mechanism within the system for ongoing temperature monitoring.
-
-        This method dynamically configures a safety mechanism that triggers when temperature readings cross
-        a specified threshold, facilitating immediate or preventative actions to mitigate potential risks.
-
-        Args:
-            name (str): A unique identifier for the safety mechanism.
-            parameters (Dict[str, Any]): A dictionary containing the necessary configuration parameters
-            such as 'temperature_sensor' and 'cold_thr' (cold threshold).
-
-        Raises:
-            KeyError: If essential parameters are missing, indicating incomplete configuration.
-            ValueError: If parameter validations fail, such as incorrect types or unacceptable values.
-        """
-        is_param_ok = True
-
-        if name in self.safety_mechanisms:
-            self.hass_app.log("Doubled SM_TC_1 - Invalid Cfg", level="ERROR")
+        if name not in self.safety_mechanisms:
+            self.hass_app.log(f"Safety mechanism {name} not found", level="ERROR")
             return False
 
-        try:
-            temperature_sensor = parameters["temperature_sensor"]
-            cold_thr = parameters["CAL_LOW_TEMP_THRESHOLD"]
-            location = parameters["location"]
-        except KeyError as e:
-            self.hass_app.log(f"Key not found in sm_cfg: {e}", level="ERROR")
-            is_param_ok = False
-        else:
-            is_param_ok = self.validate_entities(
-                {
-                    "temperature_sensor": temperature_sensor,
-                    "cold_thr": cold_thr,
-                    "location": location,
-                },
-                {"temperature_sensor": str, "cold_thr": float, "location": str},
-            )
-
-        if is_param_ok:
-            # Store the SafetyMechanism instance in the dictionary
-            # using the unique name as the key
-            self.safety_mechanisms[name] = SafetyMechanism(
-                self.hass_app,
-                self.sm_tc_1,  # The method to call
-                name,
-                isEnabled=False,
-                temperature_sensor=temperature_sensor,
-                cold_thr=cold_thr,
-                location=location,
-            )
-            # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(
-                debounce=DEBOUNCE_INIT, force_sm=False
-            )
-            # Add recovery actions
-            return True
-        else:
-            self.hass_app.log(f"SM {name} was not created due error", level="ERROR")
-            return False
-
-    def init_sm_tc_2(self, name: str, parameters: dict) -> bool:
-        """
-        Sets up a forecast-based temperature safety mechanism considering the rate of temperature change.
-        This involves configuring the mechanism to predict future temperature conditions and trigger responses
-        before hazardous thresholds are reached, based on trends and forecast spans.
-
-        Args:
-            name (str): The unique name identifying this safety mechanism, used for tracking and management.
-            parameters (Dict[str, Any]): Configuration parameters including sensor IDs, rate of change thresholds,
-            and forecast timespan for predictive monitoring.
-
-        Raises:
-            KeyError: Thrown when essential configuration parameters are absent, indicating a setup issue.
-            ValueError: Thrown for invalid parameter values, ensuring configuration integrity.
-        """
-        is_param_ok = True  # Placeholder for actual parameter validation logic
-
-        if name in self.safety_mechanisms:
-            self.hass_app.log("Doubled SM_TC_2 - Invalid Cfg", level="ERROR")
-            return False
-
-        try:
-            temperature_sensor = parameters["temperature_sensor"]
-            cold_thr = parameters["CAL_LOW_TEMP_THRESHOLD"]
-            forecast_timespan = parameters["CAL_FORECAST_TIMESPAN"]
-            location = parameters["location"]
-        except KeyError as e:
-            self.hass_app.log(f"Key not found in sm_cfg: {e}", level="ERROR")
-            is_param_ok = False
-        else:
-            is_param_ok = self.validate_entities(
-                {
-                    "temperature_sensor": temperature_sensor,
-                    "cold_thr": cold_thr,
-                    "forecast_timespan": forecast_timespan,
-                    "location": location,
-                },
-                {
-                    "temperature_sensor": str,
-                    "cold_thr": float,
-                    "forecast_timespan": float,
-                    "location": str,
-                },
-            )
-        if is_param_ok:
-            # Store the SafetyMechanism instance in the dictionary
-            # using the unique name as the key
-            self.safety_mechanisms[name] = SafetyMechanism(
-                self.hass_app,
-                self.sm_tc_2,  # The method to call for sm_tc_2
-                name,
-                isEnabled=False,
-                temperature_sensor=parameters["temperature_sensor"],
-                cold_thr=parameters["CAL_LOW_TEMP_THRESHOLD"],
-                forecast_timespan=parameters["CAL_FORECAST_TIMESPAN"],
-                location=location,
-                diverative=0.0,
-                prev_val=0.0,
-            )
-
-            # Initialize the debounce state for this mechanism
-            self.debounce_states[name] = DebounceState(
-                debounce=DEBOUNCE_INIT, force_sm=False
-            )
-
-            # Initialize cyclic runnable to get diverative
-            self.hass_app.run_every(self.calculate_diff, "now", 60)
-            return True
-        else:
-            self.hass_app.log(f"SM {name} was not created due to error", level="ERROR")
-            return False
-
-    def enable_sm_tc_1(self, name: str, state: SMState) -> bool:
         if state == SMState.ENABLED:
             self.safety_mechanisms[name].isEnabled = True
             return True
@@ -341,18 +141,13 @@ class TemperatureComponent(SafetyComponent):
             self.safety_mechanisms[name].isEnabled = False
             return True
         else:
+            self.hass_app.log(
+                f"Invalid state {state} for safety mechanism {name}", level="ERROR"
+            )
             return False
 
-    def enable_sm_tc_2(self, name: str, state: SMState) -> bool:
-        if state == SMState.ENABLED:
-            self.safety_mechanisms[name].isEnabled = True
-            return True
-        elif state == SMState.DISABLED:
-            self.safety_mechanisms[name].isEnabled = False
-            return True
-        else:
-            return False
-
+    # endregion
+    # region Safety mechanisms
     @safety_mechanism_decorator
     def sm_tc_1(
         self, sm: SafetyMechanism, entities_changes: dict[str, str] | None = None
@@ -378,19 +173,11 @@ class TemperatureComponent(SafetyComponent):
         cold_threshold: float = sm.sm_args["cold_thr"]
         location: str = sm.sm_args["location"]
 
-        try:
-            # Check if a stubbed value is provided in entities_changes
-            if entities_changes and temperature_sensor in entities_changes:
-                temperature = float(entities_changes[temperature_sensor])
-                self.hass_app.log(
-                    f"Using stubbed value for {temperature_sensor}: {temperature}",
-                    level="DEBUG",
-                )
-            else:
-                temperature = float(self.hass_app.get_state(temperature_sensor))
-
-        except (ValueError, TypeError) as e:
-            self.hass_app.log(f"Error handling temperature: {e}", level="ERROR")
+        # Fetch temperature value, using stubbed value if provided
+        temperature: float | None = self._get_temperature_value(
+            temperature_sensor, entities_changes
+        )
+        if temperature is None:
             return SafetyMechanismResult(False, None)
 
         sm_result: bool = temperature < cold_threshold
@@ -425,20 +212,12 @@ class TemperatureComponent(SafetyComponent):
         forecast_timespan: float = sm.sm_args["forecast_timespan"]
         temperature_rate = sm.sm_args["diverative"]
 
-        try:
-            # Check if a stubbed value is provided in entities_changes
-            if entities_changes and temperature_sensor in entities_changes:
-                temperature = float(entities_changes[temperature_sensor])
-                self.hass_app.log(
-                    f"Using stubbed value for {temperature_sensor}: {temperature}",
-                    level="DEBUG",
-                )
-            else:
-                temperature = float(self.hass_app.get_state(temperature_sensor))
-
-        except (ValueError, TypeError) as e:
-            self.hass_app.log(f"Error handling temperature: {e}", level="ERROR")
-            SafetyMechanismResult(False, None)
+        # Fetch temperature value, using stubbed value if provided
+        temperature: float | None = self._get_temperature_value(
+            temperature_sensor, entities_changes
+        )
+        if temperature is None:
+            return SafetyMechanismResult(False, None)
 
         # Ensure sm_args["forecast_timespan"] is in hours for this calculation
         forecast_timespan_in_minutes: float = (
@@ -456,18 +235,271 @@ class TemperatureComponent(SafetyComponent):
 
         return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
 
-    def calculate_diff(self, _: "Any") -> None:
+    # endregion
+    # region Private functions
+    def _process_prefaults_for_location(
+        self,
+        sm_modules: dict,
+        location: str,
+        data: dict,
+        ret_val_pr: dict,
+        ret_val_ra: dict,
+    ) -> None:
+        """
+        Process pre-faults for a given location and update the provided dictionaries.
 
+        Args:
+            sm_modules (dict): A dictionary of system modules.
+            location (str): The location identifier.
+            data (dict): Configuration data specific to the location.
+            ret_val_pr (dict): Dictionary to store generated PreFault objects.
+            ret_val_ra (dict): Dictionary to store generated RecoveryAction objects.
+        """
+        # Process SM TC 1
+        self._process_sm_tc(sm_modules, location, data, ret_val_pr, ret_val_ra, tc_number=1)  # type: ignore[misc]
+
+        # Process SM TC 2
+        self._process_sm_tc(sm_modules, location, data, ret_val_pr, ret_val_ra, tc_number=2)  # type: ignore[misc]
+
+    def _process_sm_tc(
+        self,
+        sm_modules: dict,
+        location: str,
+        data: dict,
+        ret_val_pr: dict,
+        ret_val_ra: dict,
+        tc_number: int,
+    ) -> None:
+        """
+        Process a specific SM TC (Safety Mechanism Temperature Condition) and update the provided dictionaries.
+
+        Args:
+            sm_modules (dict): A dictionary of system modules.
+            location (str): The location identifier.
+            data (dict): Configuration data specific to the location.
+            ret_val_pr (dict): Dictionary to store generated PreFault objects.
+            ret_val_ra (dict): Dictionary to store generated RecoveryAction objects.
+            tc_number (int): The TC number to process (e.g., 1 or 2).
+        """
+        prefault_name_func = getattr(self, f"_get_sm_tc_{tc_number}_pr_name")
+        prefault_func = getattr(self, f"_get_sm_tc_{tc_number}_prefault")
+        recovery_action_func = getattr(self, f"_get_sm_tc_{tc_number}_recovery_action")
+
+        prefault_name = prefault_name_func(location)
+        prefault = prefault_func(sm_modules, location, data, prefault_name)
+        recovery_action = recovery_action_func(
+            sm_modules, location, data, prefault_name
+        )
+
+        ret_val_pr[prefault_name] = prefault
+        ret_val_ra[prefault_name] = recovery_action
+
+    def _create_prefault(
+        self, modules: dict, location: str, data: dict, prefault_name: str, sm_name: str
+    ) -> PreFault:
+        """
+        Helper function to create a PreFault object.
+
+        Args:
+            modules (dict): A dictionary of system modules.
+            location (str): The location identifier.
+            data (dict): Configuration data specific to the pre-fault.
+            prefault_name (str): The pre-fault's name.
+            sm_name (str): The safety mechanism name.
+
+        Returns:
+            PreFault: The created PreFault object.
+        """
+        prefault_params = data.copy()
+        prefault_params["location"] = location
+
+        return PreFault(
+            module=modules[self.__class__.__name__],
+            name=prefault_name,
+            parameters=prefault_params,
+            sm_name=sm_name,
+        )
+
+    def _create_recovery_action(
+        self, location: str, data: dict, action_name: str, default_name: str
+    ) -> RecoveryAction:
+        """
+        Helper function to create a RecoveryAction object.
+
+        Args:
+            location (str): The location identifier.
+            data (dict): Configuration data specific to the recovery action.
+            action_name (str): The recovery action function name.
+            default_name (str): The default name for the recovery action.
+
+        Returns:
+            RecoveryAction: The created RecoveryAction object.
+        """
+        name: str = f"{default_name}{location}"
+        params = {
+            "location": location,
+            "actuator": data.get("actuator"),
+            "window_sensor": data["window_sensor"],
+        }
+        recovery_func = getattr(self, action_name)
+
+        return RecoveryAction(name, params, recovery_func)
+
+    def _get_sm_tc_1_pr_name(self, location: str) -> str:
+        return f"RiskyTemperature{location}"
+
+    def _get_sm_tc_1_prefault(
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> PreFault:
+        return self._create_prefault(
+            modules, location, data, prefault_name, sm_name="sm_tc_1"
+        )
+
+    def _get_sm_tc_1_recovery_action(
+        self, _: dict, location: str, data: dict, ___: str
+    ) -> RecoveryAction:
+        return self._create_recovery_action(
+            location,
+            data,
+            action_name="RiskyTemperature_recovery",
+            default_name="ManipulateWindowIn",
+        )
+
+    def _get_sm_tc_2_pr_name(self, location: str) -> str:
+        return f"RiskyTemperature{location}ForeCast"
+
+    def _get_sm_tc_2_prefault(
+        self, modules: dict, location: str, data: dict, prefault_name: str
+    ) -> PreFault:
+        return self._create_prefault(
+            modules, location, data, prefault_name, sm_name="sm_tc_2"
+        )
+
+    def _get_sm_tc_2_recovery_action(
+        self, _: dict, location: str, data: dict, ___: str
+    ) -> RecoveryAction:
+        return self._create_recovery_action(
+            location,
+            data,
+            action_name="RiskyTemperature_recovery",
+            default_name="ManipulateWindowInRoom",
+        )
+
+    def _init_sm(
+        self, name: str, parameters: dict, sm_method: Callable, required_keys: list
+    ) -> bool:
+        """
+        Common method to initialize a safety mechanism.
+
+        Args:
+            name (str): The unique name identifying this safety mechanism.
+            parameters (dict): Configuration parameters for the safety mechanism.
+            sm_method (callable): The method to be called for this safety mechanism.
+            required_keys (list): List of keys required in the parameters.
+
+        Returns:
+            bool: True if the initialization is successful, False otherwise.
+        """
+        if name in self.safety_mechanisms:
+            self.hass_app.log(
+                f"Doubled {sm_method.__name__} - Invalid Cfg", level="ERROR"
+            )
+            return False
+
+        extracted_params = self._extract_params(parameters, required_keys)
+
+        # Store the SafetyMechanism instance in the dictionary using the unique name as the key
+        sm_instance: SafetyMechanism = self._create_safety_mechanism_instance(
+            name, sm_method, extracted_params
+        )
+        self.safety_mechanisms[name] = sm_instance
+
+        # Initialize the debounce state for this mechanism
+        self.debounce_states[name] = DebounceState(
+            debounce=DEBOUNCE_INIT, force_sm=False
+        )
+
+        # Additional setup for SM TC 2
+        if sm_method == self.sm_tc_2:
+            self.hass_app.run_every(self._calculate_diff, "now", 60)
+
+        return True
+
+    def _extract_params(self, parameters: dict, required_keys: list) -> dict:
+        """
+        Extracts parameters from the provided dictionary.
+
+        Args:
+            parameters (dict): The parameters to extract.
+            required_keys (list): The required keys for extraction.
+
+        Returns:
+            dict: The extracted parameters.
+        """
+        extracted_params = {}
+        try:
+            for key in required_keys:
+                extracted_params[key] = parameters[key]
+            extracted_params["actuator"] = parameters.get("actuator")
+        except KeyError as e:
+            self.hass_app.log(f"Key not found in sm_cfg: {e}", level="ERROR")
+            return {}
+
+        return extracted_params
+
+    def _create_safety_mechanism_instance(
+        self, name: str, sm_method: Callable, params: dict
+    ) -> SafetyMechanism:
+        """
+        Creates a SafetyMechanism instance.
+
+        Args:
+            name (str): The unique name of the safety mechanism.
+            sm_method (callable): The method to be called for this safety mechanism.
+            params (dict): The parameters for the safety mechanism.
+
+        Returns:
+            SafetyMechanism: The created SafetyMechanism instance.
+        """
+        sm_args = {
+            "hass_app": self.hass_app,
+            "callback": sm_method,
+            "name": name,
+            "isEnabled": False,
+            "temperature_sensor": params["temperature_sensor"],
+            "cold_thr": params["CAL_LOW_TEMP_THRESHOLD"],
+            "location": params["location"],
+            "actuator": params["actuator"],
+        }
+
+        if sm_method == self.sm_tc_2:
+            sm_args.update(
+                {
+                    "forecast_timespan": params["CAL_FORECAST_TIMESPAN"],
+                    "diverative": 0.0,
+                    "prev_val": 0.0,
+                }
+            )
+
+        return SafetyMechanism(**sm_args)
+
+    def _calculate_diff(self, _: "Any") -> None:
+        """
+        Calculates the rate of temperature change and updates the safety mechanism's state accordingly.
+        This method is scheduled to run periodically to monitor temperature trends.
+
+        Args:
+            _: Ignored parameter for compatibility with the scheduling system.
+        """
         sm: SafetyMechanism = self.safety_mechanisms[
             "RiskyTemperatureOfficeForeCast"
         ]  # HARDCODED!
+
         # Get inputs
-        try:
-            temperature = float(
-                self.hass_app.get_state(sm.sm_args["temperature_sensor"])
-            )
-        except ValueError as e:
-            self.hass_app.log(f"Float conversion error: {e}", level="ERROR")
+        temperature: float | None = self.get_num_sensor_val(
+            self.hass_app, sm.sm_args["temperature_sensor"]
+        )
+        if temperature is None:
             return  # Exit if there's a conversion error
 
         sm.sm_args["diverative"] = temperature - sm.sm_args["prev_val"]
@@ -476,6 +508,36 @@ class TemperatureComponent(SafetyComponent):
             "sensor.office_temperature_rate", state=sm.sm_args["diverative"]
         )
 
+    def _get_temperature_value(
+        self, sensor_id: str, entities_changes: dict[str, str] | None
+    ) -> float | None:
+        """
+        Fetch and convert temperature from a sensor, using stubbed values if provided.
+
+        Args:
+            sensor_id (str): The ID of the temperature sensor.
+            entities_changes (dict | None): Optional dictionary containing stubbed values for testing.
+
+        Returns:
+            float | None: The temperature value, or None if there was an error.
+        """
+        if entities_changes and sensor_id in entities_changes:
+            try:
+                temperature = float(entities_changes[sensor_id])
+                self.hass_app.log(
+                    f"Using stubbed value for {sensor_id}: {temperature}",
+                    level="DEBUG",
+                )
+                return temperature
+            except (ValueError, TypeError) as e:
+                self.hass_app.log(
+                    f"Error handling stubbed temperature: {e}", level="ERROR"
+                )
+                return None
+        else:
+            return self.get_num_sensor_val(self.hass_app, sensor_id)
+
+    # endregion
     @staticmethod
     def RiskyTemperature_recovery(
         hass_app: hass,
@@ -483,44 +545,63 @@ class TemperatureComponent(SafetyComponent):
         common_entities: CommonEntities,
         **kwargs: dict[str, str],
     ) -> None | tuple[dict[str, str], list[str]]:
+        """
+        Recovery action for handling risky temperature conditions.
 
+        This method is called when a risky temperature condition is detected. It determines the appropriate
+        recovery actions, such as closing or opening windows, and generates notifications if manual actions are needed.
+
+        Args:
+            hass_app (hass.Hass): The Home Assistant application instance.
+            prefault (PreFault): The PreFault instance containing the fault parameters.
+            common_entities (CommonEntities): Shared object providing access to common entities.
+            **kwargs (dict): Additional keyword arguments, such as location, actuator, and window sensors.
+
+        Returns:
+            None | tuple[dict[str, str], list[str]]: A tuple containing the changed entities and notifications,
+            or None if an error occurred.
+        """
         changed_entities: dict[str, str] = {}
         notifications: list[str] = []
         location: str = kwargs["location"]
         actuator: str = kwargs["actuator"]
-        window_sensor: str = kwargs["window_sensor"]
-        # Get inputs
-        try:
-            meas_room_temp = float(
-                hass_app.get_state(prefault.parameters["temperature_sensor"])
-            )
-        except ValueError as e:
-            hass_app.log(f"Float conversion error: {e}", level="ERROR")
-            return None  # Exit if temperature conversion fails
-        # First we shall close windows if outisde temperature is lower that in room
+        window_sensors: list[str] = kwargs["window_sensor"]
+
+        # Get room temperature
+        meas_room_temp: float | None = SafetyComponent.get_num_sensor_val(
+            hass_app, prefault.parameters["temperature_sensor"]
+        )
+        if meas_room_temp is None:
+            return None
+
+        # Get outside temperature
         outside_temp_raw: str | None = common_entities.get_outisde_temperature()
         if not outside_temp_raw:
             return changed_entities, notifications
-        else:
-            outside_temp = float(outside_temp_raw)
-            if outside_temp < meas_room_temp:
-                # Forecasted chagnes
-                changed_entities = {sensor: "off" for sensor in window_sensor}
-                # Check if we have actuator
-                if actuator:
-                    changed_entities[actuator] = "off"  # TODO Check it!
-                else:
-                    notifications.append(
-                        f"Please close windows in {location} as recovery action"
-                    )
 
+        outside_temp = float(outside_temp_raw)
+
+        if outside_temp < meas_room_temp:
+            # Close windows if outside temperature is lower
+            changed_entities = SafetyComponent.change_all_entities_state(
+                window_sensors, "off"
+            )
+            if actuator:
+                changed_entities[actuator] = "off"
             else:
-                changed_entities = {sensor: "on" for sensor in window_sensor}
-                # Check if we have actuator
-                if actuator:
-                    changed_entities[actuator] = "on"  # TODO Check it!
-                else:
-                    notifications.append(
-                        f"Please open windows in {location} as recovery action"
-                    )
-            return changed_entities, notifications
+                notifications.append(
+                    f"Please close windows in {location} as recovery action"
+                )
+        else:
+            # Open windows if outside temperature is higher
+            changed_entities = SafetyComponent.change_all_entities_state(
+                window_sensors, "on"
+            )
+            if actuator:
+                changed_entities[actuator] = "on"
+            else:
+                notifications.append(
+                    f"Please open windows in {location} as recovery action"
+                )
+
+        return changed_entities, notifications

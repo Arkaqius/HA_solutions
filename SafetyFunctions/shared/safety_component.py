@@ -30,9 +30,7 @@ from typing import (
     Callable,
     Optional,
     NamedTuple,
-    Literal,
 )
-import traceback
 from enum import Enum
 
 from shared.fault_manager import FaultManager
@@ -232,24 +230,18 @@ class SafetyComponent:
         return True
 
     @staticmethod
-    def safe_float_convert(value: str, default: float = 0.0) -> float:
-        """
-        Attempts to convert a string to a float. If the conversion fails,
-        prints an error message and traceback to stdout, then returns a default value.
-
-        Args:
-        value (str): The string value to be converted to float.
-        default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
-
-        Returns:
-        float: The converted float value or the default value if conversion fails.
-        """
+    def get_num_sensor_val(hass_app: hass, sensor_id: str) -> float | None:
+        """Fetch and convert temperature from a sensor."""
         try:
-            return float(value)
+            return float(hass_app.get_state(sensor_id))
         except ValueError as e:
-            print(f"An error occurred: {e}")
-            traceback.print_exc()  # Prints the full traceback to stdout
-            return default
+            hass_app.log(f"Float conversion error: {e}", level="ERROR")
+            return None
+
+    @staticmethod
+    def change_all_entities_state(entities: list[str], state: str) -> dict[str, str]:
+        """Create a dictionary to change the state of entities."""
+        return {entity: state for entity in entities}
 
     def _debounce(
         self, current_counter: int, pr_test: bool, debounce_limit: int = 3
@@ -275,10 +267,7 @@ class SafetyComponent:
             )
         else:
             new_counter = max(-debounce_limit, current_counter - 1)
-            action: (
-                Literal[DebounceAction.PREFAULT_HEALED]
-                | Literal[DebounceAction.NO_ACTION]
-            ) = (
+            action = (
                 DebounceAction.PREFAULT_HEALED
                 if new_counter <= -debounce_limit
                 else DebounceAction.NO_ACTION
