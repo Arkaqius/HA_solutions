@@ -32,6 +32,7 @@ from shared.types_common import Fault
 from shared.types_common import RecoveryAction, PreFault, SMState
 from shared.common_entities import CommonEntities
 from shared.fault_manager import FaultManager
+from shared.notification_manager import NotificationManager
 
 
 class RecoveryManager:
@@ -55,6 +56,7 @@ class RecoveryManager:
         fm: FaultManager,
         recovery_actions: dict,
         common_entities: CommonEntities,
+        nm: NotificationManager,
     ) -> None:
         """
         Initializes the RecoveryManager with the necessary application context and recovery configuration.
@@ -78,6 +80,7 @@ class RecoveryManager:
         self.recovery_actions: dict[str, RecoveryAction] = recovery_actions
         self.common_entities: CommonEntities = common_entities
         self.fm: FaultManager = fm
+        self.nm: NotificationManager = nm
 
     def _isRecoveryConflict(self, prefault: PreFault) -> bool:
         matching_actions: list[str] = self._get_matching_actions(prefault)
@@ -119,7 +122,11 @@ class RecoveryManager:
     ) -> None:
         # Perform notify
         for notification in notifications:
-            self.hass_app.log(f"Try to send notify {notification}", level="DEBUG")
+            fault: Fault | None = self.fm.found_mapped_fault(
+                prefault.name, prefault.sm_name
+            )
+            if fault:
+                self.nm._add_recovery_action(notification, fault.name)
         # Set recovery entity
         rec: RecoveryAction | None = self._find_recovery(prefault.name)
         if rec:
@@ -181,19 +188,18 @@ class RecoveryManager:
                 self.common_entities,
                 **self.recovery_actions[prefault.name].params,
             )
-            if True:
+            if entities_changes:
                 # 20. Check if existing rec action can cause another faults
-                if True:
-                    if not self._run_dry_test(prefault.name, entities_changes):
-                        # 30. Check if existing rec action is not in conflicts with diffrent one
-                        if not self._isRecoveryConflict(prefault):
-                            self._perform_recovery(
-                                prefault, notifications, entities_changes
-                            )
-                        else:
-                            self.hass_app.log(
-                                f"Recovery confict for {prefault.name}", level="DEBUG"
-                            )
+                if not self._run_dry_test(prefault.name, entities_changes):
+                    # 30. Check if existing rec action is not in conflicts with diffrent one
+                    if not self._isRecoveryConflict(prefault):
+                        self._perform_recovery(
+                            prefault, notifications, entities_changes
+                        )
+                    else:
+                        self.hass_app.log(
+                            f"Recovery confict for {prefault.name}", level="DEBUG"
+                        )
                 else:
                     self.hass_app.log(
                         "Recovery will raise another fault.", level="DEBUG"

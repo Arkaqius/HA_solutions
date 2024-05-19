@@ -49,6 +49,7 @@ class NotificationManager:
         """
         self.hass_app = hass_app
         self.notification_config = notification_config
+        self.active_notification: dict[str, dict] = {}
 
         # Map notification levels to their respective methods
         self.level_methods: dict[int, Callable | None] = {
@@ -226,14 +227,8 @@ class NotificationManager:
 
         notification_data = self._prepare_notification_data(level, message, fault_tag)
         if notification_data:
-            # Convert dict to JSON string if necessary or use as is for service call.
-            # json_data = json.dumps(notification_data['data'])
-            self.hass_app.call_service(
-                "notify/notify",
-                title=notification_data["title"],
-                message=notification_data["message"],
-                data=notification_data["data"],
-            )
+            self.active_notification[fault_tag] = notification_data
+            self._send_notification(notification_data)
             self.hass_app.log(
                 f'Notification details for {fault_tag} : {notification_data["title"]} {notification_data["message"]} {notification_data["data"]}',
                 level="DEBUG",
@@ -242,3 +237,43 @@ class NotificationManager:
             self.hass_app.log(
                 f"No notification configuration for level {level}", level="WARNING"
             )
+
+    def _send_notification(self, notification_data: dict[str, str]) -> None:
+        """
+        Sends a notification using the Home Assistant notification service.
+
+        Args:
+            notification_data: A dictionary containing the title, message, and additional data for the notification.
+                - title (str): The title of the notification.
+                - message (str): The main message body of the notification.
+                - data (dict): Additional data for the notification, such as tag, color, and other attributes.
+        """
+        self.hass_app.call_service(
+            "notify/notify",
+            title=notification_data["title"],
+            message=notification_data["message"],
+            data=notification_data["data"],
+        )
+
+    def _add_recovery_action(self, notification_msg: str, fault_name: str) -> None:
+        """
+        Adds a recovery action message to an existing active notification.
+
+        Args:
+            notification_msg: The recovery message to add.
+            fault_name: The fault identifier for which to add the recovery message.
+        """
+        for fault_tag, notification in self.active_notification.items():
+            if fault_tag == fault_name:
+                self._add_rec_msg(notification, notification_msg)
+
+    def _add_rec_msg(self, notification: dict, notification_msg: str) -> None:
+        """
+        Appends a recovery message to an existing notification's message and resends the notification.
+
+        Args:
+            notification: The notification data dictionary to update.
+            notification_msg: The recovery message to append.
+        """
+        notification["message"] += f" {notification_msg}"
+        self._send_notification(notification)

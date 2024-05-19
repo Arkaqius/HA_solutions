@@ -120,14 +120,14 @@ class SafetyFunctions(hass.Hass):
             self.faults,
         )
 
-        # 50. Initialize recovery manager
-        self.reco_man: RecoveryManager = RecoveryManager(
-            self, self.fm, self.recovery_actions, self.common_entities
-        )
-
-        # 60. Initialize notification manager
+        # 50. Initialize notification manager
         self.notify_man: NotificationManager = NotificationManager(
             self, self.notification_cfg
+        )
+
+        # 60. Initialize recovery manager
+        self.reco_man: RecoveryManager = RecoveryManager(
+            self, self.fm, self.recovery_actions, self.common_entities, self.notify_man
         )
 
         # 70. Initialize notification manager

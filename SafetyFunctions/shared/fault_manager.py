@@ -58,7 +58,7 @@ class FaultManager:
         sm_modules: dict,
         prefault_dict: dict,
         fault_dict: dict,
-    ):
+    ) -> None:
         """
         Initialize the Fault Manager.
 
