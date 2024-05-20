@@ -64,12 +64,12 @@ class SafetyMechanism:
                       relevant to the specific safety mechanism being implemented. These arguments are
                       passed through to the callback function.
         """
-        self.hass_app = hass_app
-        self.entities = self.extract_entities(kwargs)
-        self.callback = callback
-        self.name = name
-        self.isEnabled = isEnabled
-        self.sm_args = kwargs
+        self.hass_app: Any = hass_app
+        self.entities: List[str] = self.extract_entities(kwargs)
+        self.callback: Callable = callback
+        self.name: str = name
+        self.isEnabled: bool = isEnabled
+        self.sm_args: dict[str, Any] = kwargs
         self.setup_listeners()
 
     def setup_listeners(self) -> None:

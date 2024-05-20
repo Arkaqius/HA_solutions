@@ -58,8 +58,8 @@ class SMState(Enum):
 
 
 class RecoveryActionState(Enum):
-    NOT_PERFORMED = 0
-    PERFORMED = 1
+    DO_NOT_PERFORM = 0
+    TO_PERFORM = 1
 
 
 class RecoveryAction:
@@ -87,7 +87,7 @@ class RecoveryAction:
         self.name: Any = name
         self.params: dict = params
         self.rec_fun: Any = recovery_action
-        self.current_status: RecoveryActionState = RecoveryActionState.NOT_PERFORMED
+        self.current_status: RecoveryActionState = RecoveryActionState.DO_NOT_PERFORM
 
 
 class PreFault:

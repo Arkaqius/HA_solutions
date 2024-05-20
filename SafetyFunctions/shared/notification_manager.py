@@ -83,13 +83,12 @@ class NotificationManager:
                 level="DEBUG",
             )
         elif fault_status == FaultState.CLEARED:
-            pass  # No clear for faults
-            # self._clear_fault_notification(fault)
+            self._process_cleared_fault(level, message, fault)
         else:
             self.hass_app.log(f"Invalid fault status '{fault_status}'", level="WARNING")
 
     def _process_active_fault(self, level: int, message: str, fault_tag: str) -> None:
-        self._notify_company_app(level, message, fault_tag)
+        self._notify_company_app(level, message, fault_tag, FaultState.SET)
         # self._set_dashboard_notification(message, level) # TODO Maybe to be deleted
         additional_actions = self.level_methods.get(level)
         if additional_actions:
@@ -99,9 +98,13 @@ class NotificationManager:
                 f"Notification level {level} has not additional actions", level="DEBUG"
             )
 
-    def _clear_fault_notification(self, fault_tag: str) -> None:
-        self.hass_app.call_service(
-            "notify/notify", message="clear_notification", data={"tag": fault_tag}
+    def _process_cleared_fault(self, level: int, message: str, fault_tag: str) -> None:
+        # Add "cleared" to the message and send a new notification
+        cleared_message = f"{message}\nStatus: Cleared"
+        self._notify_company_app(level, cleared_message, fault_tag, FaultState.CLEARED)
+        self.hass_app.log(
+            f"Cleared notification for {fault_tag} with message {cleared_message}",
+            level="DEBUG",
         )
 
     def _set_dashboard_notification(self, message: str, level: int) -> None:
@@ -212,7 +215,9 @@ class NotificationManager:
 
         return notification_configs.get(level, {})
 
-    def _notify_company_app(self, level: int, message: str, fault_tag: str) -> None:
+    def _notify_company_app(
+        self, level: int, message: str, fault_tag: str, fault_state: FaultState
+    ) -> None:
         """
         Sends a company app notification based on the specified level and fault details.
 
@@ -227,7 +232,7 @@ class NotificationManager:
 
         notification_data = self._prepare_notification_data(level, message, fault_tag)
         if notification_data:
-            self.active_notification[fault_tag] = notification_data
+            self._handle_notify_reg(fault_tag, fault_state, notification_data)
             self._send_notification(notification_data)
             self.hass_app.log(
                 f'Notification details for {fault_tag} : {notification_data["title"]} {notification_data["message"]} {notification_data["data"]}',
@@ -237,6 +242,16 @@ class NotificationManager:
             self.hass_app.log(
                 f"No notification configuration for level {level}", level="WARNING"
             )
+
+    def _handle_notify_reg(
+        self, fault_tag: str, fault_state: FaultState, notification_data: dict
+    ) -> None:
+        if fault_state == FaultState.SET:
+            self.active_notification[fault_tag] = notification_data
+        else:
+            # Remove the fault from active notifications
+            if fault_tag in self.active_notification:
+                del self.active_notification[fault_tag]
 
     def _send_notification(self, notification_data: dict[str, str]) -> None:
         """
@@ -276,4 +291,15 @@ class NotificationManager:
             notification_msg: The recovery message to append.
         """
         notification["message"] += f" {notification_msg}"
+        self._send_notification(notification)
+
+    def _clear_prefault_msg(self, notification: dict, notification_msg: str) -> None:
+        """
+        Appends a recovery message to an existing notification's message and resends the notification.
+
+        Args:
+            notification: The notification data dictionary to update.
+            notification_msg: The recovery message to append.
+        """
+        notification["message"] = f" {notification_msg}"
         self._send_notification(notification)

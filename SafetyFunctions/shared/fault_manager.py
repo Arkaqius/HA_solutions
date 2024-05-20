@@ -394,6 +394,12 @@ class FaultManager:
                 )
             else:
                 self.hass.log("No notification interface", level="WARNING")
+                
+            # Call recovery actions (specific for prefault)
+            if self.recovery_interface:
+                self.recovery_interface(self.prefaults[prefault_id])
+            else:
+                self.hass.log("No recovery interface", level="WARNING")
 
     def check_fault(self, fault_id: str) -> FaultState:
         """
