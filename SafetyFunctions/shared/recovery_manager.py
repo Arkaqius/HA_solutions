@@ -26,6 +26,7 @@ recovery_manager.recovery(cool_down_system, {'component': 'CPU', 'target_temp': 
 
 This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems.
 """
+
 from typing import Any
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 from shared.types_common import (
@@ -91,6 +92,12 @@ class RecoveryManager:
         self.fm: FaultManager = fm
         self.nm: NotificationManager = nm
 
+        self._init_all_rec_entities()
+
+    def _init_all_rec_entities(self) -> None:
+        for _, recovery_actions in self.recovery_actions.items():
+            self._set_rec_entity(recovery_actions)
+
     def _isRecoveryConflict(self, prefault: PreFault) -> bool:
         """
         Determines if there is a conflict between the given prefault's recovery actions and existing faults.
@@ -107,7 +114,7 @@ class RecoveryManager:
         """
         matching_actions: list[str] = self._get_matching_actions(prefault)
 
-        if not matching_actions:
+        if matching_actions:
             rec_fault: Fault | None = self.fm.found_mapped_fault(
                 prefault.name, prefault.sm_name
             )
@@ -182,28 +189,29 @@ class RecoveryManager:
             notifications (list): A list of notifications to send as part of the recovery process.
             entities_changes (dict[str, str]): A dictionary mapping entity names to their new values as part of the recovery process.
         """
-        for notification in notifications:
-            fault: Fault | None = self.fm.found_mapped_fault(
-                prefault.name, prefault.sm_name
-            )
-            if fault:
-                self.nm._add_recovery_action(notification, fault.name)
-        # Set recovery entity
         rec: RecoveryAction | None = self._find_recovery(prefault.name)
         if rec:
+            rec.current_status = RecoveryActionState.TO_PERFORM
             self._set_rec_entity(rec)
             # Set entitity actions as recovery
             for entity, value in entities_changes.items():
                 try:
-                    self.hass_app.set_state(entity, value)
+                    #self.hass_app.set_state(entity, state=value)
+                    pass # TODO
                 except Exception as err:
                     self.hass_app.log(
                         f"Exception during setting {entity} to {value} value. {err}",
                         level="ERROR",
                     )
+            for notification in notifications:
+                fault: Fault | None = self.fm.found_mapped_fault(
+                    prefault.name, prefault.sm_name
+                )
+                if fault:
+                    self.nm._add_recovery_action(notification, fault.name)
         else:
             self.hass_app.log(
-                f"Recovery action for {prefault.name} was not found!", level="WARNING"
+                f"Recovery action for {prefault.name} was not found!", level="ERROR"
             )
 
     def _find_recovery(self, prefault_name: str) -> RecoveryAction | None:
@@ -236,9 +244,9 @@ class RecoveryManager:
         Args:
             recovery (RecoveryAction): The recovery action to set the state for.
         """
-        sensor_name: str = f"sensor.{recovery.name}"
+        sensor_name: str = f"sensor.recovery_{recovery.name}".lower()
         sensor_value: str = str(recovery.current_status.name)
-        self.hass_app.set_state(sensor_name, sensor_value)
+        self.hass_app.set_state(sensor_name, state=sensor_value)
 
     def _run_dry_test(
         self, prefaul_name: str, entities_changes: dict[str, str]
@@ -257,7 +265,7 @@ class RecoveryManager:
         Returns:
             bool: True if the entity changes will trigger new faults, False otherwise.
         """
-        for _, prefault_data in self.fm.get_all_prefault().items():
+        for prefault_name, prefault_data in self.fm.get_all_prefault().items():
             if prefault_data.sm_state == SMState.ENABLED:
                 # Force each sm to get state if possible
                 sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
@@ -265,7 +273,7 @@ class RecoveryManager:
                     prefault_data.module.safety_mechanisms[prefault_data.name],
                     entities_changes,
                 )
-                if isFaultTrigged and prefault_data.sm_name is not prefaul_name:
+                if isFaultTrigged and prefault_name is not prefaul_name:
                     return True
         return False
 
@@ -351,7 +359,9 @@ class RecoveryManager:
                 self._recovery_performed, name, prefault=prefault
             )
 
-    def _recovery_performed(self, _: Any, __: Any, ___: Any, ____: Any, cb_args: dict) -> None:
+    def _recovery_performed(
+        self, _: Any, __: Any, ___: Any, ____: Any, cb_args: dict
+    ) -> None:
         """
         Callback function invoked when a recovery action is performed.
 

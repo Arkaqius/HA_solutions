@@ -7,8 +7,10 @@ various Home Assistant services and checking their statuses.
 
 import appdaemon.plugins.hass.hassapi as hass
 from datetime import datetime, timezone, timedelta
+from typing import Any
 
-MINUTES_5 = 60*5
+MINUTES_5 = 60 * 5
+
 
 class DailyRoutines(hass.Hass):
     """
@@ -19,23 +21,26 @@ class DailyRoutines(hass.Hass):
         """
         Initialize the goodnight routine listener.
         """
-        self.turn_off_ligts_scene = self.args['turn_off_ligts_scene']
-        self.ww_activate = self.args['ww_activate']
-        self.awake_state = self.args['awake_state']
-        self.next_awake = self.args['next_awake_time']
+        self.turn_off_ligts_scene = self.args["turn_off_ligts_scene"]
+        self.ww_activate = self.args["ww_activate"]
+        self.awake_state = self.args["awake_state"]
+        self.next_awake = self.args["next_awake_time"]
 
         self.listen_state(self.goodnight_triggered, self.awake_state, new="sleep")
         self.listen_state(self.awake_triggered, self.awake_state, new="awake")
         self.listen_state(self.next_awake_set, self.next_awake)
 
-    def next_awake_set(self, entity: str, attribute: str, old: str, new: str, kwargs: dict) -> None:
+    def next_awake_set(
+        self, entity: str, attribute: str, old: str, new: str, kwargs: dict
+    ) -> None:
         """
         Handle the event when the next awake time is set.
         Schedule preparations 30 minutes before the actual wake-up time.
         """
         try:
+            print(new)
             # Parse the next wake-up time
-            next_awake_time = datetime.strptime(new, "%Y-%m-%dT%H:%M:%S%z")
+            next_awake_time = datetime.strptime(new, "%Y-%m-%d %H:%M:%S%z")
             # Calculate 30 minutes before the wake-up time
             prep_time = next_awake_time - timedelta(minutes=30)
 
@@ -47,11 +52,13 @@ class DailyRoutines(hass.Hass):
                 seconds_until_prep = int((prep_time - current_time).total_seconds())
                 # Schedule the preparation function
                 self.run_in(self.preparation_tasks, seconds_until_prep)
-                self.log(f"Scheduled preparation tasks in {seconds_until_prep} seconds.")
+                self.log(
+                    f"Scheduled preparation tasks in {seconds_until_prep} seconds."
+                )
         except ValueError:
             self.log(f"Invalid datetime format for next awake time [{new}].")
 
-    def preparation_tasks(self, kwargs) -> None:
+    def preparation_tasks(self, kwargs: Any) -> None:
         """
         Perform preparation tasks.
         """
@@ -60,15 +67,17 @@ class DailyRoutines(hass.Hass):
         self.turn_warm_water(True)
         self.run_in(self.preparation_tasks_end, MINUTES_5)
 
-    def preparation_tasks_end(self,_) -> None:
+    def preparation_tasks_end(self, _: Any) -> None:
         """
         Perform preparation tasks finish actions
         """
         self.log("Performing wake-up preparation tasks finishing")
         # Add logic for the preparation tasks here, such as heating water
-        self.turn_warm_water(False)       
+        self.turn_warm_water(False)
 
-    def goodnight_triggered(self, entity: str, attribute: str, old: str, new: str, kwargs: dict) -> None:
+    def goodnight_triggered(
+        self, entity: str, attribute: str, old: str, new: str, kwargs: dict
+    ) -> None:
         """
         Handle the event when the goodnight status is triggered.
 
@@ -88,7 +97,9 @@ class DailyRoutines(hass.Hass):
 
         self.log("Goodnight routine executed successfully.")
 
-    def awake_triggered(self, entity: str, attribute: str, old: str, new: str, kwargs: dict) -> None:
+    def awake_triggered(
+        self, entity: str, attribute: str, old: str, new: str, kwargs: dict
+    ) -> None:
         """
         Handle the event when the goodnight status is triggered.
 
@@ -102,8 +113,8 @@ class DailyRoutines(hass.Hass):
 
         self.activate_goodmorning_lights_scene()
         # self.open_blinds_and_curtains()
-        self.log("Awake routine executed successfully.")    
-     
+        self.log("Awake routine executed successfully.")
+
     def activate_turn_off_lights_scene(self) -> None:
         """
         Activate the 'TurnOffLights' scene in Home Assistant.
@@ -122,14 +133,14 @@ class DailyRoutines(hass.Hass):
         """
         raise NotImplementedError
 
-    def turn_warm_water(self,state) -> None:
+    def turn_warm_water(self, state: Any) -> None:
         """
         Turn off/on the warm water.
         """
         if state:
             self.turn_on(self.ww_activate)
         else:
-            self.turn_off(self.ww_activate)            
+            self.turn_off(self.ww_activate)
 
     def turn_off_fans(self) -> None:
         """

@@ -241,7 +241,7 @@ class SafetyComponent:
     @staticmethod
     def change_all_entities_state(entities: list[str], state: str) -> dict[str, str]:
         """Create a dictionary to change the state of entities."""
-        return {entity: state for entity in entities}
+        return {entity: state for entity in [entities]}
 
     def _debounce(
         self, current_counter: int, pr_test: bool, debounce_limit: int = 3

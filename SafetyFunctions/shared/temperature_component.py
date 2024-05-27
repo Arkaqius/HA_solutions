@@ -103,7 +103,7 @@ class TemperatureComponent(SafetyComponent):
             bool: True if the initialization is successful, False otherwise.
         """
         if sm_name == "sm_tc_1":
-            required_keys = ["temperature_sensor", "CAL_LOW_TEMP_THRESHOLD", "location"]
+            required_keys: list[str] = ["temperature_sensor", "CAL_LOW_TEMP_THRESHOLD", "location"]
             sm_method = self.sm_tc_1
         elif sm_name == "sm_tc_2":
             required_keys = [
@@ -362,7 +362,7 @@ class TemperatureComponent(SafetyComponent):
             location,
             data,
             action_name="RiskyTemperature_recovery",
-            default_name="ManipulateWindowIn",
+            default_name="ManipulateWindow",
         )
 
     def _get_sm_tc_2_pr_name(self, location: str) -> str:
@@ -382,7 +382,7 @@ class TemperatureComponent(SafetyComponent):
             location,
             data,
             action_name="RiskyTemperature_recovery",
-            default_name="ManipulateWindowInRoom",
+            default_name="ManipulateWindow",
         )
 
     def _init_sm(
@@ -579,7 +579,7 @@ class TemperatureComponent(SafetyComponent):
         if not outside_temp_raw:
             return changed_entities, notifications
 
-        outside_temp = float(outside_temp_raw)
+        outside_temp = float(outside_temp_raw) # TODO Check for bad values
 
         if outside_temp < meas_room_temp:
             # Close windows if outside temperature is lower

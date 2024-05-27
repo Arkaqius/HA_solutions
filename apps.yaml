@@ -123,7 +123,7 @@ SafetyFunctions:
     notification:
       light_entity: 'light.warning_light'
     common_entities:
-      outside_temp : 'sensor.outside_temp' # TODO
+      outside_temp : 'sensor.dom_temperature' # TODO
     safety_components:
       TemperatureComponent:
         - Office:
