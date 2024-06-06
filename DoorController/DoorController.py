@@ -1,0 +1,220 @@
+from typing import Any, NamedTuple
+import appdaemon.plugins.hass.hassapi as hass
+import datetime
+from collections import namedtuple
+
+# Constants for relay toggle timeout
+RELAY_TOGGLE_TIMEOUT = 1
+
+# Named tuple for door status
+DoorStatus = namedtuple("DoorStatus", ["state"])
+
+
+class DoorController(hass.Hass):
+    """
+    DoorController is an AppDaemon app that manages the state of a door using sensors and a switch.
+    It listens for state changes in door sensors, controls a relay to open or close the door,
+    and updates Home Assistant entities to reflect the door status and app health.
+    """
+
+    def initialize(self) -> None:
+        """
+        Initialize the DoorController app.
+        - Load configuration parameters.
+        - Set initial state.
+        - Register state listeners and services.
+        - Create and initialize door status and health entities.
+        """
+        self.log("Initializing Door Controller App")
+
+        # Get configuration from app.yaml
+        try:
+            self.door_switch = self.args["door_switch"]
+            self.close_sensor = self.args["close_sensor"]
+            self.open_sensor = self.args["open_sensor"]
+            self.timeout = self.args["timeout"]
+            self.door_status_sensor = self.args["door_status_sensor"]
+            self.health_status_sensor = self.args["health_status_sensor"]
+            self.input_button_open = self.args["input_button_open"]
+            self.input_button_close = self.args["input_button_close"]
+
+            self.door_state = DoorStatus(
+                "unknown"
+            )  # Possible states: "closed", "open", "intermediate", "faulty"
+            self.last_action_time = None
+            self.last_command_by_app = False
+
+            # Listen for state changes in sensors
+            self.listen_state(self.door_status_changed, self.close_sensor)
+            self.listen_state(self.door_status_changed, self.open_sensor)
+
+            # Listen for input_button presses
+            self.listen_state(self.handle_open_event, self.input_button_open)
+            self.listen_state(self.handle_close_event, self.input_button_close)
+
+            # Create and initialize entities
+            self.create_door_status_entity()
+            self.update_door_status_entity("unknown")
+            self.create_health_entity()
+            self.update_health_entity("healthy")
+
+            self.log("Door Controller App Initialized")
+        except KeyError as e:
+            self.log(f"Configuration error: {e}")
+            self.create_health_entity()
+            self.update_health_entity("faulty")
+
+    def create_door_status_entity(self) -> None:
+        """
+        Create a sensor entity for the door status.
+        """
+        self.set_state(
+            self.door_status_sensor,
+            state="unknown",
+            attributes={"friendly_name": "Door Status"},
+        )
+
+    def update_door_status_entity(self, state: str) -> None:
+        """
+        Update the state of the door status entity.
+
+        :param state: The new state of the door status.
+        """
+        self.set_state(self.door_status_sensor, state=state)
+
+    def create_health_entity(self) -> None:
+        """
+        Create a sensor entity for the app health status.
+        """
+        self.set_state(
+            self.health_status_sensor,
+            state="unknown",
+            attributes={"friendly_name": "Door Controller Health"},
+        )
+
+    def update_health_entity(self, state: str) -> None:
+        """
+        Update the state of the app health entity.
+
+        :param state: The new state of the app health.
+        """
+        self.set_state(self.health_status_sensor, state=state)
+
+    def handle_open_event(
+        self, entity: str, attribute: str, old: str, new: str, kwargs: dict
+    ) -> None:
+        """
+        Handle the input_button to open the door.
+
+        :param entity: The input_button entity that changed state.
+        :param attribute: The attribute of the entity that changed.
+        :param old: The old state of the entity.
+        :param new: The new state of the entity.
+        :param kwargs: Additional keyword arguments.
+        """
+        self.log("Opening door (input_button)...")
+        if self.door_state.state in ["closed", "intermediate"]:
+            self.activate_relay()
+            self.last_command_by_app = True
+        else:
+            self.log("Door is already open or faulty.")
+
+    def handle_close_event(
+        self, entity: str, attribute: str, old: str, new: str, kwargs: dict
+    ) -> None:
+        """
+        Handle the input_button to close the door.
+
+        :param entity: The input_button entity that changed state.
+        :param attribute: The attribute of the entity that changed.
+        :param old: The old state of the entity.
+        :param new: The new state of the entity.
+        :param kwargs: Additional keyword arguments.
+        """
+        self.log("Closing door (input_button)...")
+        if self.door_state.state in ["open", "intermediate"]:
+            self.activate_relay()
+            self.last_command_by_app = True
+        else:
+            self.log("Door is already closed or faulty.")
+
+    def activate_relay(self) -> None:
+        """
+        Activate the relay to move the door and set the last action time.
+        """
+        self.turn_on(self.door_switch)
+        self.run_in(self.turn_off_switch, RELAY_TOGGLE_TIMEOUT)
+        self.last_action_time = datetime.datetime.now()
+
+    def turn_off_switch(self, _: Any) -> None:
+        """
+        Turn off the door switch after activating the relay.
+        """
+        self.log("Turning off door switch")
+        self.turn_off(self.door_switch)
+
+    def door_status_changed(
+        self, entity: Any, attribute: Any, old: Any, new: Any, kwargs: Any
+    ) -> None:
+        """
+        Handle changes in door sensor states to update the door status.
+
+        :param entity: The sensor entity that changed state.
+        :param attribute: The attribute of the sensor that changed.
+        :param old: The old state of the sensor.
+        :param new: The new state of the sensor.
+        :param kwargs: Additional keyword arguments.
+        """
+        close_sensor_state = self.get_state(self.close_sensor)
+        open_sensor_state = self.get_state(self.open_sensor)
+
+        if close_sensor_state == "off" and open_sensor_state == "on":
+            self.door_state = DoorStatus("closed")
+            self.update_door_status_entity("closed")
+            self.log("Door is fully closed")
+        elif open_sensor_state == "off" and close_sensor_state == "on":
+            self.door_state = DoorStatus("open")
+            self.update_door_status_entity("open")
+            self.log("Door is fully open")
+        elif close_sensor_state == "off" and open_sensor_state == "off":
+            self.log(
+                "Fault detected: Both sensors indicate the door is fully closed and fully open."
+            )
+            self.update_door_status_entity("faulty")
+        else:
+            # Both sensors are on, indicating an intermediate state
+            if close_sensor_state == "on" and open_sensor_state == "on":
+                self.door_state = DoorStatus("intermediate")
+                self.update_door_status_entity("intermediate")
+                self.log("Door is in intermediate state")
+
+                # Schedule diagnostics if the last command was from the app
+                if self.last_command_by_app:
+                    self.run_in(self.run_diagnostics, self.timeout)
+
+    def run_diagnostics(self, kwargs: Any) -> None:
+        """
+        Run diagnostics to check the state of the door sensors and detect faults.
+
+        :param kwargs: Additional keyword arguments.
+        """
+        close_sensor_state = self.get_state(self.close_sensor)
+        open_sensor_state = self.get_state(self.open_sensor)
+        current_time = datetime.datetime.now()
+
+        # Check if both sensors are "on" (intermediate state)
+        if close_sensor_state == "on" and open_sensor_state == "on":
+            if self.last_command_by_app:
+                # Check if the door movement timed out
+                if (
+                    current_time - self.last_action_time
+                ).total_seconds() > self.timeout:
+                    self.log("Fault detected: Door operation timeout.")
+                    self.door_state = DoorStatus("faulty")
+                    self.update_door_status_entity("faulty")
+            else:
+                # If not controlled by the app, it's just an intermediate state
+                self.update_door_status_entity("intermediate")
+
+        # Reset the flag after diagnostics
+        self.last_command_by_app = False

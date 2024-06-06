@@ -98,6 +98,23 @@ Monitor:
   wake_time_start: 4
   wake_time_end: 9
 
+DoorController:
+  module: DoorController
+  class: DoorController
+  log_level: DEBUG
+
+  # Inputs
+  door_switch: switch.sonoff_basic_relay
+  close_sensor: binary_sensor.garage_gatedoorlow_contact_contact
+  open_sensor: binary_sensor.garage_gatedoorhigh_contact_contact
+  input_button_open: input_button.garage_open_door
+  input_button_close: input_button.garage_close_door
+  # Outputs
+  door_status_sensor: sensor.garage_door_contact
+  health_status_sensor: sensor.garage_door_app_health
+  # Calibration
+  timeout: 20  # Timeout in seconds
+
 SafetyFunctions:
   # App definitions
   module: SafetyFunctions
