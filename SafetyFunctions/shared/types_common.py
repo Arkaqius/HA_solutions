@@ -19,7 +19,7 @@ facilitating easier maintenance and updates.
 """
 
 from enum import Enum
-from typing import Any
+from typing import Any, NamedTuple, Dict, List
 
 
 class FaultState(Enum):
@@ -154,3 +154,18 @@ class Fault:
         self.related_prefaults: list = related_prefaults
         self.notification_level: int = notification_level
         self.priority = 2
+
+
+class RecoveryResult(NamedTuple):
+    """
+    A named tuple that encapsulates the result of a recovery action.
+
+    Attributes:
+        changed_sensors (Dict[str, str]): A dictionary mapping sensor names to their new states.
+        changed_actuators (Dict[str, str]): A dictionary mapping actuator names to their new states.
+        notifications (List[str]): A list of notifications that provide information about manual actions needed.
+    """
+
+    changed_sensors: Dict[str, str]
+    changed_actuators: Dict[str, str]
+    notifications: List[str]

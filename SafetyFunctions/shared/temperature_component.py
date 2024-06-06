@@ -20,7 +20,7 @@ Note:
 This module is part of a larger system designed for enhancing safety through Home Assistant. It should be integrated with the appropriate Home Assistant setup and configured according to the specific needs and safety requirements of the environment being monitored.
 """
 
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Optional
 from shared.safety_component import (
     SafetyComponent,
     safety_mechanism_decorator,
@@ -28,7 +28,7 @@ from shared.safety_component import (
     SafetyMechanismResult,
 )
 from shared.safety_mechanism import SafetyMechanism
-from shared.types_common import PreFault, RecoveryAction, SMState
+from shared.types_common import PreFault, RecoveryAction, SMState, RecoveryResult
 from shared.common_entities import CommonEntities
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
@@ -103,7 +103,11 @@ class TemperatureComponent(SafetyComponent):
             bool: True if the initialization is successful, False otherwise.
         """
         if sm_name == "sm_tc_1":
-            required_keys: list[str] = ["temperature_sensor", "CAL_LOW_TEMP_THRESHOLD", "location"]
+            required_keys: list[str] = [
+                "temperature_sensor",
+                "CAL_LOW_TEMP_THRESHOLD",
+                "location",
+            ]
             sm_method = self.sm_tc_1
         elif sm_name == "sm_tc_2":
             required_keys = [
@@ -544,7 +548,7 @@ class TemperatureComponent(SafetyComponent):
         prefault: PreFault,
         common_entities: CommonEntities,
         **kwargs: dict[str, str],
-    ) -> None | tuple[dict[str, str], list[str]]:
+    ) -> Optional[RecoveryResult]:
         """
         Recovery action for handling risky temperature conditions.
 
@@ -558,10 +562,11 @@ class TemperatureComponent(SafetyComponent):
             **kwargs (dict): Additional keyword arguments, such as location, actuator, and window sensors.
 
         Returns:
-            None | tuple[dict[str, str], list[str]]: A tuple containing the changed entities and notifications,
+            Optional[RecoveryResult]: A NamedTuple containing the changed entities and notifications,
             or None if an error occurred.
         """
-        changed_entities: dict[str, str] = {}
+        changed_sensors: dict[str, str] = {}
+        changed_actuators: dict[str, str] = {}
         notifications: list[str] = []
         location: str = kwargs["location"]
         actuator: str = kwargs["actuator"]
@@ -577,31 +582,26 @@ class TemperatureComponent(SafetyComponent):
         # Get outside temperature
         outside_temp_raw: str | None = common_entities.get_outisde_temperature()
         if not outside_temp_raw:
-            return changed_entities, notifications
+            return RecoveryResult(changed_sensors, changed_actuators, notifications)
 
-        outside_temp = float(outside_temp_raw) # TODO Check for bad values
+        outside_temp = float(outside_temp_raw)  # TODO Check for bad values
 
         if outside_temp < meas_room_temp:
-            # Close windows if outside temperature is lower
-            changed_entities = SafetyComponent.change_all_entities_state(
-                window_sensors, "off"
-            )
-            if actuator:
-                changed_entities[actuator] = "off"
-            else:
-                notifications.append(
-                    f"Please close windows in {location} as recovery action"
-                )
+            window_sensors_state = "off"
+            actuator_sensors_state = "off"
+            notification: str = f"Please close windows in {location} as recovery action"
         else:
-            # Open windows if outside temperature is higher
-            changed_entities = SafetyComponent.change_all_entities_state(
-                window_sensors, "on"
-            )
-            if actuator:
-                changed_entities[actuator] = "on"
-            else:
-                notifications.append(
-                    f"Please open windows in {location} as recovery action"
-                )
+            window_sensors_state = "on"
+            actuator_sensors_state = "on"
+            notification: str = f"Please open windows in {location} as recovery action"
 
-        return changed_entities, notifications
+        # Close windows if outside temperature is lower
+        changed_sensors = SafetyComponent.change_all_entities_state(
+            window_sensors, window_sensors_state
+        )
+        if actuator:
+            changed_actuators[actuator] = actuator_sensors_state
+        else:
+            notifications.append(notification)
+
+        return RecoveryResult(changed_sensors, changed_actuators, notifications)

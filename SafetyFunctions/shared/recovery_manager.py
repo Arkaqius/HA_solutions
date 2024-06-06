@@ -27,7 +27,7 @@ recovery_manager.recovery(cool_down_system, {'component': 'CPU', 'target_temp': 
 This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems.
 """
 
-from typing import Any
+from typing import Any, Optional
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 from shared.types_common import (
     RecoveryAction,
@@ -36,6 +36,7 @@ from shared.types_common import (
     FaultState,
     Fault,
     RecoveryActionState,
+    RecoveryResult,
 )
 from shared.common_entities import CommonEntities
 from shared.fault_manager import FaultManager
@@ -196,8 +197,8 @@ class RecoveryManager:
             # Set entitity actions as recovery
             for entity, value in entities_changes.items():
                 try:
-                    #self.hass_app.set_state(entity, state=value)
-                    pass # TODO
+                    # self.hass_app.set_state(entity, state=value)
+                    pass  # TODO
                 except Exception as err:
                     self.hass_app.log(
                         f"Exception during setting {entity} to {value} value. {err}",
@@ -293,7 +294,7 @@ class RecoveryManager:
             # Check if rec actions exist
             if prefault.name in self.recovery_actions:
                 # Run recovery action to get potential changes
-                entities_changes, notifications = self.recovery_actions[
+                recovery_result: Optional[RecoveryResult] = self.recovery_actions[
                     prefault.name
                 ].rec_fun(
                     self.hass_app,
@@ -301,18 +302,26 @@ class RecoveryManager:
                     self.common_entities,
                     **self.recovery_actions[prefault.name].params,
                 )
-                if entities_changes:
+                if recovery_result:
                     # Check if existing rec action can cause another faults
-                    if not self._run_dry_test(prefault.name, entities_changes):
-                        # Check if existing rec action is not in conflicts with diffrent one
+                    if not self._run_dry_test(
+                        prefault.name, recovery_result.changed_sensors
+                    ):
+                        # Check if existing rec action is not in conflicts with different one
                         if not self._isRecoveryConflict(prefault):
                             self._perform_recovery(
-                                prefault, notifications, entities_changes
+                                prefault,
+                                recovery_result.notifications,
+                                recovery_result.changed_actuators,
                             )
-                            self._listen_to_changes(prefault, entities_changes)
+                            self._listen_to_changes(
+                                prefault,
+                                recovery_result.changed_sensors
+                                | recovery_result.changed_actuators,
+                            )
                         else:
                             self.hass_app.log(
-                                f"Recovery confict for {prefault.name}", level="DEBUG"
+                                f"Recovery conflict for {prefault.name}", level="DEBUG"
                             )
                     else:
                         self.hass_app.log(
