@@ -197,8 +197,7 @@ class RecoveryManager:
             # Set entitity actions as recovery
             for entity, value in entities_changes.items():
                 try:
-                    # self.hass_app.set_state(entity, state=value)
-                    pass  # TODO
+                    self.hass_app.set_state(entity, state=value)
                 except Exception as err:
                     self.hass_app.log(
                         f"Exception during setting {entity} to {value} value. {err}",

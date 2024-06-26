@@ -419,7 +419,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
 
             if force_sm:
                 # If force_sm is true, schedule to run the function again after 30 seconds
-                self.hass_app.run_in(lambda _: func(self, sm), 30)
+                self.hass_app.run_in(lambda _: func(self, sm), 5)
 
         else:
             self.hass_app.log(

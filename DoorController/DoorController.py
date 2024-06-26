@@ -64,6 +64,9 @@ class DoorController(hass.Hass):
             self.create_health_entity()
             self.update_health_entity("faulty")
 
+        # Force diagnostic to determinate current door status
+        self.door_status_changed(None, None, None, None, None)
+
     def create_door_status_entity(self) -> None:
         """
         Create a sensor entity for the door status.
