@@ -89,7 +89,6 @@ class NotificationManager:
 
     def _process_active_fault(self, level: int, message: str, fault_tag: str) -> None:
         self._notify_company_app(level, message, fault_tag, FaultState.SET)
-        # self._set_dashboard_notification(message, level) # TODO Maybe to be deleted
         additional_actions = self.level_methods.get(level)
         if additional_actions:
             additional_actions()

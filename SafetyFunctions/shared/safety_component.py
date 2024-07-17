@@ -234,8 +234,8 @@ class SafetyComponent:
         """Fetch and convert temperature from a sensor."""
         try:
             return float(hass_app.get_state(sensor_id))
-        except ValueError as e:
-            hass_app.log(f"Float conversion error: {e}", level="ERROR")
+        except (ValueError, TypeError) as e:
+            hass_app.log(f"Conversion error: {e}", level="ERROR")
             return None
 
     @staticmethod

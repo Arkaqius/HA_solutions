@@ -528,10 +528,6 @@ class TemperatureComponent(SafetyComponent):
         if entities_changes and sensor_id in entities_changes:
             try:
                 temperature = float(entities_changes[sensor_id])
-                self.hass_app.log(
-                    f"Using stubbed value for {sensor_id}: {temperature}",
-                    level="DEBUG",
-                )
                 return temperature
             except (ValueError, TypeError) as e:
                 self.hass_app.log(
