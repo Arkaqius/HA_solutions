@@ -100,7 +100,7 @@ class FaultManager:
 
     def get_all_prefault(self) -> dict[str, PreFault]:
         """
-        TODO
+        Function to return all register prefaults
         """
         return self.prefaults
 

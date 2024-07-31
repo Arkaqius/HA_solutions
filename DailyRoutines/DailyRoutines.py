@@ -38,7 +38,7 @@ class DailyRoutines(hass.Hass):
         Schedule preparations 30 minutes before the actual wake-up time.
         """
         try:
-            print(new)
+            self.log(f"Next_awake_set [{new}].", level='DEBUG')
             # Parse the next wake-up time
             next_awake_time = datetime.strptime(new, "%Y-%m-%d %H:%M:%S%z")
             # Calculate 30 minutes before the wake-up time
@@ -46,28 +46,31 @@ class DailyRoutines(hass.Hass):
 
             # Ensure the current time is timezone-aware using the same timezone
             current_time = datetime.now(timezone.utc).astimezone(next_awake_time.tzinfo)
+            self.log(f"current_time [{current_time}].", level='DEBUG')
 
             if current_time < prep_time:
                 # Calculate seconds until the preparation time
                 seconds_until_prep = int((prep_time - current_time).total_seconds())
                 # Schedule the preparation function
-                self.run_in(self.preparation_tasks, seconds_until_prep)
+                self.run_in(self.awake_preparation_tasks, seconds_until_prep)
                 self.log(
                     f"Scheduled preparation tasks in {seconds_until_prep} seconds."
                 )
+            else:
+                self.log(f"current_time [{current_time}] was after prep_time {prep_time}.", level='DEBUG')
         except ValueError:
             self.log(f"Invalid datetime format for next awake time [{new}].")
 
-    def preparation_tasks(self, kwargs: Any) -> None:
+    def awake_preparation_tasks(self, kwargs: Any) -> None:
         """
         Perform preparation tasks.
         """
         self.log("Performing wake-up preparation tasks.")
         # Add logic for the preparation tasks here, such as heating water
         self.turn_warm_water(True)
-        self.run_in(self.preparation_tasks_end, MINUTES_5)
+        self.run_in(self.awake_preparation_tasks_end, MINUTES_5)
 
-    def preparation_tasks_end(self, _: Any) -> None:
+    def awake_preparation_tasks_end(self, _: Any) -> None:
         """
         Perform preparation tasks finish actions
         """

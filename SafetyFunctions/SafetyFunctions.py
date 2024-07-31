@@ -81,12 +81,12 @@ class SafetyFunctions(hass.Hass):
         self.notification_cfg: dict = self.args["user_config"]["notification"]
         self.common_entities_cfg: dict = self.args["user_config"]["common_entities"]
 
-        # TODO
+        # 20. Prepare common entities register
         self.common_entities: CommonEntities = CommonEntities(
             self, self.common_entities_cfg
         )
 
-        # 20. Initialize SM modules and get prefaults and recovery data
+        # 30. Initialize SM modules and get prefaults and recovery data
         for component_name, component_cls in COMPONENT_DICT.items():
             if component_name in self.safety_components_cfg:
                 # Instantiate the component with 'self' passed to its constructor
@@ -109,10 +109,10 @@ class SafetyFunctions(hass.Hass):
                 self.prefaults.update(prefaults_data)
                 self.recovery_actions.update(recovery_data)
 
-        # 30. Get faults data
+        # 40. Get faults data
         self.faults = cfg_pr.get_faults(self.fault_dict)
 
-        # 40. Initialize fault manager
+        # 50. Initialize fault manager
         self.fm: FaultManager = FaultManager(
             self,
             self.sm_modules,
@@ -120,33 +120,33 @@ class SafetyFunctions(hass.Hass):
             self.faults,
         )
 
-        # 50. Initialize notification manager
+        # 60. Initialize notification manager
         self.notify_man: NotificationManager = NotificationManager(
             self, self.notification_cfg
         )
 
-        # 60. Initialize recovery manager
+        # 70. Initialize recovery manager
         self.reco_man: RecoveryManager = RecoveryManager(
             self, self.fm, self.recovery_actions, self.common_entities, self.notify_man
         )
 
-        # 70. Initialize notification manager
+        # 80. Initialize notification manager
         self.fm.register_callbacks(self.reco_man.recovery, self.notify_man.notify)
 
-        # 80. Register fm to safety components
+        # 90. Register fm to safety components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # 90. Register all prefaults
+        # 110. Register all prefaults
         self.register_entities(self.faults)
 
-        # 100. Init safety mechanisms
+        # 120. Init safety mechanisms
         self.fm.init_safety_mechanisms()
 
-        # 110. Enable safety mechanisms
+        # 130. Enable safety mechanisms
         self.fm.enable_all_prefaults()
 
-        # 120. Set the health status after initialization
+        # 140. Set the health status after initialization
         self.set_state("sensor.safety_app_health", state="good")
         self.log("Safety app started", level="DEBUG")
 

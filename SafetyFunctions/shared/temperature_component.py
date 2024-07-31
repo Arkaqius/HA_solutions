@@ -34,7 +34,7 @@ import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 # CONFIG
 DEBOUNCE_INIT = 1
-SM_TC_2_DEBOUNCE_LIMIT = 3
+SM_TC_2_DEBOUNCE_LIMIT = 1
 
 
 class TemperatureComponent(SafetyComponent):
@@ -528,10 +528,6 @@ class TemperatureComponent(SafetyComponent):
         if entities_changes and sensor_id in entities_changes:
             try:
                 temperature = float(entities_changes[sensor_id])
-                self.hass_app.log(
-                    f"Using stubbed value for {sensor_id}: {temperature}",
-                    level="DEBUG",
-                )
                 return temperature
             except (ValueError, TypeError) as e:
                 self.hass_app.log(
@@ -584,8 +580,8 @@ class TemperatureComponent(SafetyComponent):
         if not outside_temp_raw:
             return RecoveryResult(changed_sensors, changed_actuators, notifications)
 
-        outside_temp = float(outside_temp_raw)  # TODO Check for bad values
-
+        outside_temp = float(outside_temp_raw)
+        
         if outside_temp < meas_room_temp:
             window_sensors_state = "off"
             actuator_sensors_state = "off"

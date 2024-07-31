@@ -1,0 +1,34 @@
+SafetyFunctions:
+  # App definitions
+  module: SafetyFunctions
+  class: SafetyFunctions
+  log_level: INFO
+
+  # General config of app
+  app_config:
+    faults:
+      RiskyTemperature:
+        name: "Unsafe temperature"
+        priority: 2
+        related_sms:
+          - "sm_tc_1"
+      RiskyTemperatureForecast:
+        name: "Unsafe temperature forecast"
+        priority: 3
+        related_sms:
+          - "sm_tc_2"
+
+  # User specyfic config
+  user_config:
+    notification:
+      light_entity: 'light.warning_light'
+    common_entities:
+      outside_temp : 'sensor.dom_temperature'
+    safety_components:
+      TemperatureComponent:
+        - Office:
+            CAL_LOW_TEMP_THRESHOLD: 18.0
+            CAL_FORECAST_TIMESPAN: 2.0 # hours # app cfg
+            temperature_sensor: "sensor.office_temperature"
+            temperature_sensor_rate: "sensor.office_temperature_rate" # sampling_rate = 1min
+            window_sensor: sensor.office_window_contact_contact
