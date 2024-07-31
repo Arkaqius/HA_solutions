@@ -1,104 +1,3 @@
-HeaterController:
-  # App definitions
-  module: SmartHeating
-  class: SmartHeating
-  log_level: INFO
-
-  # WAM Factors
-  wam_factors:
-    living_room: 2
-    corridor: 2
-    bathroom: 2
-    entrance: 1 
-    upperCorridor: 2
-    wardrobe: 1
-    upperBathroom: 3
-    
-  # Radiator Factors
-  rads_factors:
-    office: 2
-    kidsroom: 2
-    bedroom: 4
-    garage: 1
-
-  # Config
-  config:
-    cycle_time: 5 #[s]
-    warm_flag_offset: 0.5
-    frezzing_flag_offset: 0.5
-    logging: True
-    error_offset_update_threshold: 0.5
-    force_flow_off: 4
-    radiator_boost_threshold: 25
-    rads_error_factor: 4
-    force_burn_thres: 0
-  
-  # HAL
-  HAL_setpoint_mapping_in:
-    office_setpoint: 'input_number.sh_office_setpoint'
-    kidsroom_setpoint: 'input_number.sh_kidsroom_setpoint'
-    bedroom_setpoint: 'input_number.sh_bedroom_setpoint'
-    garage_setpoint:  'input_number.sh_garage_setpoint'
-  HAL_setpoint_mapping_out:
-    office_setpoint: 'climate.office_TRV'
-    kidsroom_setpoint: 'climate.kidsroom_TRV'
-    bedroom_left_setpoint: 'climate.bedroom_left_TRV'
-    bedroom_right_setpoint: 'climate.bedroom_right_TRV'
-    garage_setpoint:  'climate.garage_TRV'
-  HAL_TRV_pos:
-    garage_pos: 'sensor.garage_trv_position'
-    bedroomLeft_pos: 'sensor.bedroom_left_trv_position'
-    bedroomRight_pos: 'sensor.bedroom_right_trv_position'
-    office_pos: 'sensor.office_trv_position'
-    kidsRoom_pos: 'sensor.kidsroom_trv_position'
-  HAL_output:
-    thermostat_setpoint: 'number.thermostat_hc1_manual_temperature'
-    wam_value: 'input_number.sh_wam_offset'
-    setpoint_offset: 'input_number.sh_setpoint_offset'
-  HAL_inputs:
-     makeWarm_flag: 'input_boolean.sh_make_warmer'
-     forceFlow_flag: 'input_boolean.sh_force_flow'
-     frezzing_flag: 'input_boolean.sh_frezzing'
-     corridor_setpoint: 'input_number.sh_corridor_setpoint'
-  HAL_errors:
-      livingRoom_error: 'sensor.livingroom_temperatureerror'
-      corridor_error: 'sensor.corridor_temperatureerror'
-      bathroom_error: 'sensor.bathroom_temperatureerror'
-      entrance_error: 'sensor.entrance_temperatureerror'
-      uppercorridor_error: 'sensor.uppercorridor_temperatureerror'
-      wardrobe_error: 'sensor.wardrobe_temperatureerror'
-      upperbathroom_error: 'sensor.upperbathroom_temperatureerror'
-      office_error: 'sensor.office_temperatureerror'
-      kidsroom_error: 'sensor.kidsroom_temperatureerror'
-      garage_error: 'sensor.garage_temperatureerror'
-      bedroom_error: 'sensor.bedroom_temperatureerror'
-
-DailyRoutines:
-  # App definitions
-  module: DailyRoutines
-  class: DailyRoutines
-  log_level: DEBUG
-  # HMI varaibles
-  turn_off_ligts_scene: scene.all_lights_off
-  ww_activate: input_boolean.ww_state
-  awake_state: binary_sensor.monitor_awake_state
-  next_awake_time: sensor.next_awake_time
-
-Monitor:
-  # App definitions
-  module: Monitor
-  class: Monitor
-  log_level: DEBUG
-  # HMI varaibles
-  ux_awake_state: input_boolean.ux_awake_state
-  next_alarm_sensor: sensor.arekphone_next_alarm
-  awake_state: binary_sensor.monitor_awake_state
-  #Config
-  reset_time: "9:00:00"
-  wake_time_start: 5
-  wake_time_end: 8
-
-
 ### DOOR CONTROLLERS START
 # Detailed Help for Creating Configuration:
 # 1. Module and Class (Required):
@@ -164,7 +63,7 @@ ExternalGateController:
   friendly_name: "External Gate"  # A friendly name for the whole app to be used in Home Assistant UI
 
   # Inputs
-  door_switch: switch.smart_switch_ver1_relay1 # Physical relay to control the gate motor (Required)
+  door_switch: switch.garage_gate_relay # Physical relay to control the gate motor (Required)
   input_button_open: input_button.externalgate_open_door # Template input button for opening the gate from LoveLace UI (Required)
   input_button_close: input_button.externalgate_close_door # Template input button for closing the gate from LoveLace UI (Required)
   external_button: input_button.externalgate_external_button # Template input button for binding to a physical external button (Required)
@@ -179,38 +78,3 @@ ExternalGateController:
   pedestrian_open_timeout: 5  # Time in seconds to open the gate just enough for pedestrian access (Optional)
 
 ### DOOR CONTROLLERS END
-
-SafetyFunctions:
-  # App definitions
-  module: SafetyFunctions
-  class: SafetyFunctions
-  log_level: INFO
-
-  # General config of app
-  app_config:
-    faults:
-      RiskyTemperature:
-        name: "Unsafe temperature"
-        priority: 2
-        related_sms:
-          - "sm_tc_1"
-      RiskyTemperatureForecast:
-        name: "Unsafe temperature forecast"
-        priority: 3
-        related_sms:
-          - "sm_tc_2"
-
-  # User specyfic config
-  user_config:
-    notification:
-      light_entity: 'light.warning_light'
-    common_entities:
-      outside_temp : 'sensor.dom_temperature'
-    safety_components:
-      TemperatureComponent:
-        - Office:
-            CAL_LOW_TEMP_THRESHOLD: 18.0
-            CAL_FORECAST_TIMESPAN: 2.0 # hours # app cfg
-            temperature_sensor: "sensor.office_temperature"
-            temperature_sensor_rate: "sensor.office_temperature_rate" # sampling_rate = 1min
-            window_sensor: sensor.office_window_contact_contact

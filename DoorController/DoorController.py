@@ -4,7 +4,7 @@ import datetime
 from collections import namedtuple
 
 # Constants for relay toggle timeout
-RELAY_TOGGLE_TIMEOUT = 1
+RELAY_TOGGLE_TIMEOUT = 0.5
 
 # Named tuple for door status
 DoorStatus = namedtuple("DoorStatus", ["state"])
@@ -33,23 +33,28 @@ class DoorController(hass.Hass):
             self.health_status_sensor = self.args["health_status_sensor"]
             self.door_switch = self.args["door_switch"]
             self.door_status_sensor = self.args["door_status_sensor"]
-            
+
             self.input_button_open = self.args["input_button_open"]
             self.input_button_close = self.args["input_button_close"]
             self.input_button_external = self.args["external_button"]
             self.input_button_pedestrian = self.args.get("input_button_pedestrian")
-            
+
             self.close_sensor = self.args.get("close_sensor")
             self.open_sensor = self.args.get("open_sensor")
-            self.timeout = self.args.get("timeout", 30)  # Default timeout if not specified
-            self.pedestrian_open_timeout = self.args.get("pedestrian_open_timeout", 10)  # Default pedestrian open timeout if not specified
+            self.timeout = self.args.get(
+                "timeout", 30
+            )  # Default timeout if not specified
+            self.pedestrian_open_timeout = self.args.get(
+                "pedestrian_open_timeout", 10
+            )  # Default pedestrian open timeout if not specified
 
             self.door_state = DoorStatus(
                 "unknown"
             )  # Possible states: "closed", "open", "intermediate", "faulty"
             self.last_action_time = None
             self.last_command_by_app = False
-            self.predict_mov_dir = 'open'
+            self.predict_mov_dir = "open"
+            self.isSensorless: bool = not (self.close_sensor and self.open_sensor)
 
             # Listen for state changes in sensors if configured
             if self.close_sensor:
@@ -62,11 +67,15 @@ class DoorController(hass.Hass):
             self.listen_state(self.handle_close_event, self.input_button_close)
 
             # Listen for external button state changes
-            self.listen_state(self.handle_external_button_event, self.input_button_external)
-            
+            self.listen_state(
+                self.handle_external_button_event, self.input_button_external
+            )
+
             # Listen for pedestrian button press if configured
             if self.input_button_pedestrian:
-                self.listen_state(self.handle_pedestrian_event, self.input_button_pedestrian)
+                self.listen_state(
+                    self.handle_pedestrian_event, self.input_button_pedestrian
+                )
 
             # Create and initialize entities
             self.create_door_status_entity()
@@ -133,14 +142,17 @@ class DoorController(hass.Hass):
         :param kwargs: Additional keyword arguments.
         """
         self.log("Opening door (input_button)...")
-        if self.predict_mov_dir == 'open':
-            self.activate_relay() #TODO Opaque func is needed
-            self.predict_mov_dir == 'close'
+        if not self.isSensorless:
+            if self.predict_mov_dir == "open":
+                self.activate_relay()  # TODO Opaque func is needed
+                self.predict_mov_dir == "close"
+            else:
+                self.activate_relay()
+                self.run_in(self.activate_relay, 1)
+                self.run_in(self.activate_relay, 2)
+                self.predict_mov_dir == "close"
         else:
             self.activate_relay()
-            self.run_in(self.activate_relay, 1)
-            self.run_in(self.activate_relay, 2)
-            self.predict_mov_dir == 'close'
         self.last_command_by_app = True
 
     def handle_close_event(
@@ -156,15 +168,17 @@ class DoorController(hass.Hass):
         :param kwargs: Additional keyword arguments.
         """
         self.log("Closing door (input_button)...")
-        if self.predict_mov_dir == 'close':
-            self.activate_relay() #TODO Opaque func is needed
-            self.predict_mov_dir == 'open'
+        if not self.isSensorless:
+            if self.predict_mov_dir == "close":
+                self.activate_relay()  # TODO Opaque func is needed
+                self.predict_mov_dir == "open"
+            else:
+                self.activate_relay()
+                self.run_in(self.activate_relay, 1)
+                self.run_in(self.activate_relay, 2)
+                self.predict_mov_dir == "open"
         else:
             self.activate_relay()
-            self.run_in(self.activate_relay, 1)
-            self.run_in(self.activate_relay, 2)
-            self.predict_mov_dir == 'open'
-            
         self.last_command_by_app = True
 
     def handle_external_button_event(
@@ -202,13 +216,14 @@ class DoorController(hass.Hass):
         self.run_in(self.activate_relay, self.pedestrian_open_timeout)
         self.last_command_by_app = True
 
-    def activate_relay(self, _ = None) -> None:
+    def activate_relay(self, _: Any = None) -> None:
         """
         Activate the relay to move the door and set the last action time.
         """
+        self.log("activate_relay", level="DEBUG")
         self.turn_on(self.door_switch)
         self.run_in(self.turn_off_switch, RELAY_TOGGLE_TIMEOUT)
-        self.last_action_time = datetime.datetime.now()
+        self.last_action_time: datetime.datetime = datetime.datetime.now()
 
     def turn_off_switch(self, _: Any) -> None:
         """
@@ -229,7 +244,7 @@ class DoorController(hass.Hass):
         :param new: The new state of the sensor.
         :param kwargs: Additional keyword arguments.
         """
-        if not self.close_sensor or not self.open_sensor:
+        if self.isSensorless:
             self.log("Sensors not configured, skipping state update.")
             return
 
@@ -239,12 +254,12 @@ class DoorController(hass.Hass):
         if close_sensor_state == "off" and open_sensor_state == "on":
             self.door_state = DoorStatus("closed")
             self.update_door_status_entity("closed")
-            self.predict_mov_dir = 'open'
+            self.predict_mov_dir = "open"
             self.log("Door is fully closed")
         elif close_sensor_state == "on" and open_sensor_state == "off":
             self.door_state = DoorStatus("open")
             self.update_door_status_entity("open")
-            self.predict_mov_dir = 'close'
+            self.predict_mov_dir = "close"
             self.log("Door is fully open")
         elif close_sensor_state == "off" and open_sensor_state == "off":
             self.log(
@@ -256,7 +271,6 @@ class DoorController(hass.Hass):
             self.door_state = DoorStatus("intermediate")
             self.update_door_status_entity("intermediate")
             self.log("Door is in intermediate state")
-            
 
             # Schedule diagnostics if the last command was from the app
             if self.last_command_by_app:
@@ -268,7 +282,7 @@ class DoorController(hass.Hass):
 
         :param kwargs: Additional keyword arguments.
         """
-        if not self.close_sensor or not self.open_sensor:
+        if self.isSensorless:
             self.log("Sensors not configured, skipping diagnostics.")
             return
 
