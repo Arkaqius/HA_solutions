@@ -64,7 +64,7 @@ def test_temp_comp_smtc1_1(mocked_hass_app_get_state):
         ]
     )
 
-    assert app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.SET
+    assert app_instance.fm.check_symptom("RiskyTemperatureOffice") == FaultState.SET
 
 
 def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
@@ -131,7 +131,7 @@ def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
 
     # Smc called 5 times with good temperature - CLEARED
     assert (
-        app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.CLEARED
+        app_instance.fm.check_symptom("RiskyTemperatureOffice") == FaultState.CLEARED
     )
     assert (
         app_instance.fm.check_fault("RiskyTemperature") == FaultState.SET
@@ -156,7 +156,7 @@ def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
 
     # Smc called 2 times with bad temperature - still CLEARED
     assert (
-        app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.CLEARED
+        app_instance.fm.check_symptom("RiskyTemperatureOffice") == FaultState.CLEARED
     )
     assert app_instance.fm.check_fault("RiskyTemperature") == FaultState.SET
 
@@ -167,7 +167,7 @@ def test_temp_comp_smtc1_2(mocked_hass_app_get_state):
     )
 
     # Smc called 4 times with bad temperature - SET
-    assert app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.SET
+    assert app_instance.fm.check_symptom("RiskyTemperatureOffice") == FaultState.SET
     assert app_instance.fm.check_fault("RiskyTemperature") == FaultState.SET
 
 
@@ -240,7 +240,7 @@ def test_temp_comp_smtc2_1(mocked_hass_app_get_state):
         "RiskyTemperatureOfficeForeCast"
     ].sm_args["diverative"] = -0.0125
     assert (
-        app_instance.fm.check_prefault("RiskyTemperatureOfficeForeCast")
+        app_instance.fm.check_symptom("RiskyTemperatureOfficeForeCast")
         == FaultState.SET
     )
 
@@ -305,7 +305,7 @@ def test_temp_comp_smtc2_1(mocked_hass_app_get_state):
     )
 
     assert (
-        app_instance.fm.check_prefault("RiskyTemperatureOfficeForeCast")
+        app_instance.fm.check_symptom("RiskyTemperatureOfficeForeCast")
         == FaultState.SET
     )
 
@@ -370,4 +370,4 @@ def test_temp_comp_recovery_test(mocked_hass_app_get_state):
         ]
     )
 
-    assert app_instance.fm.check_prefault("RiskyTemperatureOffice") == FaultState.SET
+    assert app_instance.fm.check_symptom("RiskyTemperatureOffice") == FaultState.SET

@@ -49,7 +49,7 @@ def app_config_valid():
 
 
 @pytest.fixture(scope="module")
-def app_config_2_faults_to_single_prefault():
+def app_config_2_faults_to_single_symptom():
     return {
         "SafetyFunctions": {
             "module": "SafetyFunctions",

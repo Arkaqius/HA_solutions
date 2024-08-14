@@ -1,6 +1,6 @@
 """
-This module provides utilities for loading fault and pre-fault configurations from dictionaries, typically derived from YAML configuration files.
-It supports getting Fault and PreFault objects, which are essential components of the safety management system within a Home Assistant environment.
+This module provides utilities for loading fault and symptom configurations from dictionaries, typically derived from YAML configuration files.
+It supports getting Fault and symptom objects, which are essential components of the safety management system within a Home Assistant environment.
 These utilities facilitate the dynamic setup of safety mechanisms based on external configurations.
 """
 

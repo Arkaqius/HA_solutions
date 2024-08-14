@@ -7,7 +7,7 @@ provide a standardized set of possible states for faults (FaultState) and safety
 ensuring consistency and clarity in state management and logic flow across the application.
 
 Enums:
-- FaultState: Enumerates the possible states of faults and pre-faults, aiding in the
+- FaultState: Enumerates the possible states of faults and symptoms, aiding in the
   identification and management of safety system conditions.
 - SMState: Defines the operational states of Safety Mechanisms (SMs), offering insight
   into the activity and readiness of these mechanisms.
@@ -24,7 +24,7 @@ from typing import Any, NamedTuple, Dict, List
 
 class FaultState(Enum):
     """
-    Represents the possible states of a fault and prefaults within the safety management system.
+    Represents the possible states of a fault and symptoms within the safety management system.
 
     Attributes:
         NOT_TESTED: Initial state, indicating the fault has not yet been tested.
@@ -90,28 +90,28 @@ class RecoveryAction:
         self.current_status: RecoveryActionState = RecoveryActionState.DO_NOT_PERFORM
 
 
-class PreFault:
+class Symptom:
     """
-    Represents a pre-fault condition within the system, potentially leading to a fault.
+    Represents a symptom condition within the system, potentially leading to a fault.
 
-    Pre-faults are conditions identified as precursors to faults, allowing preemptive actions
+    symptoms are conditions identified as precursors to faults, allowing preemptive actions
     to avoid faults altogether or mitigate their effects.
 
     Attributes:
-        name (str): The name of the pre-fault.
-        sm_name (str): The name of the safety mechanism associated with this pre-fault.
+        name (str): The name of the symptom.
+        sm_name (str): The name of the safety mechanism associated with this symptom.
         module (SafetyComponent): The module where the safety mechanism is defined.
-        parameters (dict): Configuration parameters for the pre-fault.
-        recover_actions (Callable | None): The recovery action to execute if this pre-fault is triggered.
-        state (FaultState): The current state of the pre-fault.
+        parameters (dict): Configuration parameters for the symptom.
+        recover_actions (Callable | None): The recovery action to execute if this symptom is triggered.
+        state (FaultState): The current state of the symptom.
         sm_state (SMState): The operational state of the associated safety mechanism.
 
     Args:
-        name (str): The name identifier of the pre-fault.
-        sm_name (str): The safety mechanism's name associated with this pre-fault.
+        name (str): The name identifier of the symptom.
+        sm_name (str): The safety mechanism's name associated with this symptom.
         module: The module object where the safety mechanism's logic is implemented.
-        parameters (dict): A dictionary of parameters relevant to the pre-fault condition.
-        recover_actions (Callable | None, optional): A callable that executes recovery actions for this pre-fault. Defaults to None.
+        parameters (dict): A dictionary of parameters relevant to the symptom condition.
+        recover_actions (Callable | None, optional): A callable that executes recovery actions for this symptom. Defaults to None.
     """
 
     def __init__(
@@ -139,19 +139,20 @@ class Fault:
     Attributes:
         name (str): The name of the fault.
         state (FaultState): The current state of the fault.
-        related_prefaults (list): A list of pre-faults related to this fault.
+        related_symptoms (list): A list of symptoms related to this fault.
         notification_level (int): The severity level of the fault for notification purposes.
 
     Args:
         name (str): The name identifier of the fault.
-        related_prefaults (list): List of names of safety mechanism that can trigger this fault.
+        related_symptoms (list): List of names of safety mechanism that can trigger this fault.
         notification_level (int): The severity level assigned to this fault for notification purposes.
     """
 
-    def __init__(self, name: str, related_prefaults: list, notification_level: int):
+    def __init__(self, name: str, related_symptoms: list, notification_level: int):
         self.name: str = name
         self.state: FaultState = FaultState.NOT_TESTED
-        self.related_prefaults: list = related_prefaults
+        self.previous_val = FaultState.NOT_TESTED
+        self.related_symptoms: list = related_symptoms
         self.notification_level: int = notification_level
         self.priority = 2
 

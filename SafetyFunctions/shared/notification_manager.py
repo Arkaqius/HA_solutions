@@ -292,7 +292,7 @@ class NotificationManager:
         notification["message"] += f" {notification_msg}"
         self._send_notification(notification)
 
-    def _clear_prefault_msg(self, notification: dict, notification_msg: str) -> None:
+    def _clear_symptom_msg(self, notification: dict, notification_msg: str) -> None:
         """
         Appends a recovery message to an existing notification's message and resends the notification.
 

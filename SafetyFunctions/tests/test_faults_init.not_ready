@@ -13,7 +13,7 @@ def test_faults_init_RiskyTemperature(mocked_hass_app):
     Verifies that the 'RiskyTemperature' fault:
     - Is correctly named 'RiskyTemperature'.
     - Is initialized with a state of 'NOT_TESTED', indicating it hasn't been triggered yet.
-    - Is related to the correct prefault 'sm_tc_1', which it depends on for activation.
+    - Is related to the correct symptom 'sm_tc_1', which it depends on for activation.
     - Has a notification level set to '2', denoting its priority or severity.
 
     This test ensures that fault configurations are correctly set up during the application's
@@ -31,9 +31,9 @@ def test_faults_init_RiskyTemperature(mocked_hass_app):
     assert app_instance.faults["RiskyTemperature"].state == FaultState.NOT_TESTED, \
         "'RiskyTemperature' fault should initially be in the 'NOT_TESTED' state."
 
-    # Verify the fault is related to the correct prefault
-    assert app_instance.faults["RiskyTemperature"].related_prefaults == ['sm_tc_1'], \
-        "'RiskyTemperature' fault is not correctly related to 'sm_tc_1' prefault."
+    # Verify the fault is related to the correct symptom
+    assert app_instance.faults["RiskyTemperature"].related_symptoms == ['sm_tc_1'], \
+        "'RiskyTemperature' fault is not correctly related to 'sm_tc_1' symptom."
 
     # Verify the fault's notification level is set to 2
     assert app_instance.faults["RiskyTemperature"].notification_level == 2, \

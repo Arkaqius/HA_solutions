@@ -1,11 +1,11 @@
 from shared.fault_manager import SMState
 
 
-def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
+def test_symptoms_init_RiskyTemperatureOffice(mocked_hass_app):
     """
-    Test the initialization of the 'RiskyTemperatureOffice' prefault in the SafetyFunctions app.
+    Test the initialization of the 'RiskyTemperatureOffice' symptom in the SafetyFunctions app.
 
-    Ensures that the prefault:
+    Ensures that the symptom:
     - Is named 'RiskyTemperatureOffice'.
     - Uses 'sm_tc_1' as its safety mechanism.
     - Is associated with the 'TemperatureComponent' module.
@@ -16,33 +16,33 @@ def test_prefaults_init_RiskyTemperatureOffice(mocked_hass_app):
     app_instance.initialize()
     
     assert (
-        app_instance.prefaults["RiskyTemperatureOffice"].name
+        app_instance.symptoms["RiskyTemperatureOffice"].name
         == "RiskyTemperatureOffice"
-    ), "Prefault 'RiskyTemperatureOffice' does not have the correct name."
+    ), "symptom 'RiskyTemperatureOffice' does not have the correct name."
     assert (
-        app_instance.prefaults["RiskyTemperatureOffice"].sm_name == "sm_tc_1"
+        app_instance.symptoms["RiskyTemperatureOffice"].sm_name == "sm_tc_1"
     ), "'RiskyTemperatureOffice' does not use 'sm_tc_1' as its safety mechanism."
     assert (
-        app_instance.prefaults["RiskyTemperatureOffice"].module
+        app_instance.symptoms["RiskyTemperatureOffice"].module
         == app_instance.sm_modules["TemperatureComponent"]
     ), "'RiskyTemperatureOffice' is not correctly associated with the 'TemperatureComponent' module."
-    assert app_instance.prefaults["RiskyTemperatureOffice"].parameters == {
+    assert app_instance.symptoms["RiskyTemperatureOffice"].parameters == {
         "CAL_LOW_TEMP_THRESHOLD": 28,
         "temperature_sensor": "sensor.office_temperature",
     }, "'RiskyTemperatureOffice' does not have the correct parameters."
     assert (
-        app_instance.prefaults["RiskyTemperatureOffice"].recover_actions
+        app_instance.symptoms["RiskyTemperatureOffice"].recover_actions
         == app_instance.sm_modules["TemperatureComponent"].RiskyTemperatureRecovery
     ), "'RiskyTemperatureOffice' does not use the correct recovery action."
 
-    assert app_instance.prefaults["RiskyTemperatureOffice"].sm_state == SMState.ENABLED
+    assert app_instance.symptoms["RiskyTemperatureOffice"].sm_state == SMState.ENABLED
 
 
-def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
+def test_symptoms_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     """
-    Test the initialization of the 'RiskyTemperatureOfficeForeCast' prefault in the SafetyFunctions app.
+    Test the initialization of the 'RiskyTemperatureOfficeForeCast' symptom in the SafetyFunctions app.
 
-    Ensures that the prefault:
+    Ensures that the symptom:
     - Is named 'RiskyTemperatureOfficeForeCast'.
     - Uses 'sm_wmc_2' as its safety mechanism.
     - Is associated with the 'TemperatureComponent' module.
@@ -53,54 +53,54 @@ def test_prefaults_init_RiskyTemperatureOfficeForecast(mocked_hass_app):
     app_instance.initialize()
     
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].name
+        app_instance.symptoms["RiskyTemperatureOfficeForeCast"].name
         == "RiskyTemperatureOfficeForeCast"
-    ), "Prefault 'RiskyTemperatureOfficeForeCast' does not have the correct name."
+    ), "symptom 'RiskyTemperatureOfficeForeCast' does not have the correct name."
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].sm_name == "sm_tc_2"
+        app_instance.symptoms["RiskyTemperatureOfficeForeCast"].sm_name == "sm_tc_2"
     ), "'RiskyTemperatureOfficeForeCast' does not use 'sm_tc_2' as its safety mechanism."
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].module
+        app_instance.symptoms["RiskyTemperatureOfficeForeCast"].module
         == app_instance.sm_modules["TemperatureComponent"]
     ), "'RiskyTemperatureOfficeForeCast' is not correctly associated with the 'TemperatureComponent' module."
-    assert app_instance.prefaults["RiskyTemperatureOfficeForeCast"].parameters == {
+    assert app_instance.symptoms["RiskyTemperatureOfficeForeCast"].parameters == {
         "CAL_LOW_TEMP_THRESHOLD": 28,
         "CAL_FORECAST_TIMESPAN": 60,
         "temperature_sensor": "sensor.office_temperature",
         "temperature_sensor_rate": "sensor.office_temperature_rate",
     }, "'RiskyTemperatureOfficeForeCast' does not have the correct parameters."
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].recover_actions
+        app_instance.symptoms["RiskyTemperatureOfficeForeCast"].recover_actions
         == app_instance.sm_modules["TemperatureComponent"].RiskyTemperatureRecovery
     ), "'RiskyTemperatureOfficeForeCast' does not use the correct recovery action."
 
     assert (
-        app_instance.prefaults["RiskyTemperatureOfficeForeCast"].sm_state
+        app_instance.symptoms["RiskyTemperatureOfficeForeCast"].sm_state
         == SMState.ENABLED
     )
 
 
-def test_enablePrefaults_during_init(mocked_hass_app):
+def test_enablesymptoms_during_init(mocked_hass_app):
     """
-    Test that prefaults are enabled during the initialization of the SafetyFunctions app.
+    Test that symptoms are enabled during the initialization of the SafetyFunctions app.
 
     This test verifies that:
-    - The 'RiskyTemperatureOffice' prefault is transitioned to the ENABLED state as part of the initialization process.
-    - The 'RiskyTemperatureOfficeForeCast' prefault is also transitioned to the ENABLED state during initialization.
+    - The 'RiskyTemperatureOffice' symptom is transitioned to the ENABLED state as part of the initialization process.
+    - The 'RiskyTemperatureOfficeForeCast' symptom is also transitioned to the ENABLED state during initialization.
 
-    Ensuring prefaults are enabled during initialization is crucial for the application to start monitoring
+    Ensuring symptoms are enabled during initialization is crucial for the application to start monitoring
     conditions that could lead to faults right away, aligning with the app's proactive safety management strategy.
     """
     app_instance, _, __ = mocked_hass_app
     app_instance.initialize()
     
-    # Verify 'RiskyTemperatureOffice' prefault is ENABLED after initialization
+    # Verify 'RiskyTemperatureOffice' symptom is ENABLED after initialization
     assert (
-        app_instance.fm.prefaults["RiskyTemperatureOffice"].sm_state == SMState.ENABLED
-    ), "'RiskyTemperatureOffice' prefault should be in the ENABLED state after initialization."
+        app_instance.fm.symptoms["RiskyTemperatureOffice"].sm_state == SMState.ENABLED
+    ), "'RiskyTemperatureOffice' symptom should be in the ENABLED state after initialization."
 
-    # Verify 'RiskyTemperatureOfficeForeCast' prefault is ENABLED after initialization
+    # Verify 'RiskyTemperatureOfficeForeCast' symptom is ENABLED after initialization
     assert (
-        app_instance.fm.prefaults["RiskyTemperatureOfficeForeCast"].sm_state
+        app_instance.fm.symptoms["RiskyTemperatureOfficeForeCast"].sm_state
         == SMState.ENABLED
-    ), "'RiskyTemperatureOfficeForeCast' prefault should be in the ENABLED state after initialization."
+    ), "'RiskyTemperatureOfficeForeCast' symptom should be in the ENABLED state after initialization."

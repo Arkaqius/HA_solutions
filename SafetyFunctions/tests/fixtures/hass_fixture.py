@@ -123,7 +123,7 @@ def mocked_hass_app_fm_mocks(app_config_valid):
 
 
 @pytest.fixture
-def mocked_hass_app_2_flts_1_sm(app_config_2_faults_to_single_prefault):
+def mocked_hass_app_2_flts_1_sm(app_config_2_faults_to_single_symptom):
     with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass, patch.object(
         SafetyFunctions, "log", new_callable=MagicMock
     ) as mock_log_method:
@@ -137,7 +137,7 @@ def mocked_hass_app_2_flts_1_sm(app_config_2_faults_to_single_prefault):
             mock_hass,
             "dummy_namespace",
             mock_logging,
-            app_config_2_faults_to_single_prefault,
+            app_config_2_faults_to_single_symptom,
             "mock_config",
             "dummy_app_config",
             "dummy_global_vars",

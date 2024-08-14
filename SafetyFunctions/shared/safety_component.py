@@ -3,9 +3,9 @@ This module provides foundational structures and functionalities for implementin
 
 Components:
 - `DebounceState`: A named tuple that stores the current state of a debouncing process, including the debounce counter and a flag indicating the necessity of action.
-- `DebounceAction`: An enumeration that defines possible outcomes of the debouncing process, such as setting a pre-fault condition, clearing it, or taking no action.
+- `DebounceAction`: An enumeration that defines possible outcomes of the debouncing process, such as setting a symptom condition, clearing it, or taking no action.
 - `DebounceResult`: A named tuple that encapsulates the result of a debouncing process, comprising the action to be taken and the updated counter value.
-- `SafetyComponent`: A base class for creating domain-specific safety components. It provides methods for entity validation, debouncing logic, and interaction with a fault manager to set or clear pre-fault conditions based on dynamic sensor data.
+- `SafetyComponent`: A base class for creating domain-specific safety components. It provides methods for entity validation, debouncing logic, and interaction with a fault manager to set or clear symptom conditions based on dynamic sensor data.
 - `safety_mechanism_decorator`: A decorator designed to wrap safety mechanism functions, adding pre- and post-execution logic around these functions for enhanced logging and execution control.
 
 Features:
@@ -36,7 +36,7 @@ from enum import Enum
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
-from shared.types_common import PreFault, RecoveryAction
+from shared.types_common import Symptom, RecoveryAction
 from shared.common_entities import CommonEntities
 
 NO_NEEDED = False
@@ -47,7 +47,7 @@ class DebounceState(NamedTuple):
     Purpose: Acts as a memory for a particular safety mechanism. It stores the current state of the debouncing process for a specific mechanism,
     including the debounce counter and a flag indicating whether action should be forced for debouncing purposes.
 
-    Usage: This state is maintained across calls to process_prefault to keep track of how many times a condition has been met or not met,
+    Usage: This state is maintained across calls to process_symptom to keep track of how many times a condition has been met or not met,
     helping to stabilize the detection over time by preventing rapid toggling due to transient states.
 
     Attributes:
@@ -62,17 +62,17 @@ class DebounceState(NamedTuple):
 # Define the named tuple with possible outcomes
 class DebounceAction(Enum):
     """
-    Enumeration of debouncing actions that can be taken after evaluating a pre-fault condition.
+    Enumeration of debouncing actions that can be taken after evaluating a symptom condition.
 
     Attributes:
         NO_ACTION (int): Indicates that no action should be taken.
-        PREFAULT_SET (int): Indicates a pre-fault condition should be set.
-        PREFAULT_HEALED (int): Indicates a pre-fault condition has been cleared or healed.
+        symptom_SET (int): Indicates a symptom condition should be set.
+        symptom_HEALED (int): Indicates a symptom condition has been cleared or healed.
     """
 
     NO_ACTION = 0
-    PREFAULT_SET = 1
-    PREFAULT_HEALED = -1
+    symptom_SET = 1
+    symptom_HEALED = -1
 
 
 class DebounceResult(NamedTuple):
@@ -81,7 +81,7 @@ class DebounceResult(NamedTuple):
 
     Attributes:
         action (DebounceAction): The action determined by the debouncing process.
-        counter (int): The updated debounce counter after evaluating the pre-fault condition.
+        counter (int): The updated debounce counter after evaluating the symptom condition.
     """
 
     action: DebounceAction
@@ -106,7 +106,7 @@ class SafetyComponent:
         validate_entities: Validates multiple entities against their expected types.
         safe_float_convert: Safely converts a string to a float.
         _debounce: Implements debouncing logic for state changes.
-        process_prefault: Processes potential pre-fault conditions based on debouncing logic.
+        process_symptom: Processes potential symptom conditions based on debouncing logic.
     """
 
     component_name: str = "UNKNOWN"  # Default value for the parent class
@@ -127,9 +127,9 @@ class SafetyComponent:
         self.safety_mechanisms: dict = {}
         self.debounce_states: dict = {}
 
-    def get_prefaults_data(
+    def get_symptoms_data(
         self, modules: dict, component_cfg: list[dict[str, Any]]
-    ) -> tuple[dict[str, PreFault], dict[str, RecoveryAction]]:
+    ) -> tuple[dict[str, Symptom], dict[str, RecoveryAction]]:
         raise NotImplementedError
 
     def register_fm(self, fm: FaultManager) -> None:
@@ -241,18 +241,18 @@ class SafetyComponent:
     @staticmethod
     def change_all_entities_state(entities: list[str], state: str) -> dict[str, str]:
         """Create a dictionary to change the state of entities."""
-        return {entity: state for entity in [entities]}
+        return {entity: state for entity in [entities]}  # type: ignore
 
     def _debounce(
         self, current_counter: int, pr_test: bool, debounce_limit: int = 3
     ) -> DebounceResult:
         """
         Generic debouncing function that updates the counter based on the state
-        and returns an action indicating whether a pre-fault should be set, cleared, or no action taken.
+        and returns an action indicating whether a symptom should be set, cleared, or no action taken.
 
         Args:
             current_counter (int): The current debounce counter for the mechanism.
-            pr_test (bool): The result of the pre-fault test. True if the condition is detected, False otherwise.
+            pr_test (bool): The result of the symptom test. True if the condition is detected, False otherwise.
             debounce_limit (int, optional): The limit at which the state is considered stable. Defaults to 3.
 
         Returns:
@@ -261,45 +261,45 @@ class SafetyComponent:
         if pr_test:
             new_counter: int = min(debounce_limit, current_counter + 1)
             action = (
-                DebounceAction.PREFAULT_SET
+                DebounceAction.symptom_SET
                 if new_counter >= debounce_limit
                 else DebounceAction.NO_ACTION
             )
         else:
             new_counter = max(-debounce_limit, current_counter - 1)
             action = (
-                DebounceAction.PREFAULT_HEALED
+                DebounceAction.symptom_HEALED
                 if new_counter <= -debounce_limit
                 else DebounceAction.NO_ACTION
             )
 
         return DebounceResult(action=action, counter=new_counter)
 
-    def process_prefault(
+    def process_symptom(
         self,
-        prefault_id: str,
+        symptom_id: str,
         current_counter: int,
         pr_test: bool,
         additional_info: dict,
         debounce_limit: int = 2,
     ) -> tuple[int, bool]:
         """
-        Handles the debouncing of a pre-fault condition based on a pre-fault test (pr_test).
+        Handles the debouncing of a symptom condition based on a symptom test (pr_test).
 
-        This method manages the pre-fault state by updating the debounce counter and
-        interacting with the Fault Manager as needed. The pre-fault state is determined
+        This method manages the symptom state by updating the debounce counter and
+        interacting with the Fault Manager as needed. The symptom state is determined
         by the result of the pr_test and the current state of the debounce counter.
         This method is responsible for calling the necessary interfaces from the Fault
-        Manager to set or clear pre-fault conditions.
+        Manager to set or clear symptom conditions.
 
         The method returns two values: the updated debounce counter and a boolean
         indicating whether to inhibit further triggers. If inhibition is true,
         further triggers are ignored except for time-based events used for debouncing purposes.
 
         Args:
-            prefault_id (int): The identifier for the pre-fault condition.
+            symptom_id (int): The identifier for the symptom condition.
             current_counter (int): The current value of the debounce counter.
-            pr_test (bool): The result of the pre-fault test. True if the pre-fault
+            pr_test (bool): The result of the symptom test. True if the symptom
                             condition is detected, False otherwise.
             debounce_limit (int, optional): The threshold for the debounce counter
                                             to consider the state stable. Defaults to 3.
@@ -324,54 +324,80 @@ class SafetyComponent:
             action=DebounceAction.NO_ACTION, counter=current_counter
         )
 
-        # Get current prefault state
-        prefault_cur_state: FaultState = self.fault_man.check_prefault(prefault_id)
+        # Get current symptom state
+        symptom_cur_state: FaultState = self.fault_man.check_symptom(symptom_id)
         # Check if any actions is needed
         if (
-            (pr_test and prefault_cur_state == FaultState.CLEARED)
-            or (not pr_test and prefault_cur_state == FaultState.SET)
-            or (prefault_cur_state == FaultState.NOT_TESTED)
+            (pr_test and symptom_cur_state == FaultState.CLEARED)
+            or (not pr_test and symptom_cur_state == FaultState.SET)
+            or (symptom_cur_state == FaultState.NOT_TESTED)
         ):
             debounce_result = self._debounce(current_counter, pr_test, debounce_limit)
 
-            if debounce_result.action == DebounceAction.PREFAULT_SET:
-                # Call Fault Manager to set pre-fault
-                self.fault_man.set_prefault(prefault_id, additional_info)
+            if debounce_result.action == DebounceAction.symptom_SET:
+                # Call Fault Manager to set symptom
+                self.fault_man.set_symptom(symptom_id, additional_info)
                 self.hass_app.log(
-                    f"PreFault {prefault_id} with {additional_info} was set",
+                    f"symptom {symptom_id} with {additional_info} was set",
                     level="DEBUG",
                 )
                 force_sm = False
-            elif debounce_result.action == DebounceAction.PREFAULT_HEALED:
-                # Call Fault Manager to heal pre-fault
-                self.fault_man.clear_prefault(prefault_id, additional_info)
+            elif debounce_result.action == DebounceAction.symptom_HEALED:
+                # Call Fault Manager to heal symptom
+                self.fault_man.clear_symptom(symptom_id, additional_info)
                 self.hass_app.log(
-                    f"PreFault {prefault_id} with {additional_info} was cleared",
+                    f"symptom {symptom_id} with {additional_info} was cleared",
                     level="DEBUG",
                 )
                 force_sm = False
             elif debounce_result.action == DebounceAction.NO_ACTION:
                 force_sm = True
         else:
-            # Debouncing not necessary at all (Test failed and prefault already raised or
+            # Debouncing not necessary at all (Test failed and symptom already raised or
             #  test passed and fault already cleared)
             pass
 
         self.hass_app.log(
-            f"Leaving  process_prefault for {prefault_id} with counter:{debounce_result.counter} and force_sm {force_sm}",
+            f"Leaving  process_symptom for {symptom_id} with counter:{debounce_result.counter} and force_sm {force_sm}",
             level="DEBUG",
         )
         return debounce_result.counter, force_sm
 
+    def sm_recalled(self, **kwargs: dict) -> None:
+        """
+        This method should be overridden in the subclass to handle the re-execution of safety mechanisms.
+        If not overridden, it raises a NotImplementedError to signal that the subclass must implement this method.
+
+        Args:
+            **kwargs: A dictionary containing key parameters needed to re-invoke the safety mechanism.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement its own version of sm_recalled."
+        )
+
 
 def safety_mechanism_decorator(func: Callable) -> Callable:
     """
-    A decorator to add additional logic before and after the execution of a safety mechanism function.
+    The safety_mechanism_decorator is a decorator designed to enhance the execution of safety mechanism functions by
+    adding pre- and post-execution logic.    This decorator simplifies the handling of safety mechanisms, particularly
+    when they need to be called either explicitly by the system or scheduled for repeated execution.
 
-    This decorator is designed to wrap functions related to safety mechanisms, providing
-    logging before and after the function's execution. It can be used to enhance visibility
-    into the operation of safety mechanisms, such as logging the start and end of a function
-    or handling exceptions.
+    Key Features:
+        Logging: Logs the start and end of the function execution, providing visibility into the operation of the safety mechanism.
+        Conditional Execution: Checks whether the safety mechanism is enabled before execution. If it is disabled, the function exits early without performing any actions.
+        Debouncing and Symptom Processing: Handles debouncing logic to stabilize the detection of safety conditions over time. This prevents rapid toggling of states due to transient conditions.
+        Scheduler Integration: If the safety mechanism requires re-evaluation after a delay, the decorator schedules the sm_recalled function to run the safety mechanism again.
+            This is particularly useful for mechanisms that need to assess conditions over time, such as monitoring temperature changes.
+
+    Workflow:
+        Initial Logging: Logs that the safety mechanism function has started.
+        Check if Enabled: The function checks if the safety mechanism is enabled. If not, it logs this and exits.
+        Execute Function: Calls the safety mechanism function and processes the result.
+        Debouncing Logic: Uses the process_symptom method to update the debounce counter and determine if any action needs to be taken (e.g., setting or clearing a fault condition).
+        Force Re-Evaluation: If the safety mechanism needs to be evaluated again (due to the debouncing logic), the decorator schedules the sm_recalled function to re-execute the safety mechanism after a short delay.
+        Final Logging: Logs the completion of the safety mechanism function.
+
+    This decorator effectively manages the complex scheduling requirements of safety mechanisms by ensuring that they are called at appropriate intervals and that their execution is properly logged and controlled. It provides a robust solution for integrating safety mechanisms into a dynamic environment like Home Assistant, where conditions can change rapidly and require careful monitoring.
 
     Args:
         func (Callable): The safety mechanism function to be decorated.
@@ -380,21 +406,25 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
         Callable: A wrapped version of the input function with added pre- and post-execution logic.
     """
 
-    def safety_machanism_wrapper(
-        self: SafetyComponent, sm: Any, entities_changes: dict[str, str] | None = None
+    def safety_mechanism_wrapper(
+        self: "SafetyComponent",
+        sm: Any,
+        entities_changes: dict[str, str] | None = None,
     ) -> Any:
         """
         Wrapper function for the safety mechanism.
 
         :param self: The instance of the class where the function is defined.
-        :param args: Positional arguments for the safety mechanism function.
-        :param kwargs: Keyword arguments for the safety mechanism function.
+        :param sm: Safety mechanism instance.
+        :param entities_changes: Changes in entities, if any.
         :return: The result of the safety mechanism function.
         """
-        self.hass_app.log(f"{func.__name__} was started!")
+        self.hass_app.log(f"{func.__name__} was started!", level="DEBUG")
 
         if not sm.isEnabled:
-            self.hass_app.log(f"{func.__name__} is disabled, skipping execution.")
+            self.hass_app.log(
+                f"{func.__name__} is disabled, skipping execution.", level="DEBUG"
+            )
             return False
 
         if not entities_changes:
@@ -405,8 +435,8 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
             sm_return = func(self, sm, entities_changes)
 
             # Perform SM logic
-            new_debounce, force_sm = self.process_prefault(
-                prefault_id=sm.name,
+            new_debounce, force_sm = self.process_symptom(
+                symptom_id=sm.name,
                 current_counter=current_state.debounce,
                 pr_test=sm_return.result,
                 additional_info=sm_return.additional_info,
@@ -416,21 +446,31 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
             self.debounce_states[sm.name] = DebounceState(
                 debounce=new_debounce, force_sm=force_sm
             )
-
             if force_sm:
-                # If force_sm is true, schedule to run the function again after 30 seconds
-                self.hass_app.run_in(lambda _: func(self, sm), 5)
+                self.hass_app.log(
+                    f"Scheduling {func.__name__} to run again in 5 seconds.",
+                    level="DEBUG",
+                )
+                # If force_sm is true, schedule to run the function again after 30 seconds TODO Cyclic time shall comes from SafetyMechanism config
+                self.hass_app.run_in(
+                    self.sm_recalled,
+                    30,
+                    sm_method=func.__name__,
+                    sm_name=sm.name,
+                    entities_changes=entities_changes,
+                )
 
         else:
             self.hass_app.log(
-                f"{func.__name__} running in dry mode with changes: {entities_changes}"
+                f"{func.__name__} running in dry mode with changes: {entities_changes}",
+                level="DEBUG",
             )
             sm_return = func(self, sm, entities_changes)
 
-        self.hass_app.log(f"{func.__name__} was ended!")
+        self.hass_app.log(f"{func.__name__} was ended!", level="DEBUG")
         return sm_return.result
 
-    return safety_machanism_wrapper
+    return safety_mechanism_wrapper
 
 
 class SafetyMechanismResult(NamedTuple):

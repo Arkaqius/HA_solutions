@@ -84,7 +84,7 @@ class SafetyMechanism:
             self.hass_app.listen_state(self.entity_changed, entity)
 
     def entity_changed(
-        self, entity: str, _: str, __: Any, ___: Any, ____: dict
+        self, entity: str, _: str, __: Any, ___: Any, **kwargs: dict
     ) -> None:
         """
         Invoked when a state change is detected for any of the monitored entities, triggering the safety mechanism's callback.

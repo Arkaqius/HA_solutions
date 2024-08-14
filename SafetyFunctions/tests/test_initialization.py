@@ -2,7 +2,7 @@
 This module contains pytest tests for the SafetyFunctions app within a Home Assistant environment.
 
 The tests cover the initialization process of SafetyFunctions, ensuring that all components,
-including prefaults, faults, and notification settings, are initialized correctly. It also
+including symptoms, faults, and notification settings, are initialized correctly. It also
 verifies the proper setup of the NotificationManager, RecoveryManager, and the registration
 of the FaultManager to safety components. Additionally, the tests check that the application's
 health status is correctly set to 'good' at the end of initialization.
@@ -19,10 +19,10 @@ from SafetyFunctions import SafetyFunctions
 
 @pytest.mark.init
 @pytest.mark.positive
-def test_initialize_dicts_prefault(mocked_hass_app_get_state):
+def test_initialize_dicts_symptom(mocked_hass_app_get_state):
     """
     Tests the initialization of the `SafetyFunctions` application to verify that the
-    configuration dictionaries for prefaults, faults, and notification configurations
+    configuration dictionaries for symptoms, faults, and notification configurations
     are correctly populated according to the provided application configuration.
 
     This positive test case ensures that the application's safety mechanisms are correctly
@@ -31,15 +31,15 @@ def test_initialize_dicts_prefault(mocked_hass_app_get_state):
     app_instance, _, __ = mocked_hass_app_get_state
     app_instance.initialize()
     
-    # Assert the 'prefaults' dictionary content
-    prefault = app_instance.prefaults["RiskyTemperatureOffice"]
-    assert prefault.name == "RiskyTemperatureOffice", "Prefault name is incorrect."
+    # Assert the 'symptoms' dictionary content
+    symptom = app_instance.symptoms["RiskyTemperatureOffice"]
+    assert symptom.name == "RiskyTemperatureOffice", "symptom name is incorrect."
     assert (
-        prefault.sm_name == "sm_tc_1"
-    ), "Prefault safety mechanism is incorrect."
+        symptom.sm_name == "sm_tc_1"
+    ), "symptom safety mechanism is incorrect."
     assert (
-        prefault.parameters["CAL_LOW_TEMP_THRESHOLD"] == 18.0
-    ), "Prefault temperature threshold is incorrect."
+        symptom.parameters["CAL_LOW_TEMP_THRESHOLD"] == 18.0
+    ), "symptom temperature threshold is incorrect."
 
     # Assert the 'faults' dictionary content
     fault = app_instance.fault_dict["RiskyTemperature"]
@@ -101,7 +101,7 @@ def test_fault_manager_initialization(mocked_hass_app_get_state_tc):
     - The NotificationManager instance used by FaultManager matches the one used by SafetyFunctions.
     - The RecoveryManager instance used by FaultManager matches the one used by SafetyFunctions.
     - The sm_modules dictionary within FaultManager correctly contains the initialized TemperatureComponent.
-    - The prefaults dictionary within FaultManager is populated with expected prefault configurations.
+    - The symptoms dictionary within FaultManager is populated with expected symptom configurations.
     - The faults dictionary within FaultManager is populated with expected fault configurations.
 
     Ensuring the proper setup of FaultManager is crucial for the application's ability to manage,
@@ -131,16 +131,16 @@ def test_fault_manager_initialization(mocked_hass_app_get_state_tc):
         "TemperatureComponent": app_instance.sm_modules["TemperatureComponent"]
     }, "FaultManager's sm_modules dictionary does not contain the correct TemperatureComponent instance."
 
-    # Verify that FaultManager's prefaults dictionary is correctly populated
-    assert app_instance.fm.prefaults == {
-        "RiskyTemperatureOffice": app_instance.prefaults["RiskyTemperatureOffice"],
-        "RiskyTemperatureKitchen": app_instance.prefaults["RiskyTemperatureKitchen"],
-        "RiskyTemperatureOfficeForeCast": app_instance.prefaults[
+    # Verify that FaultManager's symptoms dictionary is correctly populated
+    assert app_instance.fm.symptoms == {
+        "RiskyTemperatureOffice": app_instance.symptoms["RiskyTemperatureOffice"],
+        "RiskyTemperatureKitchen": app_instance.symptoms["RiskyTemperatureKitchen"],
+        "RiskyTemperatureOfficeForeCast": app_instance.symptoms[
             "RiskyTemperatureOfficeForeCast"],
-        "RiskyTemperatureKitchenForeCast": app_instance.prefaults[
+        "RiskyTemperatureKitchenForeCast": app_instance.symptoms[
             "RiskyTemperatureKitchenForeCast"
         ]
-    }, "FaultManager's prefaults dictionary is not correctly populated."
+    }, "FaultManager's symptoms dictionary is not correctly populated."
 
     # Verify that FaultManager's faults dictionary is correctly populated
     assert app_instance.fm.faults == {
@@ -154,7 +154,7 @@ def test_assign_fm(mocked_hass_app_get_state_tc):
     Verifies that the FaultManager is correctly assigned to each safety module within the SafetyFunctions application.
 
     This test checks that the FaultManager instance is properly registered with all safety components,
-    ensuring they can interact with the FaultManager for fault and prefault management.
+    ensuring they can interact with the FaultManager for fault and symptom management.
     """
     app_instance, _, __, ___= mocked_hass_app_get_state_tc
     app_instance.initialize()

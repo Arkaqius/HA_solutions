@@ -31,7 +31,7 @@ from typing import Any, Optional
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 from shared.types_common import (
     RecoveryAction,
-    PreFault,
+    Symptom,
     SMState,
     FaultState,
     Fault,
@@ -99,44 +99,44 @@ class RecoveryManager:
         for _, recovery_actions in self.recovery_actions.items():
             self._set_rec_entity(recovery_actions)
 
-    def _isRecoveryConflict(self, prefault: PreFault) -> bool:
+    def _isRecoveryConflict(self, symptom: Symptom) -> bool:
         """
-        Determines if there is a conflict between the given prefault's recovery actions and existing faults.
+        Determines if there is a conflict between the given symptom's recovery actions and existing faults.
 
-        This method checks whether executing the recovery actions for a given prefault would
+        This method checks whether executing the recovery actions for a given symptom would
         conflict with any existing faults. It considers the priority of the faults and matching
         recovery actions to ensure that the recovery process does not introduce new issues.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault to check for conflicts.
+            symptom (symptom): The symptom object representing the fault to check for conflicts.
 
         Returns:
             bool: True if a conflict exists, False otherwise.
         """
-        matching_actions: list[str] = self._get_matching_actions(prefault)
+        matching_actions: list[str] = self._get_matching_actions(symptom)
 
         if matching_actions:
             rec_fault: Fault | None = self.fm.found_mapped_fault(
-                prefault.name, prefault.sm_name
+                symptom.name, symptom.sm_name
             )
             if rec_fault:
                 rec_fault_prio: int = rec_fault.priority
                 return self._check_conflict_with_matching_actions(
-                    matching_actions, rec_fault_prio, prefault
+                    matching_actions, rec_fault_prio, symptom
                 )
 
         return False
 
-    def _get_matching_actions(self, prefault: PreFault) -> list[str]:
+    def _get_matching_actions(self, symptom: Symptom) -> list[str]:
         """
-        Retrieves a list of recovery action names that match the given prefault.
+        Retrieves a list of recovery action names that match the given symptom.
 
         This method searches for and returns the names of recovery actions that correspond
-        to the given prefault. It is used to identify potential conflicts or applicable
-        recovery strategies based on the prefault's characteristics.
+        to the given symptom. It is used to identify potential conflicts or applicable
+        recovery strategies based on the symptom's characteristics.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault to match.
+            symptom (symptom): The symptom object representing the fault to match.
 
         Returns:
             list[str]: A list of matching recovery action names.
@@ -144,53 +144,53 @@ class RecoveryManager:
         return [
             name
             for name, action in self.recovery_actions.items()
-            if action.name in self.recovery_actions[prefault.name].name
+            if action.name in self.recovery_actions[symptom.name].name
         ]
 
     def _check_conflict_with_matching_actions(
-        self, matching_actions: list[str], rec_fault_prio: int, prefault: PreFault
+        self, matching_actions: list[str], rec_fault_prio: int, symptom: Symptom
     ) -> bool:
         """
-        Checks for conflicts between the given prefault's recovery actions and existing faults based on priorities.
+        Checks for conflicts between the given symptom's recovery actions and existing faults based on priorities.
 
-        This method evaluates whether the recovery actions for a given prefault would conflict with
+        This method evaluates whether the recovery actions for a given symptom would conflict with
         other existing faults by comparing their priorities. It ensures that higher-priority faults
         are not adversely affected by the recovery actions for lower-priority faults.
 
         Args:
             matching_actions (list[str]): A list of matching recovery action names.
             rec_fault_prio (int): The priority of the recovery fault.
-            prefault (PreFault): The prefault object representing the fault to check for conflicts.
+            symptom (symptom): The symptom object representing the fault to check for conflicts.
 
         Returns:
             bool: True if a conflict exists, False otherwise.
         """
-        for found_prefault_name in matching_actions:
-            found_prefault: PreFault = self.fm.prefaults[found_prefault_name]
-            if found_prefault:
+        for found_symptom_name in matching_actions:
+            found_symptom: Symptom = self.fm.symptoms[found_symptom_name]
+            if found_symptom:
                 found_fault: Fault | None = self.fm.found_mapped_fault(
-                    prefault.name, prefault.sm_name
+                    symptom.name, symptom.sm_name
                 )
                 if found_fault and found_fault.priority > rec_fault_prio:
                     return True
         return False
 
     def _perform_recovery(
-        self, prefault: PreFault, notifications: list, entities_changes: dict[str, str]
+        self, symptom: Symptom, notifications: list, entities_changes: dict[str, str]
     ) -> None:
         """
-        Executes the recovery actions for the given prefault, including notifications and entity changes.
+        Executes the recovery actions for the given symptom, including notifications and entity changes.
 
-        This method performs the actual recovery process for a given prefault by executing the
+        This method performs the actual recovery process for a given symptom by executing the
         associated recovery actions. It handles sending notifications and making necessary changes
         to system entities to resolve the fault condition.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault to recover from.
+            symptom (symptom): The symptom object representing the fault to recover from.
             notifications (list): A list of notifications to send as part of the recovery process.
             entities_changes (dict[str, str]): A dictionary mapping entity names to their new values as part of the recovery process.
         """
-        rec: RecoveryAction | None = self._find_recovery(prefault.name)
+        rec: RecoveryAction | None = self._find_recovery(symptom.name)
         if rec:
             rec.current_status = RecoveryActionState.TO_PERFORM
             self._set_rec_entity(rec)
@@ -205,31 +205,31 @@ class RecoveryManager:
                     )
             for notification in notifications:
                 fault: Fault | None = self.fm.found_mapped_fault(
-                    prefault.name, prefault.sm_name
+                    symptom.name, symptom.sm_name
                 )
                 if fault:
                     self.nm._add_recovery_action(notification, fault.name)
         else:
             self.hass_app.log(
-                f"Recovery action for {prefault.name} was not found!", level="ERROR"
+                f"Recovery action for {symptom.name} was not found!", level="ERROR"
             )
 
-    def _find_recovery(self, prefault_name: str) -> RecoveryAction | None:
+    def _find_recovery(self, symptom_name: str) -> RecoveryAction | None:
         """
-        Finds and returns the recovery action associated with the given prefault name.
+        Finds and returns the recovery action associated with the given symptom name.
 
         This method searches for and retrieves the recovery action that corresponds to the
-        specified prefault name. It is used to locate the appropriate recovery strategy
+        specified symptom name. It is used to locate the appropriate recovery strategy
         for a given fault condition.
 
         Args:
-            prefault_name (str): The name of the prefault to find the recovery action for.
+            symptom_name (str): The name of the symptom to find the recovery action for.
 
         Returns:
-            RecoveryAction | None: The recovery action associated with the prefault name, or None if not found.
+            RecoveryAction | None: The recovery action associated with the symptom name, or None if not found.
         """
         for name, rec in self.recovery_actions.items():
-            if name == prefault_name:
+            if name == symptom_name:
                 return rec
         return None
 
@@ -259,68 +259,68 @@ class RecoveryManager:
         do not inadvertently introduce new issues.
 
         Args:
-            prefaul_name (str): The name of the prefault to test.
+            prefaul_name (str): The name of the symptom to test.
             entities_changes (dict[str, str]): A dictionary mapping entity names to their new values to test.
 
         Returns:
             bool: True if the entity changes will trigger new faults, False otherwise.
         """
-        for prefault_name, prefault_data in self.fm.get_all_prefault().items():
-            if prefault_data.sm_state == SMState.ENABLED:
+        for symptom_name, symptom_data in self.fm.get_all_symptom().items():
+            if symptom_data.sm_state == SMState.ENABLED:
                 # Force each sm to get state if possible
-                sm_fcn = getattr(prefault_data.module, prefault_data.sm_name)
+                sm_fcn = getattr(symptom_data.module, symptom_data.sm_name)
                 isFaultTrigged = sm_fcn(
-                    prefault_data.module.safety_mechanisms[prefault_data.name],
+                    symptom_data.module.safety_mechanisms[symptom_data.name],
                     entities_changes,
                 )
-                if isFaultTrigged and prefault_name is not prefaul_name:
+                if isFaultTrigged and symptom_name is not prefaul_name:
                     return True
         return False
 
-    def recovery(self, prefault: PreFault) -> None:
+    def recovery(self, symptom: Symptom) -> None:
         """
-        Executes the appropriate recovery action for the given prefault.
+        Executes the appropriate recovery action for the given symptom.
 
-        This method triggers the recovery process for a given prefault by invoking the corresponding recovery action.
+        This method triggers the recovery process for a given symptom by invoking the corresponding recovery action.
         It handles state checks, executes the recovery action, and updates the system state accordingly.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault to recover from.
+            symptom (symptom): The symptom object representing the fault to recover from.
         """
-        if prefault.state == FaultState.CLEARED:
-            self._recovery_clear(prefault)
+        if symptom.state == FaultState.CLEARED:
+            self._recovery_clear(symptom)
         else:
             # Check if rec actions exist
-            if prefault.name in self.recovery_actions:
+            if symptom.name in self.recovery_actions:
                 # Run recovery action to get potential changes
                 recovery_result: Optional[RecoveryResult] = self.recovery_actions[
-                    prefault.name
+                    symptom.name
                 ].rec_fun(
                     self.hass_app,
-                    prefault,
+                    symptom,
                     self.common_entities,
-                    **self.recovery_actions[prefault.name].params,
+                    **self.recovery_actions[symptom.name].params,
                 )
                 if recovery_result:
                     # Check if existing rec action can cause another faults
                     if not self._run_dry_test(
-                        prefault.name, recovery_result.changed_sensors
+                        symptom.name, recovery_result.changed_sensors
                     ):
                         # Check if existing rec action is not in conflicts with different one
-                        if not self._isRecoveryConflict(prefault):
+                        if not self._isRecoveryConflict(symptom):
                             self._perform_recovery(
-                                prefault,
+                                symptom,
                                 recovery_result.notifications,
                                 recovery_result.changed_actuators,
                             )
                             self._listen_to_changes(
-                                prefault,
+                                symptom,
                                 recovery_result.changed_sensors
                                 | recovery_result.changed_actuators,
                             )
                         else:
                             self.hass_app.log(
-                                f"Recovery conflict for {prefault.name}", level="DEBUG"
+                                f"Recovery conflict for {symptom.name}", level="DEBUG"
                             )
                     else:
                         self.hass_app.log(
@@ -328,29 +328,29 @@ class RecoveryManager:
                         )
             else:
                 self.hass_app.log(
-                    f"No recovery actions for {prefault.name}", level="DEBUG"
+                    f"No recovery actions for {symptom.name}", level="DEBUG"
                 )
 
-    def _recovery_clear(self, prefault: PreFault) -> None:
+    def _recovery_clear(self, symptom: Symptom) -> None:
         """
-        Clears the recovery action for the given prefault.
+        Clears the recovery action for the given symptom.
 
         This method clears the internal register and updates the system state to indicate that
-        the recovery action for the specified prefault has been completed and should no longer
+        the recovery action for the specified symptom has been completed and should no longer
         be performed.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault to clear the recovery action for.
+            symptom (symptom): The symptom object representing the fault to clear the recovery action for.
         """
-        if prefault.name in self.recovery_actions:
+        if symptom.name in self.recovery_actions:
             # Clear internal register
-            self.recovery_actions[prefault.name].current_status = (
+            self.recovery_actions[symptom.name].current_status = (
                 RecoveryActionState.DO_NOT_PERFORM
             )
             # Set HA entity
-            self._set_rec_entity(self.recovery_actions[prefault.name])
+            self._set_rec_entity(self.recovery_actions[symptom.name])
 
-    def _listen_to_changes(self, prefault: PreFault, entities_changes: dict) -> None:
+    def _listen_to_changes(self, symptom: Symptom, entities_changes: dict) -> None:
         """
         Sets up listeners for state changes in the specified entities to monitor recovery action completion.
 
@@ -359,12 +359,12 @@ class RecoveryManager:
         of recovery actions.
 
         Args:
-            prefault (PreFault): The prefault object representing the fault being recovered from.
+            symptom (symptom): The symptom object representing the fault being recovered from.
             entities_changes (dict): A dictionary mapping entity names to their new values to monitor.
         """
         for name in entities_changes:
             self.hass_app.listen_state(
-                self._recovery_performed, name, prefault=prefault
+                self._recovery_performed, name, symptom=symptom
             )
 
     def _recovery_performed(
@@ -375,13 +375,13 @@ class RecoveryManager:
 
         This method is called when a state change is detected in one of the monitored entities,
         indicating that a recovery action has been performed. It clears the recovery action for
-        the corresponding prefault.
+        the corresponding symptom.
 
         Args:
             _ (Any): Placeholder for the first callback argument (not used).
             __ (Any): Placeholder for the second callback argument (not used).
             ___ (Any): Placeholder for the third callback argument (not used).
             ____ (Any): Placeholder for the fourth callback argument (not used).
-            cb_args (dict): A dictionary containing callback arguments, including the prefault to clear.
+            cb_args (dict): A dictionary containing callback arguments, including the symptom to clear.
         """
-        self._recovery_clear(cb_args["prefault"])
+        self._recovery_clear(cb_args["symptom"])

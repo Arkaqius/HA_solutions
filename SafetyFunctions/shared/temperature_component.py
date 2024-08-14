@@ -28,7 +28,7 @@ from shared.safety_component import (
     SafetyMechanismResult,
 )
 from shared.safety_mechanism import SafetyMechanism
-from shared.types_common import PreFault, RecoveryAction, SMState, RecoveryResult
+from shared.types_common import Symptom, RecoveryAction, SMState, RecoveryResult
 from shared.common_entities import CommonEntities
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
@@ -62,11 +62,11 @@ class TemperatureComponent(SafetyComponent):
         """
         super().__init__(hass_app, common_entities)
 
-    def get_prefaults_data(
+    def get_symptoms_data(
         self, sm_modules: dict, component_cfg: list[dict[str, Any]]
-    ) -> tuple[Dict[str, PreFault], Dict[str, RecoveryAction]]:
+    ) -> tuple[Dict[str, Symptom], Dict[str, RecoveryAction]]:
         """
-        Retrieve pre-fault configurations from the component configuration and generate corresponding PreFault objects.
+        Retrieve symptom configurations from the component configuration and generate corresponding symptom objects.
 
         Args:
             sm_modules (dict): A dictionary of system modules.
@@ -74,17 +74,17 @@ class TemperatureComponent(SafetyComponent):
                 contains a single location as the key and a dictionary of configuration data for that location.
 
         Returns:
-            Tuple[Dict[str, PreFault], Dict[str, RecoveryAction]]: Two dictionaries, one for PreFaults and one for RecoveryActions.
+            Tuple[Dict[str, symptom], Dict[str, RecoveryAction]]: Two dictionaries, one for symptoms and one for RecoveryActions.
         """
-        ret_val_pr: dict[str, PreFault] = {}
+        ret_val_pr: dict[str, Symptom] = {}
         ret_val_ra: dict[str, RecoveryAction] = {}
 
         for location_dict in component_cfg:
             for location, data in location_dict.items():
                 self.hass_app.log(
-                    f"Processing prefaults for location: {location}, data: {data}"
+                    f"Processing symptoms for location: {location}, data: {data}"
                 )
-                self._process_prefaults_for_location(
+                self._process_symptoms_for_location(
                     sm_modules, location, data, ret_val_pr, ret_val_ra
                 )
 
@@ -239,9 +239,39 @@ class TemperatureComponent(SafetyComponent):
 
         return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
 
+    def sm_recalled(self, **kwargs: dict) -> None:
+        """
+        The sm_recalled function is designed to handle the re-execution of safety mechanisms that require multiple evaluations over time.
+        This function is typically invoked by a scheduler after a delay, allowing for periodic reassessment of safety conditions.
+        It ensures that the safety mechanism is called again with the correct context, enabling continued monitoring and decision-making based on updated data.
+
+        Arguments:
+            kwargs: A dictionary containing key parameters needed to re-invoke the safety mechanism:
+            sm_method: The name of the safety mechanism method to be called (as a string).
+            sm_name: The unique name of the safety mechanism instance.
+            entities_changes: A dictionary containing any changes in entity states that should be considered during the re-evaluation.
+
+        Functionality:
+        Retrieves the method to be invoked based on the sm_method string.
+        Fetches the corresponding SafetyMechanism instance using the sm_name.
+        Calls the safety mechanism method, passing in the relevant safety mechanism instance and any entity changes.
+        The function handles the continued monitoring and evaluation of safety conditions, ensuring that appropriate actions are taken based on the latest data.
+        This function is a critical component in scenarios where the safety mechanism needs to be evaluated multiple times in succession.
+        By using a scheduler, it avoids overwhelming the system with constant checks while still providing timely responses to changing conditions.
+        """
+
+        # Prepare args and functions
+        sm_to_call: Any = getattr(self, kwargs["sm_method"], None)
+        sm: SafetyMechanism = self.safety_mechanisms[kwargs["sm_name"]]
+        entities_changes: dict = kwargs["entities_changes"]
+
+        # Call SM
+        print(f'self:{self} sm:{sm} entities_changes"{entities_changes}')
+        sm_to_call(sm, entities_changes)
+
     # endregion
     # region Private functions
-    def _process_prefaults_for_location(
+    def _process_symptoms_for_location(
         self,
         sm_modules: dict,
         location: str,
@@ -250,13 +280,13 @@ class TemperatureComponent(SafetyComponent):
         ret_val_ra: dict,
     ) -> None:
         """
-        Process pre-faults for a given location and update the provided dictionaries.
+        Process symptoms for a given location and update the provided dictionaries.
 
         Args:
             sm_modules (dict): A dictionary of system modules.
             location (str): The location identifier.
             data (dict): Configuration data specific to the location.
-            ret_val_pr (dict): Dictionary to store generated PreFault objects.
+            ret_val_pr (dict): Dictionary to store generated symptom objects.
             ret_val_ra (dict): Dictionary to store generated RecoveryAction objects.
         """
         # Process SM TC 1
@@ -281,46 +311,44 @@ class TemperatureComponent(SafetyComponent):
             sm_modules (dict): A dictionary of system modules.
             location (str): The location identifier.
             data (dict): Configuration data specific to the location.
-            ret_val_pr (dict): Dictionary to store generated PreFault objects.
+            ret_val_pr (dict): Dictionary to store generated symptom objects.
             ret_val_ra (dict): Dictionary to store generated RecoveryAction objects.
             tc_number (int): The TC number to process (e.g., 1 or 2).
         """
-        prefault_name_func = getattr(self, f"_get_sm_tc_{tc_number}_pr_name")
-        prefault_func = getattr(self, f"_get_sm_tc_{tc_number}_prefault")
+        symptom_name_func = getattr(self, f"_get_sm_tc_{tc_number}_pr_name")
+        symptom_func = getattr(self, f"_get_sm_tc_{tc_number}_symptom")
         recovery_action_func = getattr(self, f"_get_sm_tc_{tc_number}_recovery_action")
 
-        prefault_name = prefault_name_func(location)
-        prefault = prefault_func(sm_modules, location, data, prefault_name)
-        recovery_action = recovery_action_func(
-            sm_modules, location, data, prefault_name
-        )
+        symptom_name = symptom_name_func(location)
+        symptom = symptom_func(sm_modules, location, data, symptom_name)
+        recovery_action = recovery_action_func(sm_modules, location, data, symptom_name)
 
-        ret_val_pr[prefault_name] = prefault
-        ret_val_ra[prefault_name] = recovery_action
+        ret_val_pr[symptom_name] = symptom
+        ret_val_ra[symptom_name] = recovery_action
 
-    def _create_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str, sm_name: str
-    ) -> PreFault:
+    def _create_symptom(
+        self, modules: dict, location: str, data: dict, symptom_name: str, sm_name: str
+    ) -> Symptom:
         """
-        Helper function to create a PreFault object.
+        Helper function to create a symptom object.
 
         Args:
             modules (dict): A dictionary of system modules.
             location (str): The location identifier.
-            data (dict): Configuration data specific to the pre-fault.
-            prefault_name (str): The pre-fault's name.
+            data (dict): Configuration data specific to the symptom.
+            symptom_name (str): The symptom's name.
             sm_name (str): The safety mechanism name.
 
         Returns:
-            PreFault: The created PreFault object.
+            symptom: The created symptom object.
         """
-        prefault_params = data.copy()
-        prefault_params["location"] = location
+        symptom_params = data.copy()
+        symptom_params["location"] = location
 
-        return PreFault(
+        return Symptom(
             module=modules[self.__class__.__name__],
-            name=prefault_name,
-            parameters=prefault_params,
+            name=symptom_name,
+            parameters=symptom_params,
             sm_name=sm_name,
         )
 
@@ -352,11 +380,11 @@ class TemperatureComponent(SafetyComponent):
     def _get_sm_tc_1_pr_name(self, location: str) -> str:
         return f"RiskyTemperature{location}"
 
-    def _get_sm_tc_1_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str
-    ) -> PreFault:
-        return self._create_prefault(
-            modules, location, data, prefault_name, sm_name="sm_tc_1"
+    def _get_sm_tc_1_symptom(
+        self, modules: dict, location: str, data: dict, symptom_name: str
+    ) -> Symptom:
+        return self._create_symptom(
+            modules, location, data, symptom_name, sm_name="sm_tc_1"
         )
 
     def _get_sm_tc_1_recovery_action(
@@ -372,11 +400,11 @@ class TemperatureComponent(SafetyComponent):
     def _get_sm_tc_2_pr_name(self, location: str) -> str:
         return f"RiskyTemperature{location}ForeCast"
 
-    def _get_sm_tc_2_prefault(
-        self, modules: dict, location: str, data: dict, prefault_name: str
-    ) -> PreFault:
-        return self._create_prefault(
-            modules, location, data, prefault_name, sm_name="sm_tc_2"
+    def _get_sm_tc_2_symptom(
+        self, modules: dict, location: str, data: dict, symptom_name: str
+    ) -> Symptom:
+        return self._create_symptom(
+            modules, location, data, symptom_name, sm_name="sm_tc_2"
         )
 
     def _get_sm_tc_2_recovery_action(
@@ -425,7 +453,8 @@ class TemperatureComponent(SafetyComponent):
 
         # Additional setup for SM TC 2
         if sm_method == self.sm_tc_2:
-            self.hass_app.run_every(self._calculate_diff, "now", 60)
+            pass
+            # self.hass_app.run_every(self._calculate_diff, "now", 60)
 
         return True
 
@@ -541,7 +570,7 @@ class TemperatureComponent(SafetyComponent):
     @staticmethod
     def RiskyTemperature_recovery(
         hass_app: hass,
-        prefault: PreFault,
+        symptom: Symptom,
         common_entities: CommonEntities,
         **kwargs: dict[str, str],
     ) -> Optional[RecoveryResult]:
@@ -553,7 +582,7 @@ class TemperatureComponent(SafetyComponent):
 
         Args:
             hass_app (hass.Hass): The Home Assistant application instance.
-            prefault (PreFault): The PreFault instance containing the fault parameters.
+            symptom (symptom): The symptom instance containing the fault parameters.
             common_entities (CommonEntities): Shared object providing access to common entities.
             **kwargs (dict): Additional keyword arguments, such as location, actuator, and window sensors.
 
@@ -564,13 +593,13 @@ class TemperatureComponent(SafetyComponent):
         changed_sensors: dict[str, str] = {}
         changed_actuators: dict[str, str] = {}
         notifications: list[str] = []
-        location: str = kwargs["location"]
-        actuator: str = kwargs["actuator"]
-        window_sensors: list[str] = kwargs["window_sensor"]
+        location: str = kwargs["location"]  # type: ignore
+        actuator: str = kwargs["actuator"]  # type: ignore
+        window_sensors: list[str] = kwargs["window_sensor"]  # type: ignore
 
         # Get room temperature
         meas_room_temp: float | None = SafetyComponent.get_num_sensor_val(
-            hass_app, prefault.parameters["temperature_sensor"]
+            hass_app, symptom.parameters["temperature_sensor"]
         )
         if meas_room_temp is None:
             return None
@@ -581,7 +610,7 @@ class TemperatureComponent(SafetyComponent):
             return RecoveryResult(changed_sensors, changed_actuators, notifications)
 
         outside_temp = float(outside_temp_raw)
-        
+
         if outside_temp < meas_room_temp:
             window_sensors_state = "off"
             actuator_sensors_state = "off"

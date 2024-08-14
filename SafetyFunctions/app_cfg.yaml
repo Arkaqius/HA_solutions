@@ -2,7 +2,8 @@ SafetyFunctions:
   # App definitions
   module: SafetyFunctions
   class: SafetyFunctions
-  log_level: INFO
+  log_level: DEBUG
+  use_dictionary_unpacking: true
 
   # General config of app
   app_config:
