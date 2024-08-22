@@ -123,7 +123,7 @@ class Symptom:
     ) -> None:
         self.name: str = name
         self.sm_name: str = sm_name
-        self.module = module
+        self.module: "SafetyComponent" = module
         self.state: FaultState = FaultState.NOT_TESTED
         self.parameters: dict = parameters
         self.sm_state = SMState.NON_INITIALIZED

@@ -119,16 +119,7 @@ class FaultManager:
         """
         for symptom_name, symptom_data in self.symptoms.items():
             if symptom_data.sm_state == SMState.DISABLED:
-                result: bool = symptom_data.module.enable_safety_mechanism(
-                    symptom_name, SMState.ENABLED
-                )
-                if result:
-                    symptom_data.sm_state = SMState.ENABLED
-                    # Force each sm to get state if possible
-                    sm_fcn = getattr(symptom_data.module, symptom_data.sm_name)
-                    sm_fcn(symptom_data.module.safety_mechanisms[symptom_data.name])
-                else:
-                    symptom_data.sm_state = SMState.ERROR
+                self.enable_sm(sm_name=symptom_name, sm_state=SMState.ENABLED)
 
     def set_symptom(
         self, symptom_id: str, additional_info: Optional[dict] = None
@@ -172,6 +163,16 @@ class FaultManager:
         """
         # Update symptom registry
         self.symptoms[symptom_id].state = FaultState.CLEARED
+
+        # Call Related Fault
+        self._clear_fault(symptom_id, additional_info)
+
+    def disable_symptom(self, symptom_id: str, additional_info: dict) -> None:
+        """
+        TODO
+        """
+        # Update symptom registry
+        self.symptoms[symptom_id].state = FaultState.NOT_TESTED
 
         # Call Related Fault
         self._clear_fault(symptom_id, additional_info)
@@ -477,3 +478,59 @@ class FaultManager:
             )
 
         return None
+
+    def enable_sm(self, sm_name: str, sm_state: SMState) -> None:
+        """
+        Enables or disables a safety mechanism based on the provided state.
+
+        This method is used to control the state of a specific safety mechanism identified by `sm_name`.
+        It attempts to enable or disable the safety mechanism according to the provided `sm_state`. If an
+        unknown state is passed, the function will log an error and take no further action.
+
+        During the enabling process, the system also attempts to fetch and update the state of the safety mechanisms
+        directly through the associated safety mechanism's function, updating the system's understanding of each
+        symptom's current status.
+
+        Args:
+            sm_name (str): The identifier for the safety mechanism to be enabled or disabled.
+            sm_state (SMState): The desired state for the safety mechanism. Must be a valid `SMState` enumeration value.
+
+        Raises:
+            ValueError: If `sm_state` is not a recognized value of the `SMState` enumeration.
+
+        Note:
+            This method also clears all pre-existing fault states associated with the specified safety mechanism
+            when disabling it, setting them to `NOT_TESTED`.
+        """
+        if sm_state not in SMState:
+            self.hass.log(
+                f"Error: Unknown SMState '{sm_state}' for safety mechanism '{sm_name}'.",
+                level="ERROR",
+            )
+            raise ValueError(
+                f"Unknown SMState '{sm_state}' for safety mechanism '{sm_name}'."
+            )
+
+        symptom_data: Symptom = self.symptoms[sm_name]
+
+        if sm_state == SMState.ENABLED:
+            # Attempt to enable the safety mechanism
+            result: bool = symptom_data.module.enable_safety_mechanism(
+                sm_name, sm_state
+            )
+
+            if result:
+                symptom_data.sm_state = SMState.ENABLED
+
+                # Fetch and update the state of the safety mechanism directly
+                sm_fcn = getattr(symptom_data.module, symptom_data.sm_name)
+                sm_fcn(symptom_data.module.safety_mechanisms[symptom_data.name])
+            else:
+                symptom_data.sm_state = SMState.ERROR
+
+        elif sm_state == SMState.DISABLED:
+            # Disable the safety mechanism
+            symptom_data.module.enable_safety_mechanism(sm_name, sm_state)
+            symptom_data.sm_state = SMState.DISABLED
+            # Clear all related faults to NOT_TESTED state when disabling the safety mechanism
+            self.disable_symptom(symptom_id=sm_name, additional_info={})

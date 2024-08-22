@@ -2,7 +2,7 @@
 # mypy: ignore-errors
 
 import pytest
-from shared.types_common import FaultState
+from shared.types_common import FaultState, SMState
 from .fixtures.hass_fixture import (
     mock_get_state,
     MockBehavior,
@@ -250,9 +250,7 @@ def test_safety_mechanism_disabled_does_not_trigger_symptom(
     app_instance.initialize()
 
     # Disable the safety mechanism
-    app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
-        "RiskyTemperatureOffice"
-    ].isEnabled = False
+    app_instance.fm.enable_sm('RiskyTemperatureOffice', SMState.DISABLED)
 
     for _ in range(DEBOUNCE_LIMIT):
         app_instance.sm_modules["TemperatureComponent"].sm_tc_1(

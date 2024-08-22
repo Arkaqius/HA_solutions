@@ -121,3 +121,7 @@ class SafetyMechanism:
             elif isinstance(value, str):
                 entities.append(value)
         return entities
+    
+    def disable_sm(self, sm_name : str):
+        
+        self.isEnabled = False
