@@ -73,6 +73,7 @@ def default_mock_behaviors():
     """Default mock behaviors for sensors."""
     return [
         MockBehavior("sensor.office_temperature", iter(["5", "6", "7", "8", "9"])),
+        MockBehavior("sensor.office_temperature_rate", iter(["0", "0", "0", "0", "0"])),
         MockBehavior("sensor.office_humidity", iter(["45", "50"])),
         MockBehavior("sensor.fault_RiskyTemperature", iter([None, None, None])),
         MockBehavior(

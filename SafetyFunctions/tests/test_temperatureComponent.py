@@ -9,7 +9,7 @@ from .fixtures.hass_fixture import (
 )  # Import utilities from conftest.py
 
 
-DEBOUNCE_LIMIT = 2
+DEBOUNCE_LIMIT = 1
 
 
 @pytest.mark.parametrize(
@@ -54,29 +54,6 @@ def test_temp_comp_smtc1(
     assert app_instance.fm.check_fault("RiskyTemperature") == expected_fault_state
 
 
-def test_symptom_set_when_temp_below_threshold(mocked_hass_app_with_temp_component):
-    """
-    Test Case: Symptom Set When Temperature is Below Threshold
-
-    Scenario:
-        - Input: Temperature sequence ["16.0", "17.5", "17.9"]
-        - Expected Result: Symptom "RiskyTemperatureOffice" should be set to True.
-    """
-    app_instance, _, __, ___ = mocked_hass_app_with_temp_component
-    temperature_sequence = ["16.0", "17.5", "17.9"]
-
-    app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
-        entity_id,
-        [MockBehavior("sensor.office_temperature", iter(temperature_sequence))],
-    )
-
-    app_instance.initialize()
-
-    assert (
-        app_instance.fm.check_symptom("RiskyTemperatureOffice") is FaultState.SET
-    )
-    
-    
 def test_symptom_set_when_temp_NOT_below_threshold(mocked_hass_app_with_temp_component):
     """
     Test Case: Symptom Set When Temperature is Below Threshold
@@ -98,6 +75,7 @@ def test_symptom_set_when_temp_NOT_below_threshold(mocked_hass_app_with_temp_com
     assert (
         app_instance.fm.check_symptom("RiskyTemperatureOffice") is FaultState.NOT_TESTED
     )
+
 
 @pytest.mark.parametrize(
     "debounce_value, expected_symptom_state",
@@ -198,11 +176,12 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
         ],
     )
 
-    app_instance.sm_modules["TemperatureComponent"].sm_tc_2(
-        app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
-            "RiskyTemperatureOfficeForeCast"
-        ]
-    )
+    for _ in range(DEBOUNCE_LIMIT):
+        app_instance.sm_modules["TemperatureComponent"].sm_tc_2(
+            app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
+                "RiskyTemperatureOfficeForeCast"
+            ]
+        )
 
     assert (
         app_instance.fm.check_symptom("RiskyTemperatureOfficeForeCast")

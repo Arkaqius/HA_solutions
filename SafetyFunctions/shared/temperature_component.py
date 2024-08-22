@@ -115,6 +115,7 @@ class TemperatureComponent(SafetyComponent):
                 "CAL_LOW_TEMP_THRESHOLD",
                 "CAL_FORECAST_TIMESPAN",
                 "location",
+                'temperature_sensor_rate'
             ]
             sm_method = self.sm_tc_2
         else:
@@ -214,12 +215,17 @@ class TemperatureComponent(SafetyComponent):
         cold_threshold: float = sm.sm_args["cold_thr"]
         location: str = sm.sm_args["location"]
         forecast_timespan: float = sm.sm_args["forecast_timespan"]
-        temperature_rate = sm.sm_args["diverative"]
+        temperature_rate_sensor = sm.sm_args["temperature_sensor_rate"]
 
         # Fetch temperature value, using stubbed value if provided
         temperature: float | None = self._get_temperature_value(
             temperature_sensor, entities_changes
         )
+
+        temperature_rate: float | None = self._get_temperature_value(
+            temperature_rate_sensor, entities_changes
+        )
+
         if temperature is None:
             return SafetyMechanismResult(False, None)
 
@@ -508,6 +514,7 @@ class TemperatureComponent(SafetyComponent):
         if sm_method == self.sm_tc_2:
             sm_args.update(
                 {
+                    "temperature_sensor_rate": params["temperature_sensor_rate"],
                     "forecast_timespan": params["CAL_FORECAST_TIMESPAN"],
                     "diverative": 0.0,
                     "prev_val": 0.0,
