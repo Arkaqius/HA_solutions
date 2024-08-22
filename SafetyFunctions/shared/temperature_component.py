@@ -33,8 +33,8 @@ from shared.common_entities import CommonEntities
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 
 # CONFIG
-DEBOUNCE_INIT = 1
-SM_TC_2_DEBOUNCE_LIMIT = 1
+DEBOUNCE_INIT = 0
+SM_TC_2_DEBOUNCE_LIMIT = 0
 
 
 class TemperatureComponent(SafetyComponent):

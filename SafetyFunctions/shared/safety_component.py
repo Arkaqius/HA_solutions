@@ -30,6 +30,7 @@ from typing import (
     Callable,
     Optional,
     NamedTuple,
+    Literal
 )
 from enum import Enum
 
@@ -260,7 +261,7 @@ class SafetyComponent:
         """
         if pr_test:
             new_counter: int = min(debounce_limit, current_counter + 1)
-            action = (
+            action: Literal[DebounceAction.symptom_SET] | Literal[DebounceAction.NO_ACTION] = (
                 DebounceAction.symptom_SET
                 if new_counter >= debounce_limit
                 else DebounceAction.NO_ACTION

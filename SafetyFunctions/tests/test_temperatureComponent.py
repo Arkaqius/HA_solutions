@@ -72,23 +72,46 @@ def test_symptom_set_when_temp_below_threshold(mocked_hass_app_with_temp_compone
 
     app_instance.initialize()
 
-    app_instance.sm_modules["TemperatureComponent"].sm_tc_1(
-        app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
-            "RiskyTemperatureOffice"
-        ]
+    assert (
+        app_instance.fm.check_symptom("RiskyTemperatureOffice") is FaultState.SET
+    )
+    
+    
+def test_symptom_set_when_temp_NOT_below_threshold(mocked_hass_app_with_temp_component):
+    """
+    Test Case: Symptom Set When Temperature is Below Threshold
+
+    Scenario:
+        - Input: Temperature sequence ["16.0", "24", "23"]
+        - Expected Result: Symptom "RiskyTemperatureOffice" should be set to True.
+    """
+    app_instance, _, __, ___ = mocked_hass_app_with_temp_component
+    temperature_sequence = ["16.0", "24", "23"]
+
+    app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
+        entity_id,
+        [MockBehavior("sensor.office_temperature", iter(temperature_sequence))],
     )
 
-    assert app_instance.fm.check_symptom("RiskyTemperatureOffice") is FaultState.NOT_TESTED
+    app_instance.initialize()
 
+    assert (
+        app_instance.fm.check_symptom("RiskyTemperatureOffice") is FaultState.NOT_TESTED
+    )
 
 @pytest.mark.parametrize(
     "debounce_value, expected_symptom_state",
     [
         (DEBOUNCE_LIMIT, FaultState.CLEARED),  # Case where debounce limit is met
-        (DEBOUNCE_LIMIT - 1, FaultState.NOT_TESTED),    # Case where debounce limit is not met
+        (
+            DEBOUNCE_LIMIT - 1,
+            FaultState.NOT_TESTED,
+        ),  # Case where debounce limit is not met
     ],
 )
-def test_symptom_cleared_when_temp_above_threshold(mocked_hass_app_with_temp_component, debounce_value, expected_symptom_state):
+def test_symptom_cleared_when_temp_above_threshold(
+    mocked_hass_app_with_temp_component, debounce_value, expected_symptom_state
+):
     """
     Test Case: Symptom Cleared When Temperature is Above Threshold
 
@@ -113,7 +136,10 @@ def test_symptom_cleared_when_temp_above_threshold(mocked_hass_app_with_temp_com
             ]
         )
 
-    assert app_instance.fm.check_symptom("RiskyTemperatureOffice") is expected_symptom_state
+    assert (
+        app_instance.fm.check_symptom("RiskyTemperatureOffice")
+        is expected_symptom_state
+    )
 
 
 def test_symptom_cleared_when_temp_above_threshold_less_than_debounce(
@@ -188,7 +214,10 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
     "debounce_value, expected_symptom_state",
     [
         (DEBOUNCE_LIMIT, FaultState.CLEARED),  # Case where debounce limit is met
-        (DEBOUNCE_LIMIT - 1, FaultState.NOT_TESTED),    # Case where debounce limit is not met
+        (
+            DEBOUNCE_LIMIT - 1,
+            FaultState.NOT_TESTED,
+        ),  # Case where debounce limit is not met
     ],
 )
 def test_forecasted_symptom_cleared_when_temp_rate_indicates_stability(
@@ -246,11 +275,11 @@ def test_safety_mechanism_disabled_does_not_trigger_symptom(
         entity_id,
         [MockBehavior("sensor.office_temperature", iter(temperature_sequence))],
     )
-    
+
     app_instance.initialize()
 
     # Disable the safety mechanism
-    app_instance.fm.enable_sm('RiskyTemperatureOffice', SMState.DISABLED)
+    app_instance.fm.enable_sm("RiskyTemperatureOffice", SMState.DISABLED)
 
     for _ in range(DEBOUNCE_LIMIT):
         app_instance.sm_modules["TemperatureComponent"].sm_tc_1(
