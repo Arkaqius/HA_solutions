@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from shared.types_common import FaultState
 from SafetyFunctions import SafetyFunctions
 from shared.temperature_component import TemperatureComponent
-
+from typing import List
 
 @pytest.fixture
 def mocked_hass():
@@ -61,12 +61,12 @@ def mocked_hass_app_with_temp_component(mocked_hass, app_config_valid):
         )
 
         mock_behaviors = default_mock_behaviors()
-        app_instance.get_state = MagicMock(
+        app_instance.get_state  = MagicMock(
             side_effect=lambda entity_id, **kwargs: mock_get_state(
                 entity_id, mock_behaviors
             )
         )
-        yield app_instance, mocked_hass, mock_log_method, MockTemperatureComponent
+        yield app_instance, mocked_hass, mock_log_method, MockTemperatureComponent, mock_behaviors
 
 
 def default_mock_behaviors():
@@ -103,3 +103,20 @@ def mock_get_state(entity_id, mock_behaviors):
         if value is not None:
             return value
     return None
+
+def update_mocked_get_state(default: List[MockBehavior], test_specyfic: List[MockBehavior]) -> List[MockBehavior]:
+    # Create a set of entity_ids already in the default list for quick lookup
+    default_entity_ids = {mock.entity_id for mock in default}
+    
+    # Iterate over the default list to replace existing mocks with those from test_specyfic
+    for idx, default_mock in enumerate(default):
+        matching_mock = next((test_mock for test_mock in test_specyfic if test_mock.entity_id == default_mock.entity_id), None)
+        if matching_mock:
+            default[idx] = matching_mock
+    
+    # Add mocks from test_specyfic that are not present in the default list
+    for test_mock in test_specyfic:
+        if test_mock.entity_id not in default_entity_ids:
+            default.append(test_mock)
+    
+    return default

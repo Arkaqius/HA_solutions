@@ -38,7 +38,7 @@ def test_NotificationManager_init(mocked_hass_app_basic):
 
 
 def test_temperature_component_initialization(mocked_hass_app_with_temp_component):
-    app_instance, _, __, MockTemperatureComponent = mocked_hass_app_with_temp_component
+    app_instance, _, __, MockTemperatureComponent , mock_behaviors_default = mocked_hass_app_with_temp_component
     app_instance.initialize()
 
     assert isinstance(
@@ -47,7 +47,7 @@ def test_temperature_component_initialization(mocked_hass_app_with_temp_componen
 
 
 def test_fault_manager_initialization(mocked_hass_app_with_temp_component):
-    app_instance, _, __, MockTemperatureComponent = mocked_hass_app_with_temp_component
+    app_instance, _, __, MockTemperatureComponent , mock_behaviors_default = mocked_hass_app_with_temp_component
     app_instance.initialize()
 
     assert isinstance(app_instance.fm, FaultManager)
@@ -60,7 +60,7 @@ def test_fault_manager_initialization(mocked_hass_app_with_temp_component):
 
 
 def test_assign_fm(mocked_hass_app_with_temp_component):
-    app_instance, _, __, ___ = mocked_hass_app_with_temp_component
+    app_instance, _, __, ___ , mock_behaviors_default = mocked_hass_app_with_temp_component
     app_instance.initialize()
 
     for module in app_instance.sm_modules.values():
@@ -68,7 +68,7 @@ def test_assign_fm(mocked_hass_app_with_temp_component):
 
 
 def test_app_health_set_to_good_at_end_of_init(mocked_hass_app_with_temp_component):
-    app_instance, _, mock_log_method, ___ = mocked_hass_app_with_temp_component
+    app_instance, _, mock_log_method, ___ , mock_behaviors_default = mocked_hass_app_with_temp_component
     app_instance.initialize()
 
     mock_log_method.assert_called_with("Safety app started", level="DEBUG")
