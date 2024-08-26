@@ -3,18 +3,19 @@ from unittest.mock import MagicMock, patch
 from shared.types_common import FaultState
 from SafetyFunctions import SafetyFunctions
 from shared.temperature_component import TemperatureComponent
-from typing import List
+from typing import Any, Generator, List
 from itertools import cycle
 
 
 @pytest.fixture
-def mocked_hass():
+def mocked_hass() -> Generator[Any, Any, None]:
     """Fixture for providing a mocked Hass instance."""
     with patch("appdaemon.plugins.hass.hassapi.Hass") as MockHass:
         mock_hass = MockHass()
         mock_hass.logger = MagicMock()
         mock_hass.get_state = MagicMock(return_value="on")
         mock_hass.set_state = MagicMock()
+        mock_hass.call_service = MagicMock()
         yield mock_hass
 
 
@@ -68,6 +69,10 @@ def mocked_hass_app_with_temp_component(mocked_hass, app_config_valid):
                 entity_id, mock_behaviors
             )
         )
+        
+        app_instance.set_state = mocked_hass.set_state
+        app_instance.call_service = mocked_hass.call_service
+        
         yield app_instance, mocked_hass, mock_log_method, MockTemperatureComponent, mock_behaviors
 
 

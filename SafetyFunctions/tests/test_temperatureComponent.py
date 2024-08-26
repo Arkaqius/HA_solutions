@@ -60,6 +60,7 @@ def test_temp_comp_smtc1(
         == expected_symptom_state
     )
     assert app_instance.fm.check_fault("RiskyTemperature") == expected_fault_state
+    
 
 
 def test_symptom_set_when_temp_NOT_below_threshold(mocked_hass_app_with_temp_component):
