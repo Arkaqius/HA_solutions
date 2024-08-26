@@ -4,6 +4,8 @@ from shared.types_common import FaultState
 from SafetyFunctions import SafetyFunctions
 from shared.temperature_component import TemperatureComponent
 from typing import List
+from itertools import cycle
+
 
 @pytest.fixture
 def mocked_hass():
@@ -88,7 +90,7 @@ class MockBehavior:
 
     def __init__(self, entity_id, generator):
         self.entity_id = entity_id
-        self.generator = generator
+        self.generator = cycle(generator)
 
     def get_value(self, called_entity_id):
         if called_entity_id == self.entity_id:
