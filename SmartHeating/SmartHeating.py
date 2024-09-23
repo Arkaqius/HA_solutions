@@ -3,6 +3,7 @@ Smart heating AppDeamon application.
 """
 
 import datetime
+import traceback
 from math import nan
 from enum import Enum
 import appdaemon.plugins.hass.hassapi as hass
