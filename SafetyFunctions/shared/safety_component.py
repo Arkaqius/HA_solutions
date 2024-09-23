@@ -436,7 +436,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
             sm_return = func(self, sm, entities_changes)
 
             # Perform SM logic
-            new_debounce, force_sm = self.process_symptom(
+            new_debounce,    = self.process_symptom(
                 symptom_id=sm.name,
                 current_counter=current_state.debounce,
                 pr_test=sm_return.result,

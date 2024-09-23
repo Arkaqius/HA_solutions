@@ -121,9 +121,13 @@ class RecoveryManager:
             )
             if rec_fault:
                 rec_fault_prio: int = rec_fault.priority
-                return self._check_conflict_with_matching_actions(
+                conflict_status: bool = self._check_conflict_with_matching_actions(
                     matching_actions, rec_fault_prio, symptom
                 )
+                self.hass_app.log(
+                    f"Conflict status for {symptom} is {conflict_status}", level="DEBUG"
+                )
+                return conflict_status
 
         return False
 
@@ -314,7 +318,7 @@ class RecoveryManager:
                                 recovery_result.changed_actuators,
                             )
                             self._listen_to_changes(
-                                symptom,
+                                symptom,    
                                 recovery_result.changed_sensors
                                 | recovery_result.changed_actuators,
                             )
@@ -326,6 +330,11 @@ class RecoveryManager:
                         self.hass_app.log(
                             "Recovery will raise another fault.", level="DEBUG"
                         )
+                else:
+                    self.hass_app.log(
+                        f"No changes for recovery of {symptom.name}", level="DEBUG"
+                    )
+
             else:
                 self.hass_app.log(
                     f"No recovery actions for {symptom.name}", level="DEBUG"

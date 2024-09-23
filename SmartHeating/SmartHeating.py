@@ -2,7 +2,7 @@
 Smart heating AppDeamon application.
 """
 
-import datetime, traceback
+import datetime
 from math import nan
 from enum import Enum
 import appdaemon.plugins.hass.hassapi as hass
@@ -60,7 +60,7 @@ class TRV_INDEX(Enum):
     BEDROOM_LEFT = 2
     BEDROOM_RIGHT = 3
     GARAGE = 4
-    NUM_OF_RADIATORS = 5
+    NUM_OF_TRV = 5
 
 
 # endregion
@@ -85,105 +85,126 @@ class SmartHeating(hass.Hass):
     def init_config(self) -> None:
         """
         Load and set up configuration from provided args.
-
         Extracts parameters and HALs from `args` for application use.
-
-        Returns:
-        None
         """
-        # pylint: disable=W0201,C0103
-        try:
-            # Load config
-            self.cycle_time = self.args["config"]["cycle_time"]
-            self.warm_flag_offset = self.args["config"]["warm_flag_offset"]
-            self.frezzying_flag_offset = self.args["config"]["frezzing_flag_offset"]
-            self.logging_flag = self.args["config"]["logging"]
-            self.error_offset_update_threshold = self.args["config"][
-                "error_offset_update_threshold"
-            ]
-            self.force_flow_offset = self.args["config"]["force_flow_off"]
-            self.radiator_boost_threshold = self.args["config"][
-                "radiator_boost_threshold"
-            ]
-            self.rads_error_factor = self.args["config"]["rads_error_factor"]
-            self.force_burn_thres = self.args["config"]["force_burn_thres"]
-            # Load factor parameters
-            self.wam_params = self.init_wam_params()
-            self.rads_params = self.init_rads_params()
-            self.log(f"{self.wam_params}", level="DEBUG")
-            self.log(f"{self.rads_params}", level="DEBUG")
-            # Load HAL for setpoint mapping In
-            self.HAL_office_setpoint_in = self.args["HAL_setpoint_mapping_in"][
-                "office_setpoint"
-            ]
-            self.HAL_kidsroom_setpoint_in = self.args["HAL_setpoint_mapping_in"][
-                "kidsroom_setpoint"
-            ]
-            self.HAL_bedroom_setpoint_in = self.args["HAL_setpoint_mapping_in"][
-                "bedroom_setpoint"
-            ]
-            self.HAL_garage_setpoint_in = self.args["HAL_setpoint_mapping_in"][
-                "garage_setpoint"
-            ]
-            # Load HAL for setpoint mapping out
-            self.HAL_office_setpoint_out = self.args["HAL_setpoint_mapping_out"][
-                "office_setpoint"
-            ]
-            self.HAL_kidsroom_setpoint_out = self.args["HAL_setpoint_mapping_out"][
-                "kidsroom_setpoint"
-            ]
-            self.HAL_bedroom_left_setpoint_out = self.args["HAL_setpoint_mapping_out"][
-                "bedroom_left_setpoint"
-            ]
-            self.HAL_bedroom_right_setpoint_out = self.args["HAL_setpoint_mapping_out"][
-                "bedroom_right_setpoint"
-            ]
-            self.HAL_garage_setpoint_out = self.args["HAL_setpoint_mapping_out"][
-                "garage_setpoint"
-            ]
-            # Load HAL for TRV pos
-            self.HAL_TRV_garage_pos = self.args["HAL_TRV_pos"]["garage_pos"]
-            self.HAL_TRV_bedroomLeft_pos = self.args["HAL_TRV_pos"]["bedroomLeft_pos"]
-            self.HAL_TRV_bedroomRight_pos = self.args["HAL_TRV_pos"]["bedroomRight_pos"]
-            self.HAL_TRV_office_pos = self.args["HAL_TRV_pos"]["office_pos"]
-            self.HAL_TRV_kidsRoom_pos = self.args["HAL_TRV_pos"]["kidsRoom_pos"]
-            # Load HAL for temperature errors
-            self.HAL_livingRomm_tError = self.args["HAL_errors"]["livingRoom_error"]
-            self.HAL_corridor_tError = self.args["HAL_errors"]["corridor_error"]
-            self.HAL_bathroom_tError = self.args["HAL_errors"]["bathroom_error"]
-            self.HAL_entrance_tError = self.args["HAL_errors"]["entrance_error"]
-            self.HAL_upperCorridor_tError = self.args["HAL_errors"][
-                "uppercorridor_error"
-            ]
-            self.HAL_wardrobe_tError = self.args["HAL_errors"]["wardrobe_error"]
-            self.HAL_upperBathroom_tError = self.args["HAL_errors"][
-                "upperbathroom_error"
-            ]
-            self.HAL_office_tError = self.args["HAL_errors"]["office_error"]
-            self.HAL_kidsRoom_tError = self.args["HAL_errors"]["kidsroom_error"]
-            self.HAL_garage_tError = self.args["HAL_errors"]["garage_error"]
-            self.HAL_bedroom_tError = self.args["HAL_errors"]["bedroom_error"]
-            # Load misc HALs
-            self.HAL_makeWarm_flag = self.args["HAL_inputs"]["makeWarm_flag"]
-            self.HAL_frezzing_flag = self.args["HAL_inputs"]["frezzing_flag"]
-            self.HAL_forceFlow_flag = self.args["HAL_inputs"]["forceFlow_flag"]
-            self.HAL_corridor_setpoint = self.args["HAL_inputs"]["corridor_setpoint"]
-            self.HAL_wam_value = self.args["HAL_output"]["wam_value"]
-            self.HAL_setpoint_offset = self.args["HAL_output"]["setpoint_offset"]
-            self.HAL_thermostat_setpoint = self.args["HAL_output"][
-                "thermostat_setpoint"
-            ]
+        # Load config values using helper method
+        self.cycle_time = self.get_config_value(
+            "cycle_time", section="config", default=60
+        )
+        self.warm_flag_offset = self.get_config_value(
+            "warm_flag_offset", section="config", default=0
+        )
+        self.frezzying_flag_offset = self.get_config_value(
+            "frezzing_flag_offset", section="config", default=0
+        )
+        self.logging_flag = self.get_config_value(
+            "logging", section="config", default=True
+        )
+        self.error_offset_update_threshold = self.get_config_value(
+            "error_offset_update_threshold", section="config", default=0.5
+        )
+        self.force_flow_offset = self.get_config_value(
+            "force_flow_off", section="config", default=0
+        )
+        self.radiator_boost_threshold = self.get_config_value(
+            "radiator_boost_threshold", section="config", default=0
+        )
+        self.rads_error_factor = self.get_config_value(
+            "rads_error_factor", section="config", default=1
+        )
+        self.force_burn_thres = self.get_config_value(
+            "force_burn_thres", section="config", default=0
+        )
 
-        except KeyError as e:
-            self.log(f"Configuration Error: Missing key {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
+        # Load factor parameters
+        self.wam_params: list[float] = self.init_wam_params()
+        self.rads_params: list[float] = self.init_rads_params()
 
-        except TypeError as e:
-            self.log(f"Type Error: {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
+        # Load HAL mappings using helper methods
+        self.load_hal_mappings(
+            "HAL_setpoint_mapping_in",
+            [
+                ("office_setpoint", "HAL_office_setpoint_in"),
+                ("kidsroom_setpoint", "HAL_kidsroom_setpoint_in"),
+                ("bedroom_setpoint", "HAL_bedroom_setpoint_in"),
+                ("garage_setpoint", "HAL_garage_setpoint_in"),
+            ],
+        )
 
-    def log_config(self):
-        config_items = [
+        self.load_hal_mappings(
+            "HAL_setpoint_mapping_out",
+            [
+                ("office_setpoint", "HAL_office_setpoint_out"),
+                ("kidsroom_setpoint", "HAL_kidsroom_setpoint_out"),
+                ("bedroom_left_setpoint", "HAL_bedroom_left_setpoint_out"),
+                ("bedroom_right_setpoint", "HAL_bedroom_right_setpoint_out"),
+                ("garage_setpoint", "HAL_garage_setpoint_out"),
+            ],
+        )
+
+        self.load_hal_mappings(
+            "HAL_TRV_pos",
+            [
+                ("garage_pos", "HAL_TRV_garage_pos"),
+                ("bedroomLeft_pos", "HAL_TRV_bedroomLeft_pos"),
+                ("bedroomRight_pos", "HAL_TRV_bedroomRight_pos"),
+                ("office_pos", "HAL_TRV_office_pos"),
+                ("kidsRoom_pos", "HAL_TRV_kidsRoom_pos"),
+            ],
+        )
+
+        self.load_hal_mappings(
+            "HAL_errors",
+            [
+                ("livingRoom_error", "HAL_livingRomm_tError"),
+                ("corridor_error", "HAL_corridor_tError"),
+                ("bathroom_error", "HAL_bathroom_tError"),
+                ("entrance_error", "HAL_entrance_tError"),
+                ("uppercorridor_error", "HAL_upperCorridor_tError"),
+                ("wardrobe_error", "HAL_wardrobe_tError"),
+                ("upperbathroom_error", "HAL_upperBathroom_tError"),
+                ("office_error", "HAL_office_tError"),
+                ("kidsroom_error", "HAL_kidsRoom_tError"),
+                ("garage_error", "HAL_garage_tError"),
+                ("bedroom_error", "HAL_bedroom_tError"),
+            ],
+        )
+
+        self.load_hal_mappings(
+            "HAL_inputs",
+            [
+                ("makeWarm_flag", "HAL_makeWarm_flag"),
+                ("frezzing_flag", "HAL_frezzing_flag"),
+                ("forceFlow_flag", "HAL_forceFlow_flag"),
+                ("corridor_setpoint", "HAL_corridor_setpoint"),
+            ],
+        )
+
+        self.load_hal_mappings(
+            "HAL_output",
+            [
+                ("wam_value", "HAL_wam_value"),
+                ("setpoint_offset", "HAL_setpoint_offset"),
+                ("thermostat_setpoint", "HAL_thermostat_setpoint"),
+            ],
+        )
+
+    def get_config_value(self, key: str, section: str, default=None):
+        """Helper to fetch config values with a default fallback."""
+        return self.args.get(section, {}).get(key, default)
+
+    def handle_config_error(self, error) -> None:
+        """Handle configuration error by logging and stopping the app."""
+        self.log(f"Configuration Error: Missing key {str(error)}", level="ERROR")
+        self.stop_app("HeaterController")
+
+    def load_hal_mappings(self, section: str, mappings: list) -> None:
+        """Helper to load HAL mappings from args into class attributes."""
+        for key, attribute in mappings:
+            setattr(self, attribute, self.args.get(section, {}).get(key))
+
+    def log_config(self) -> None:
+        config_items: list[str] = [
             "cycle_time",
             "warm_flag_offset",
             "frezzying_flag_offset",
@@ -200,79 +221,53 @@ class SmartHeating(hass.Hass):
 
     def init_wam_params(self) -> list[float]:
         """
-        Initialize Weighted Average Method (WAM) parameters.
-
-        Calculates and returns WAM factors based on input configurations.
+        Initialize Weighted Average Method (WAM) parameters by normalizing the WAM factors.
 
         Returns:
-        List[float]: Normalized WAM factors.
+        List[float]: Normalized WAM factors for the floor heating rooms.
         """
-        try:
-            wam_factors_sum = sum(self.args["wam_factors"].values())
-
-            wam_params = [0] * ROOM_INDEX_FH.SIZE.value
-            wam_params[ROOM_INDEX_FH.BATHROOM.value] = (
-                self.args["wam_factors"]["bathroom"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.CORRIDOR.value] = (
-                self.args["wam_factors"]["corridor"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.ENTRANCE.value] = (
-                self.args["wam_factors"]["entrance"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.LIVING_ROOM.value] = (
-                self.args["wam_factors"]["living_room"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.UPPER_BATHROOM.value] = (
-                self.args["wam_factors"]["upperBathroom"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.UPPER_CORRIDOR.value] = (
-                self.args["wam_factors"]["upperCorridor"] / wam_factors_sum
-            )
-            wam_params[ROOM_INDEX_FH.WARDROBE.value] = (
-                self.args["wam_factors"]["wardrobe"] / wam_factors_sum
-            )
-
-        except KeyError as e:
-            self.log(f"Configuration Error: Missing key {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
-
-        except TypeError as e:
-            self.log(f"Type Error: {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
+        wam_params: list[float] = self.init_params_from_args(
+            "wam_factors", ROOM_INDEX_FH, ROOM_INDEX_FH.SIZE
+        )
         return wam_params
 
     def init_rads_params(self) -> list[float]:
         """
-        Initialize radiator factors.
+        Initialize radiator factors by normalizing the radiator factors.
 
         Returns:
         List[float]: Normalized radiator factors.
         """
-        try:
-            rads_factors = [0] * ROOM_INDEX_RAD.NUM_OF_RADIATORS.value
-            rads_factors_sum = sum(self.args["rads_factors"].values())
-            rads_factors[ROOM_INDEX_RAD.OFFICE.value] = (
-                self.args["rads_factors"]["office"] / rads_factors_sum
-            )
-            rads_factors[ROOM_INDEX_RAD.KIDSROOM.value] = (
-                self.args["rads_factors"]["kidsroom"] / rads_factors_sum
-            )
-            rads_factors[ROOM_INDEX_RAD.BEDROOM.value] = (
-                self.args["rads_factors"]["bedroom"] / rads_factors_sum
-            )
-            rads_factors[ROOM_INDEX_RAD.GARAGE.value] = (
-                self.args["rads_factors"]["garage"] / rads_factors_sum
-            )
+        rads_params: list[float] = self.init_params_from_args(
+            "rads_factors", ROOM_INDEX_RAD, ROOM_INDEX_RAD.NUM_OF_RADIATORS
+        )
+        return rads_params
 
-        except KeyError as e:
-            self.log(f"Configuration Error: Missing key {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
+    def init_params_from_args(
+        self, factor_key: str, room_index_enum: Enum, room_size_enum: Enum
+    ) -> list[float]:
+        """
+        Generic method to initialize normalized factors from the args.
 
-        except TypeError as e:
-            self.log(f"Type Error: {str(e)}", level="ERROR")
-            self.stop_app("HeaterController")
-        return rads_factors
+        Parameters:
+        - factor_key (str): The key in the args dictionary to retrieve factors.
+        - room_index_enum (Enum): Enum defining room indices.
+        - room_size_enum (Enum): Enum representing the size/number of rooms.
+
+        Returns:
+        List[float]: A list of normalized factors.
+        """
+        factors_sum: int = sum(self.args[factor_key].values())  # Sum all factor values
+        params = [0] * room_size_enum.value  # Initialize list with zeroes
+
+        # Loop over the enum values to populate the params list with normalized values
+        for room in room_index_enum:
+            if room != room_size_enum:  # Avoid the SIZE or NUM_OF_RADIATORS enum
+                params[room.value] = (
+                    self.args[factor_key][room.name.lower()] / factors_sum
+                )
+
+        return params
 
     # endregion
 
@@ -284,48 +279,56 @@ class SmartHeating(hass.Hass):
         - Loads config.
         - Starts the main loop.
         - Initializes state listeners and internal fields.
-
-        Returns:
-        None
         """
-        # pylint: disable=W0201,C0103
-        # Load config
-        return
-        self.init_config()
-        # Initalize app main loop
+        try:
+            # Load config
+            self.init_config()
+
+            # Initialize the app main loop
+            self.start_main_loop()
+
+            # Initialize state listeners
+            self.setup_state_listeners()
+
+            # Initialize internal fields
+            self.initialize_internal_fields()
+
+            # Log initialization completion
+            self.log("Initialization finished", level="DEBUG")
+            self.log_config()
+
+        except Exception as e:
+            self.handle_sw_error(
+                "Error during initialization", e
+            )  # SW error, stop the app
+
+    def start_main_loop(self) -> None:
+        """Starts the main loop for the app based on cycle time."""
         start_time = self.datetime() + datetime.timedelta(seconds=self.cycle_time)
-        self.handle = self.run_every(
-            self.sh_main_loop, start_time, self.cycle_time
-        )  # pylint: disable=W0201
+        self.handle = self.run_every(self.sh_main_loop, start_time, self.cycle_time)
 
-        # Initalize callbacks
-        self.listen_state(
-            self.setpoint_update,
-            self.HAL_garage_setpoint_in,
-            devices=[self.HAL_garage_setpoint_out],
-        )
-        self.listen_state(
-            self.setpoint_update,
-            self.HAL_bedroom_setpoint_in,
-            devices=[self.HAL_bedroom_left_setpoint_out],
-        )
-        self.listen_state(
-            self.setpoint_update,
-            self.HAL_bedroom_setpoint_in,
-            devices=[self.HAL_bedroom_right_setpoint_out],
-        )
-        self.listen_state(
-            self.setpoint_update,
-            self.HAL_kidsroom_setpoint_in,
-            devices=[self.HAL_kidsroom_setpoint_out],
-        )
-        self.listen_state(
-            self.setpoint_update,
-            self.HAL_office_setpoint_in,
-            devices=[self.HAL_office_setpoint_out],
-        )
+    def setup_state_listeners(self) -> None:
+        """Set up state listeners for all setpoints."""
+        setpoint_mappings = [
+            (self.HAL_garage_setpoint_in, [self.HAL_garage_setpoint_out]),
+            (
+                self.HAL_bedroom_setpoint_in,
+                [
+                    self.HAL_bedroom_left_setpoint_out,
+                    self.HAL_bedroom_right_setpoint_out,
+                ],
+            ),
+            (self.HAL_kidsroom_setpoint_in, [self.HAL_kidsroom_setpoint_out]),
+            (self.HAL_office_setpoint_in, [self.HAL_office_setpoint_out]),
+        ]
 
-        # Initalize internal fields
+        for input_setpoint, output_setpoints in setpoint_mappings:
+            self.listen_state(
+                self.setpoint_update, input_setpoint, devices=output_setpoints
+            )
+
+    def initialize_internal_fields(self) -> None:
+        """Initialize the internal state variables for the app."""
         self.thermostat_error = None
         self.wam_errors = None
         self.rads_error = None
@@ -334,8 +337,6 @@ class SmartHeating(hass.Hass):
         self.force_flow_flag = None
         self.radiator_positions = None
         self.previous_offset = 0
-        self.log("Initalize finished", level="DEBUG")
-        self.log_config()
 
     def setpoint_update(self, _, __, ___, new, kwargs):
         """
@@ -359,70 +360,73 @@ class SmartHeating(hass.Hass):
         """
         Main smart heating event loop which orchestrates the logic for managing the heating system.
 
-        This function acts as the core of the smart heating application, managing various system flags,
-        calculating offsets using different system parameters, and enforcing smart heating logic to ensure
-        optimal performance and safety of the heating system.
-
-        Parameters:
-            _ (Any): Unused parameter. Can be of any type.
-
-        Procedure:
-            10. Initialize the final offset variable
-            20. Gather all necessary current values of the system parameters
-            30. Calculate offset using Weighted Arithmetic Mean (WAM) of errors
-            40. Apply warm flag to the final offset if applicable
-            50. Adjust offset considering the weather forecast (freezing flag)
-            60. Check and apply forced burn to the final offset if needed
-            70. Enforce safety priority flow and update the final offset
-            80. Update the Thermostatic Radiator Valves (TRVs) states
-            90. Update the thermostat offset with the finalized value
-
-        Note:
-            - Every step from 30 to 70 adjusts `off_final` based on various parameters and checks.
-            - The function interacts with several utility methods to get/set system parameters.
-            - Logging and potential future actions (like alerts) may depend on the final offset and other parameters.
-            - For a detailed understanding of each step and adjustment, refer to the respective utility method's docstring.
+        This function manages various system flags, calculates offsets using system parameters,
+        and ensures optimal performance and safety of the heating system.
 
         Returns:
-            None: The function does not return any value but updates system states and logs relevant information.
+            None
         """
-        # pylint: disable=W0201,C0103
-        # 10. Init internal variable
-        off_final = 0
+        try:
+            off_final = 0
 
-        # 20. Collect all neccessary current values
+            # Collect current system values
+            self.collect_system_values()
+            self.log_input_variables()
+
+            # Apply various adjustments to the offset
+            off_final = self.calculate_final_offset(off_final)
+
+            # Update TRVs and thermostat offset
+            self.sh_update_TRVs()
+            self.sh_update_thermostat(round(off_final, 1))
+        except Exception as e:
+            self.handle_hw_error(
+                f"Error in main loop: {str(e)}"
+            )  # HW error, safe state
+
+    def collect_system_values(self) -> None:
+        """Collect necessary current values of the system parameters."""
         self.thermostat_setpoint = self.sh_get_thermostat_setpoint()
-        self.corridor_setpoint = self.sh_get_corridor_setpoint()
-        self.wam_errors = self.sh_get_wam_errors()
-        self.rads_error = self.sh_get_rad_errors()
-        self.warm_flag = self.sh_get_warm_flag()
-        self.freezing_flag = self.sh_get_freezing_flag()
-        self.force_flow_flag = self.sh_get_force_flow_flag()
-        self.radiator_positions = self.sh_get_radiator_postions()
-        self.log_input_variables()
+        self.corridor_setpoint: float = self.sh_get_corridor_setpoint()
+        self.wam_errors: list[float] = self.sh_get_wam_errors()
+        self.rads_error: list[float] = self.sh_get_rad_errors()
+        self.warm_flag: bool = self.sh_get_warm_flag()
+        self.freezing_flag: bool = self.sh_get_freezing_flag()
+        self.force_flow_flag: bool = self.sh_get_force_flow_flag()
+        self.radiator_positions: list[float] = self.sh_get_radiator_postions()
 
-        # 30. Calculate offset based on WAM errors
+    def calculate_final_offset(self, off_final: float) -> float:
+        """
+        Calculate the final offset using different system parameters. Handle HW errors.
+        """
+        # Apply WAM errors
         off_final = self.sh_apply_wam_voting(off_final)
-        self.log(f"Offset after wam {off_final}", level="DEBUG")
-        # 40. Apply warm flag
-        off_final = self.sh_apply_warm_flag(off_final)
-        self.log(f"Offset after warmflag {off_final}", level="DEBUG")
-        # 50. Apply weather forecast
-        off_final = self.sh_apply_weather_forecast(off_final)
-        self.log(f"Offset after  weather forecast {off_final}", level="DEBUG")
-        # 60. Check if boiler should be forced to burn
-        # (error on thermostat plus offset smaller than 0 and at least one rads error bigger than FORCE_BURN_THR)
-        off_final = self.sh_check_forced_burn(off_final)
-        self.log(f"Offset after force burn check  {off_final}", level="DEBUG")
-        # 70. Check force flow flag, If in kids room or bedrrom is error > 0, then force flow
-        off_final = self.sh_force_flow_for_safety_prio(off_final)
-        self.log(f"Offset after force flow for safety prio {off_final}", level="DEBUG")
-        # 80. Update TRVs
-        self.sh_update_TRVs()
-        # 90. Update thermostat offset
-        self.sh_update_thermostat(round(off_final, 1))
+        self.log(f"Offset after WAM: {off_final}", level="DEBUG")
 
-    def log_input_variables(self):
+        # Apply warm flag
+        off_final = self.sh_apply_warm_flag(off_final)
+        self.log(f"Offset after warm flag: {off_final}", level="DEBUG")
+
+        # Apply weather forecast
+        off_final = self.sh_apply_weather_forecast(off_final)
+        self.log(f"Offset after weather forecast: {off_final}", level="DEBUG")
+
+        # Check forced burn
+        off_final = self.sh_check_forced_burn(off_final)
+        self.log(f"Offset after forced burn check: {off_final}", level="DEBUG")
+
+        # Check force flow for safety priority
+        off_final = self.sh_force_flow_for_safety_prio(off_final)
+        self.log(
+            f"Offset after force flow for safety priority: {off_final}",
+            level="DEBUG",
+        )
+        return off_final
+
+    def log_input_variables(self) -> None:
+        """
+        Log important variables for debugging purposes. Handle errors in logging (HW Error).
+        """
         variables = [
             "thermostat_setpoint",
             "corridor_setpoint",
@@ -502,7 +506,7 @@ class SmartHeating(hass.Hass):
             float: Updated offset after applying warm flag.
         """
         # Check warm in flag and get offset
-        ret_offset = off_final + self.sh_get_offset_warm_flag(self.warm_flag)
+        ret_offset: float = off_final + self.sh_get_offset_warm_flag(self.warm_flag)
         return ret_offset
 
     def sh_apply_weather_forecast(self, off_final: float) -> float:
@@ -516,7 +520,9 @@ class SmartHeating(hass.Hass):
             float: Updated offset after considering freezing flag.
         """
         # Check freezing forecast
-        ret_offset = off_final + self.sh_get_offset_frezzing_flag(self.freezing_flag)
+        ret_offset: float = off_final + self.sh_get_offset_frezzing_flag(
+            self.freezing_flag
+        )
         return ret_offset
 
     def sh_apply_wam_voting(self, off_final: float) -> float:
@@ -535,70 +541,39 @@ class SmartHeating(hass.Hass):
         return off_final + wam
 
     def sh_update_TRVs(self) -> None:
-        """
-        Update the thermostat radiator valves (TRVs) based on the error and radiator positions.
-        If the error is greater than 0.5 and the radiator position is below a threshold,
-        the preset mode of the radiator is set to 'boost'.
+        """Update TRVs based on errors and radiator positions."""
+        trv_mappings = {
+            ROOM_INDEX_RAD.OFFICE: TRV_INDEX.OFFICE,
+            ROOM_INDEX_RAD.KIDSROOM: TRV_INDEX.KIDSROOM,
+            ROOM_INDEX_RAD.BEDROOM: (TRV_INDEX.BEDROOM_LEFT, TRV_INDEX.BEDROOM_RIGHT),
+            ROOM_INDEX_RAD.GARAGE: TRV_INDEX.GARAGE,
+        }
 
-        Returns:
-            None
-        """
-        # Radiator positions index: Office,KidsRoom,Bedroom1,Bedroom2,garage
-        # Force open if TRV is closed and error is present
-        if self.rads_error[ROOM_INDEX_RAD.OFFICE.value] > 0.5:
-            if (
-                self.radiator_positions[TRV_INDEX.OFFICE.value]
-                < self.radiator_boost_threshold
-            ):
-                self.call_service(
-                    "climate/set_preset_mode",
-                    entity_id="climate.office_TRV",
-                    preset_mode="boost",
-                )
-                self.log("Forcing boost for office", level="DEBUG")
-        if self.rads_error[ROOM_INDEX_RAD.KIDSROOM.value] > 0.5:
-            if (
-                self.radiator_positions[TRV_INDEX.KIDSROOM.value]
-                < self.radiator_boost_threshold
-            ):
-                self.call_service(
-                    "climate/set_preset_mode",
-                    entity_id="climate.kidsroom_TRV",
-                    preset_mode="boost",
-                )
-                self.log("Forcing boost for kidsroom", level="DEBUG")
-        if self.rads_error[ROOM_INDEX_RAD.BEDROOM.value] > 0.5:
-            if (
-                self.radiator_positions[TRV_INDEX.BEDROOM_LEFT.value]
-                < self.radiator_boost_threshold
-            ):
-                self.call_service(
-                    "climate/set_preset_mode",
-                    entity_id="climate.bedRoom_left_TRV",
-                    preset_mode="boost",
-                )
-                self.log("Forcing boost for left bedrom", level="DEBUG")
-            if (
-                self.radiator_positions[TRV_INDEX.BEDROOM_RIGHT.value]
-                < self.radiator_boost_threshold
-            ):
-                self.call_service(
-                    "climate/set_preset_mode",
-                    entity_id="climate.bedRoom_right_TRV",
-                    preset_mode="boost",
-                )
-                self.log("Forcing boost for right bedroom", level="DEBUG")
-        if self.rads_error[ROOM_INDEX_RAD.GARAGE.value] > 0.5:
-            if (
-                self.radiator_positions[TRV_INDEX.GARAGE.value]
-                < self.radiator_boost_threshold
-            ):
-                self.call_service(
-                    "climate/set_preset_mode",
-                    entity_id="climate.garage_TRV",
-                    preset_mode="boost",
-                )
-                self.log("Forcing boost for garage", level="DEBUG")
+        for room, trv in trv_mappings.items():
+            if isinstance(trv, tuple):  # For multiple TRVs like bedroom
+                self.update_multiple_trvs(room, trv)
+            else:
+                self.update_trv(room, trv)
+
+    def update_trv(self, room: ROOM_INDEX_RAD, trv: TRV_INDEX) -> None:
+        """Update a single TRV based on room error and position."""
+        if (
+            self.rads_error[room.value] > 0.5
+            and self.radiator_positions[trv.value] < self.radiator_boost_threshold
+        ):
+            self.call_service(
+                "climate/set_preset_mode",
+                entity_id=f"climate.{trv.name.lower()}_TRV",
+                preset_mode="boost",
+            )
+            self.log(f"Forcing boost for {trv.name.lower()}", level="DEBUG")
+
+    def update_multiple_trvs(
+        self, room: ROOM_INDEX_RAD, trvs: tuple[TRV_INDEX, TRV_INDEX]
+    ) -> None:
+        """Update multiple TRVs (like bedroom with left and right TRVs)."""
+        for trv in trvs:
+            self.update_trv(room, trv)
 
     def sh_update_thermostat(self, off_final: float) -> None:
         """
@@ -628,23 +603,12 @@ class SmartHeating(hass.Hass):
             self.sh_set_thermostat_setpoint(new_thermostat_setpoint)
 
     def sh_get_radiator_postions(self) -> list[float]:
-        """
-        Retrieve the position values of different radiators from the HAL.
-
-        Returns:
-            List[float]: A list containing the position values of radiators in the order defined by the TRV_INDEX enum.
-        """
-        ret_array = [0.0] * TRV_INDEX.NUM_OF_RADIATORS.value
-        ret_array[TRV_INDEX.OFFICE.value] = self.get_state(self.HAL_TRV_office_pos)
-        ret_array[TRV_INDEX.KIDSROOM.value] = self.get_state(self.HAL_TRV_kidsRoom_pos)
-        ret_array[TRV_INDEX.BEDROOM_LEFT.value] = self.get_state(
-            self.HAL_TRV_bedroomLeft_pos
-        )
-        ret_array[TRV_INDEX.BEDROOM_RIGHT.value] = self.get_state(
-            self.HAL_TRV_bedroomRight_pos
-        )
-        ret_array[TRV_INDEX.GARAGE.value] = self.get_state(self.HAL_TRV_garage_pos)
-        return [safe_float_convert(i, DEFAULT_RAD_POS) for i in ret_array]
+        """Retrieve the position values of different radiators from the HAL."""
+        ret_array = [
+            self.get_state(getattr(self, f"HAL_TRV_{trv.name.lower()}_pos"))
+            for trv in TRV_INDEX
+        ]
+        return [safe_float_convert(self, i, DEFAULT_RAD_POS) for i in ret_array]
 
     def sh_wam(self, temperatures: list[float], weights: list[float]) -> float:
         """
@@ -658,13 +622,13 @@ class SmartHeating(hass.Hass):
             float: The calculated weighted arithmetic mean of temperatures.
                     Returns NaN if the lengths of temperatures and weights do not match.
         """
-        mean = nan
-        if len(temperatures) == len(weights):
-            mean = 0
-            for idx, temp in enumerate(temperatures):
-                mean = mean + temp * weights[idx]
-            mean = mean / sum(weights)
-        return mean
+        if len(temperatures) != len(weights):
+            return nan
+
+        total_weighted_temp: float = sum(
+            temp * weight for temp, weight in zip(temperatures, weights)
+        )
+        return total_weighted_temp / sum(weights)
 
     def sh_get_wam_errors(self) -> list[float]:
         """
@@ -673,29 +637,14 @@ class SmartHeating(hass.Hass):
         Returns:
             List[float]: A list of thermostat errors corresponding to different rooms.
         """
-        wam_errors = [0] * ROOM_INDEX_FH.SIZE.value
-        wam_errors[ROOM_INDEX_FH.BATHROOM.value] = self.get_state(
-            self.HAL_bathroom_tError
-        )
-        wam_errors[ROOM_INDEX_FH.CORRIDOR.value] = self.get_state(
-            self.HAL_corridor_tError
-        )
-        wam_errors[ROOM_INDEX_FH.ENTRANCE.value] = self.get_state(
-            self.HAL_entrance_tError
-        )
-        wam_errors[ROOM_INDEX_FH.LIVING_ROOM.value] = self.get_state(
-            self.HAL_livingRomm_tError
-        )
-        wam_errors[ROOM_INDEX_FH.UPPER_BATHROOM.value] = self.get_state(
-            self.HAL_upperBathroom_tError
-        )
-        wam_errors[ROOM_INDEX_FH.UPPER_CORRIDOR.value] = self.get_state(
-            self.HAL_upperCorridor_tError
-        )
-        wam_errors[ROOM_INDEX_FH.WARDROBE.value] = self.get_state(
-            self.HAL_wardrobe_tError
-        )
-        return [safe_float_convert(i, DEFAULT_WAM_ERROR) for i in wam_errors]
+        return [
+            safe_float_convert(
+                self,
+                self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
+                DEFAULT_WAM_ERROR,
+            )
+            for room in ROOM_INDEX_FH
+        ]
 
     def sh_get_rad_errors(self) -> list[float]:
         """
@@ -704,159 +653,176 @@ class SmartHeating(hass.Hass):
         Returns:
             List[float]: A list of radiator errors corresponding to different rooms.
         """
-        rads_errors = [0] * ROOM_INDEX_RAD.NUM_OF_RADIATORS.value
-        rads_errors[ROOM_INDEX_RAD.BEDROOM.value] = self.get_state(
-            self.HAL_bedroom_tError
-        )
-        rads_errors[ROOM_INDEX_RAD.GARAGE.value] = self.get_state(
-            self.HAL_garage_tError
-        )
-        rads_errors[ROOM_INDEX_RAD.KIDSROOM.value] = self.get_state(
-            self.HAL_kidsRoom_tError
-        )
-        rads_errors[ROOM_INDEX_RAD.OFFICE.value] = self.get_state(
-            self.HAL_office_tError
-        )
-        return [safe_float_convert(i, DEAFULT_RAD_ERR) for i in rads_errors]
+        return [
+            safe_float_convert(
+                self,
+                self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
+                DEAFULT_RAD_ERR,
+            )
+            for room in ROOM_INDEX_RAD
+        ]
 
     # endregion
 
     # region HAL opaque functions
-    def sh_get_offset_frezzing_flag(self, freezing_flag: bool) -> int:
+
+    def sh_get_value(self, hal_entity: str, default_value: float) -> float:
         """
-        Get the offset for the freezing flag.
+        Generic method to retrieve a state value from the HAL and safely convert it to float.
 
         Parameters:
-            freezing_flag (bool): The freezing flag. True if freezing, False otherwise.
+            hal_entity (str): The entity ID for the state in the HAL.
+            default_value (float): The default value to return if the state is None or conversion fails.
 
         Returns:
-            int: The freezing flag offset if freezing_flag is True, otherwise 0.
+            float: The state value as a float or the default value if conversion fails.
         """
-        if freezing_flag:
-            return self.frezzying_flag_offset
-        return 0
+        return safe_float_convert(self, self.get_state(hal_entity), default_value)
 
-    def sh_get_offset_warm_flag(self, warm_flag: str) -> int:
+    def sh_get_flag_value(self, flag_entity: str) -> bool:
         """
-        Get the offset for the warm flag.
+        Retrieve a boolean flag from the HAL.
 
         Parameters:
-            warm_flag (str): The warm flag. 'on' if warm, 'off' otherwise.
+            flag_entity (str): The entity ID for the flag in the HAL.
 
         Returns:
-            int: The warm flag offset if warm_flag is 'on', otherwise 0.
+            bool: True if the flag is 'on', False otherwise.
         """
-        if warm_flag == "on":
-            return self.warm_flag_offset
-        return 0
+        return self.get_state(flag_entity) == "on"
+
+    def sh_get_offset_flag(self, flag_entity: str, offset_value: int) -> int:
+        """
+        Retrieve the offset for a flag.
+
+        Parameters:
+            flag_entity (str): The entity ID for the flag in the HAL.
+            offset_value (int): The offset value to return if the flag is 'on'.
+
+        Returns:
+            int: The offset if the flag is 'on', otherwise 0.
+        """
+        return offset_value if self.sh_get_flag_value(flag_entity) else 0
+
+    def sh_set_value(self, entity: str, value: float, min_value: float = None) -> None:
+        """
+        Generic method to set a value in the HAL.
+
+        Parameters:
+            entity (str): The entity ID in the HAL.
+            value (float): The value to set.
+            min_value (float, optional): If provided, ensures the value is at least this value.
+        """
+        if min_value is not None:
+            value = max(min_value, value)
+
+        self.call_service("number/set_value", entity_id=entity, value=value)
+
+    def sh_get_offset_frezzing_flag(self) -> int:
+        """Get the offset for the freezing flag."""
+        return self.sh_get_offset_flag(
+            self.HAL_frezzing_flag, self.frezzying_flag_offset
+        )
+
+    def sh_get_offset_warm_flag(self) -> int:
+        """Get the offset for the warm flag."""
+        return self.sh_get_offset_flag(self.HAL_makeWarm_flag, self.warm_flag_offset)
 
     def sh_get_corridor_setpoint(self) -> float:
-        """
-        Retrieve the corridor setpoint from the HAL.
-
-        Returns:
-            float: The current corridor setpoint.
-        """
-        return safe_float_convert(
-            self.get_state(self.HAL_corridor_setpoint), DEFAULT_COR_SETPOINT
-        )
-
-    def sh_get_thermostat_setpoint(self) -> float:
-        """
-        Retrieve the thermostat setpoint from the HAL.
-
-        Returns:
-            float: The current thermostat setpoint.
-        """
-        return safe_float_convert(
-            self.get_state(self.HAL_thermostat_setpoint), DEFAULT_THERMOSTAT_SETPOINT
-        )
+        """Retrieve the corridor setpoint from the HAL."""
+        return self.sh_get_value(self.HAL_corridor_setpoint, DEFAULT_COR_SETPOINT)
 
     def sh_set_thermostat_setpoint(self, value: float) -> None:
-        """
-        Set a new thermostat setpoint in the HAL.
+        """Set a new thermostat setpoint in the HAL, ensuring it’s at least 15.0."""
+        self.sh_set_value(self.HAL_thermostat_setpoint, value, min_value=15.0)
 
-        Parameters:
-            value (float): The new setpoint value to be set. The function enforces a minimum value of 15.0.
+    def sh_set_internal_wam_value(self, value: float) -> None:
+        """Set the internal WAM value in the HAL."""
+        self.sh_set_value(self.HAL_wam_value, value)
 
-        Returns:
-            None
-        """
-        self.call_service(
-            "number/set_value",
-            entity_id=self.HAL_thermostat_setpoint,
-            value=max(15.0, value),
-        )
+    def sh_set_internal_setpoint_offset(self, value: float) -> None:
+        """Set the internal setpoint offset in the HAL."""
+        self.sh_set_value(self.HAL_setpoint_offset, value)
 
-    def sh_set_internal_wam_value(self, value):
-        entity = self.get_entity(self.HAL_wam_value)
-        entity.call_service("set_value", value=value)
+    def sh_get_freezing_flag(self) -> bool:
+        """Retrieve the state of the freezing flag."""
+        return self.sh_get_flag_value(self.HAL_frezzing_flag)
 
-    def sh_set_internal_setpoint_offset(self, value):
-        entity = self.get_entity(self.HAL_setpoint_offset)
-        entity.call_service("set_value", value=value)
+    def sh_get_warm_flag(self) -> bool:
+        """Retrieve the state of the warm flag."""
+        return self.sh_get_flag_value(self.HAL_makeWarm_flag)
 
-    def sh_get_thermostat_error(self) -> float:
-        """
-        Retrieve the current thermostat error from the HAL.
-
-        Returns:
-            float: The current thermostat error.
-        """
-        return safe_float_convert(
-            self.get_state(self.HAL_corridor_tError), DEFAULT_COR_TERROR
-        )
-
-    def sh_get_freezing_flag(self) -> str:
-        """
-        Retrieve the current state of the freezing flag from the HAL.
-
-        Returns:
-            bool: The state of the freezing flag.
-        """
-        return self.get_state(self.HAL_frezzing_flag)
-
-    def sh_get_warm_flag(self) -> str:
-        """
-        Retrieve the current state of the warm flag from the HAL.
-
-        Returns:
-            str: The state of the warm flag ('on' or 'off').
-        """
-        return self.get_state(self.HAL_makeWarm_flag)
-
-    def sh_get_force_flow_flag(self) -> str:
-        """
-        Retrieve the current state of the force flow flag from the HAL.
-
-        Returns:
-            str: The state of the force flow flag ('on' or 'off').
-        """
-        return self.get_state(self.HAL_forceFlow_flag)
+    def sh_get_force_flow_flag(self) -> bool:
+        """Retrieve the state of the force flow flag."""
+        return self.sh_get_flag_value(self.HAL_forceFlow_flag)
 
 
 # endregion
 
 
 # region utilites
-def safe_float_convert(value: str, default: float = 0.0) -> float:
+def safe_float_convert(hass_app, value: str, default: float = 0.0) -> float:
     """
     Attempts to convert a string to a float. If the conversion fails,
-    prints an error message and traceback to stdout, then returns a default value.
+    logs an error and returns a default value.
 
     Args:
-    value (str): The string value to be converted to float.
-    default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
+        value (str): The string value to be converted to float.
+        default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
 
     Returns:
-    float: The converted float value or the default value if conversion fails.
+        float: The converted float value or the default value if conversion fails.
     """
     try:
         return float(value)
-    except TypeError as e:
-        print(f"An error occurred: {e}")
-        traceback.print_exc()  # Prints the full traceback to stdout
+    except (TypeError, ValueError) as e:
+        hass_app.log(
+            f"Conversion error: Could not convert '{value}' to float: {str(e)}",
+            level="ERROR",
+        )
+        hass_app.handle_hw_error(
+            f"Failed to convert value '{value}' to float, returning default {default}."
+        )
         return default
+
+
+# endregion
+
+
+# region ErrorHandling
+def handle_sw_error(self, message: str, exception: Exception) -> None:
+    """
+    Handle software errors by logging the exception and stopping the app.
+
+    Parameters:
+        message (str): Custom error message to be logged.
+        exception (Exception): The raised exception object.
+
+    Raises:
+        Exception: Re-raises the exception to fault hard.
+    """
+    self.log(f"SW ERROR: {message}: {str(exception)}\n{traceback.format_exc()}", level="ERROR")
+    raise exception
+
+
+def handle_hw_error(self, message: str) -> None:
+    """
+    Handle system/hardware errors by logging the error and entering a safe state.
+
+    Parameters:
+        message (str): Custom error message to be logged.
+    """
+    self.log(f"HW ERROR: {message}", level="ERROR")
+    self.enter_safe_state()
+
+
+def enter_safe_state(self) -> None:
+    """
+    Placeholder method to enter a safe state.
+    Add logic here to stop critical processes and prevent damage.
+    """
+    # Implementation to stop critical processes
+    pass  # For now, this is a placeholder. In reality, you'd implement specific safe state actions.
 
 
 # endregion

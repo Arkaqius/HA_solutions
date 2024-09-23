@@ -84,6 +84,10 @@ class NotificationManager:
             )
         elif fault_status == FaultState.CLEARED:
             self._process_cleared_fault(level, message, fault)
+            self.hass_app.log(
+                f"Notification cleared for {fault} was process with  message {message}",
+                level="DEBUG",
+            )
         else:
             self.hass_app.log(f"Invalid fault status '{fault_status}'", level="WARNING")
 
@@ -120,6 +124,10 @@ class NotificationManager:
         dashboard_entity = self.notification_config.get(f"dashboard_{level}_entity")
         if dashboard_entity:
             self.hass_app.set_state(dashboard_entity, state=message)
+            self.hass_app.log(
+                f"Dashboard entity {dashboard_entity} was changed to {message}",
+                level="DEBUG",
+            )
         else:
             self.hass_app.log(
                 f"No dashboard entity configured for level '{level}'", level="WARNING"
@@ -143,6 +151,10 @@ class NotificationManager:
             entity_id=self.notification_config["light_entity"],
             color_name="red",
         )
+        self.hass_app.log(
+                f"Performed _notify_level_1_additional",
+                level="DEBUG",
+            )
 
     def _notify_level_2_additional(self) -> None:
         """
@@ -158,6 +170,10 @@ class NotificationManager:
             entity_id=self.notification_config["light_entity"],
             color_name="yellow",
         )
+        self.hass_app.log(
+                f"Performed _notify_level_2_additional",
+                level="DEBUG",
+            )
 
     def _prepare_notification_data(
         self, level: int, message: str, fault_tag: str
