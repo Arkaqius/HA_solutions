@@ -10,9 +10,9 @@ HeaterController:
     corridor: 2
     bathroom: 2
     entrance: 1 
-    upperCorridor: 2
+    upper_corridor: 2
     wardrobe: 1
-    upperBathroom: 3
+    upper_bathroom: 3
     
   # Radiator Factors
   rads_factors:

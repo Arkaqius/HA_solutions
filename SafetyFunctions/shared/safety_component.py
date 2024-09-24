@@ -30,7 +30,7 @@ from typing import (
     Callable,
     Optional,
     NamedTuple,
-    Literal
+    Literal,
 )
 from enum import Enum
 
@@ -261,7 +261,9 @@ class SafetyComponent:
         """
         if pr_test:
             new_counter: int = min(debounce_limit, current_counter + 1)
-            action: Literal[DebounceAction.symptom_SET] | Literal[DebounceAction.NO_ACTION] = (
+            action: (
+                Literal[DebounceAction.symptom_SET] | Literal[DebounceAction.NO_ACTION]
+            ) = (
                 DebounceAction.symptom_SET
                 if new_counter >= debounce_limit
                 else DebounceAction.NO_ACTION
@@ -436,7 +438,7 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
             sm_return = func(self, sm, entities_changes)
 
             # Perform SM logic
-            new_debounce,    = self.process_symptom(
+            new_debounce: tuple[int, bool] = self.process_symptom(
                 symptom_id=sm.name,
                 current_counter=current_state.debounce,
                 pr_test=sm_return.result,
@@ -445,9 +447,9 @@ def safety_mechanism_decorator(func: Callable) -> Callable:
 
             # Update the debounce state with the new values
             self.debounce_states[sm.name] = DebounceState(
-                debounce=new_debounce, force_sm=force_sm
+                debounce=new_debounce[0], force_sm=new_debounce[1]
             )
-            if force_sm:
+            if new_debounce[1]:
                 self.hass_app.log(
                     f"Scheduling {func.__name__} to run again in 5 seconds.",
                     level="DEBUG",

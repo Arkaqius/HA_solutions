@@ -609,7 +609,7 @@ class SmartHeating(hass.Hass):
             self.get_state(getattr(self, f"HAL_TRV_{trv.name.lower()}_pos"))
             for trv in TRV_INDEX
         ]
-        return [safe_float_convert(self, i, DEFAULT_RAD_POS) for i in ret_array]
+        return [self.safe_float_convert(self, i, DEFAULT_RAD_POS) for i in ret_array]
 
     def sh_wam(self, temperatures: list[float], weights: list[float]) -> float:
         """
@@ -639,7 +639,7 @@ class SmartHeating(hass.Hass):
             List[float]: A list of thermostat errors corresponding to different rooms.
         """
         return [
-            safe_float_convert(
+            self.safe_float_convert(
                 self,
                 self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
                 DEFAULT_WAM_ERROR,
@@ -655,7 +655,7 @@ class SmartHeating(hass.Hass):
             List[float]: A list of radiator errors corresponding to different rooms.
         """
         return [
-            safe_float_convert(
+            self.safe_float_convert(
                 self,
                 self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
                 DEAFULT_RAD_ERR,
@@ -678,7 +678,7 @@ class SmartHeating(hass.Hass):
         Returns:
             float: The state value as a float or the default value if conversion fails.
         """
-        return safe_float_convert(self, self.get_state(hal_entity), default_value)
+        return self.safe_float_convert(self, self.get_state(hal_entity), default_value)
 
     def sh_get_flag_value(self, flag_entity: str) -> bool:
         """
@@ -733,6 +733,10 @@ class SmartHeating(hass.Hass):
         """Retrieve the corridor setpoint from the HAL."""
         return self.sh_get_value(self.HAL_corridor_setpoint, DEFAULT_COR_SETPOINT)
 
+    def sh_get_thermostat_setpoint(self) -> float:
+        """Retrieve the corridor setpoint from the HAL."""
+        return self.sh_get_value(self.HAL_thermostat_setpoint, DEFAULT_COR_SETPOINT)
+
     def sh_set_thermostat_setpoint(self, value: float) -> None:
         """Set a new thermostat setpoint in the HAL, ensuring it’s at least 15.0."""
         self.sh_set_value(self.HAL_thermostat_setpoint, value, min_value=15.0)
@@ -757,73 +761,76 @@ class SmartHeating(hass.Hass):
         """Retrieve the state of the force flow flag."""
         return self.sh_get_flag_value(self.HAL_forceFlow_flag)
 
+    # endregion
 
-# endregion
+    # region utilites
+    def safe_float_convert(hass_app, value: str, default: float = 0.0) -> float:
+        """
+        Attempts to convert a string to a float. If the conversion fails,
+        logs a warning and returns a default value, or raises a hardware error if no valid default is provided.
 
+        Args:
+            value (str): The string value to be converted to float.
+            default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
 
-# region utilites
-def safe_float_convert(hass_app, value: str, default: float = 0.0) -> float:
-    """
-    Attempts to convert a string to a float. If the conversion fails,
-    logs an error and returns a default value.
+        Returns:
+            float: The converted float value or the default value if conversion fails.
+        """
+        try:
+            return float(value)
+        except (TypeError, ValueError) as e:
+            if default != 0.0:
+                hass_app.log(
+                    f"Conversion warning: Could not convert '{value}' to float. Returning default value {default}: {str(e)}",
+                    level="WARNING",
+                )
+                return default
+            else:
+                hass_app.log(
+                    f"Conversion error: Could not convert '{value}' to float: {str(e)}",
+                    level="ERROR",
+                )
+                hass_app.handle_hw_error(
+                    f"Failed to convert value '{value}' to float, no valid default provided. Raising hardware fault."
+                )
+                return default  # Default remains 0.0, but error is raised
 
-    Args:
-        value (str): The string value to be converted to float.
-        default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
+    # endregion
 
-    Returns:
-        float: The converted float value or the default value if conversion fails.
-    """
-    try:
-        return float(value)
-    except (TypeError, ValueError) as e:
-        hass_app.log(
-            f"Conversion error: Could not convert '{value}' to float: {str(e)}",
+    # region ErrorHandling
+    def handle_sw_error(self, message: str, exception: Exception) -> None:
+        """
+        Handle software errors by logging the exception and stopping the app.
+
+        Parameters:
+            message (str): Custom error message to be logged.
+            exception (Exception): The raised exception object.
+
+        Raises:
+            Exception: Re-raises the exception to fault hard.
+        """
+        self.log(
+            f"SW ERROR: {message}: {str(exception)}\n{traceback.format_exc()}",
             level="ERROR",
         )
-        hass_app.handle_hw_error(
-            f"Failed to convert value '{value}' to float, returning default {default}."
-        )
-        return default
+        raise exception
 
+    def handle_hw_error(self, message: str) -> None:
+        """
+        Handle system/hardware errors by logging the error and entering a safe state.
 
-# endregion
+        Parameters:
+            message (str): Custom error message to be logged.
+        """
+        self.log(f"HW ERROR: {message}", level="ERROR")
+        self.enter_safe_state()
 
+    def enter_safe_state(self) -> None:
+        """
+        Placeholder method to enter a safe state.
+        Add logic here to stop critical processes and prevent damage.
+        """
+        # Implementation to stop critical processes
+        pass  # For now, this is a placeholder. In reality, you'd implement specific safe state actions.
 
-# region ErrorHandling
-def handle_sw_error(self, message: str, exception: Exception) -> None:
-    """
-    Handle software errors by logging the exception and stopping the app.
-
-    Parameters:
-        message (str): Custom error message to be logged.
-        exception (Exception): The raised exception object.
-
-    Raises:
-        Exception: Re-raises the exception to fault hard.
-    """
-    self.log(f"SW ERROR: {message}: {str(exception)}\n{traceback.format_exc()}", level="ERROR")
-    raise exception
-
-
-def handle_hw_error(self, message: str) -> None:
-    """
-    Handle system/hardware errors by logging the error and entering a safe state.
-
-    Parameters:
-        message (str): Custom error message to be logged.
-    """
-    self.log(f"HW ERROR: {message}", level="ERROR")
-    self.enter_safe_state()
-
-
-def enter_safe_state(self) -> None:
-    """
-    Placeholder method to enter a safe state.
-    Add logic here to stop critical processes and prevent damage.
-    """
-    # Implementation to stop critical processes
-    pass  # For now, this is a placeholder. In reality, you'd implement specific safe state actions.
-
-
-# endregion
+    # endregion
