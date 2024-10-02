@@ -1,4 +1,4 @@
-from typing import Any, NamedTuple
+from typing import Any
 import appdaemon.plugins.hass.hassapi as hass
 import datetime
 from collections import namedtuple
@@ -214,8 +214,7 @@ class DoorController(hass.Hass):
         self.log("Pedestrian access requested (input_button)...")
         self.activate_relay()
         self.run_in(self.activate_relay, self.pedestrian_open_timeout)
-        self.last_command_by_app = True
-
+        self.last_command_by_app = Truef
     def activate_relay(self, _: Any = None) -> None:
         """
         Activate the relay to move the door and set the last action time.

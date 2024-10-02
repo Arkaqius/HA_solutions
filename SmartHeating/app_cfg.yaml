@@ -2,7 +2,7 @@ HeaterController:
   # App definitions
   module: SmartHeating
   class: SmartHeating
-  log_level: DEBUG
+  log_level: INFO
 
   # WAM Factors
   wam_factors:
