@@ -285,60 +285,132 @@ class RecoveryManager:
         """
         Executes the appropriate recovery action for the given symptom.
 
-        This method triggers the recovery process for a given symptom by invoking the corresponding recovery action.
-        It handles state checks, executes the recovery action, and updates the system state accordingly.
-
         Args:
-            symptom (symptom): The symptom object representing the fault to recover from.
+            symptom (Symptom): The symptom object representing the fault to recover from.
         """
-        if symptom.state == FaultState.CLEARED:
-            self._recovery_clear(symptom)
-        else:
-            # Check if rec actions exist
-            if symptom.name in self.recovery_actions:
-                # Run recovery action to get potential changes
-                recovery_result: Optional[RecoveryResult] = self.recovery_actions[
-                    symptom.name
-                ].rec_fun(
-                    self.hass_app,
-                    symptom,
-                    self.common_entities,
-                    **self.recovery_actions[symptom.name].params,
-                )
-                if recovery_result:
-                    # Check if existing rec action can cause another faults
-                    if not self._run_dry_test(
-                        symptom.name, recovery_result.changed_sensors
-                    ):
-                        # Check if existing rec action is not in conflicts with different one
-                        if not self._isRecoveryConflict(symptom):
-                            self._perform_recovery(
-                                symptom,
-                                recovery_result.notifications,
-                                recovery_result.changed_actuators,
-                            )
-                            self._listen_to_changes(
-                                symptom,    
-                                recovery_result.changed_sensors
-                                | recovery_result.changed_actuators,
-                            )
-                        else:
-                            self.hass_app.log(
-                                f"Recovery conflict for {symptom.name}", level="DEBUG"
-                            )
-                    else:
-                        self.hass_app.log(
-                            "Recovery will raise another fault.", level="DEBUG"
-                        )
-                else:
-                    self.hass_app.log(
-                        f"No changes for recovery of {symptom.name}", level="DEBUG"
-                    )
+        self.hass_app.log(
+            f"Starting recovery process for symptom: {symptom.name}", level="DEBUG"
+        )
 
-            else:
-                self.hass_app.log(
-                    f"No recovery actions for {symptom.name}", level="DEBUG"
-                )
+        if symptom.state == FaultState.CLEARED:
+            self.hass_app.log(
+                f"Symptom {symptom.name} is in CLEARED state. Handling cleared state.",
+                level="DEBUG",
+            )
+            self._handle_cleared_state(symptom)
+            return
+
+        potential_recovery_action: RecoveryResult | None = self._get_potential_recovery_action(symptom)
+        if not potential_recovery_action:
+            return
+
+        if not self._validate_recovery_action(symptom, potential_recovery_action):
+            return
+
+        self.hass_app.log(
+            f"Validation successful. Executing recovery action for symptom: {symptom.name}",
+            level="DEBUG",
+        )
+        self._execute_recovery(symptom, potential_recovery_action)
+        self.hass_app.log(
+            f"Recovery process completed for symptom: {symptom.name}", level="DEBUG"
+        )
+
+    def _handle_cleared_state(self, symptom: Symptom) -> None:
+        """Handles the cleared state of a symptom by clearing recovery actions."""
+        self.hass_app.log(
+            f"Clearing recovery actions for symptom: {symptom.name}", level="DEBUG"
+        )
+        self._recovery_clear(symptom)
+
+    def _get_potential_recovery_action(
+        self, symptom: Symptom
+    ) -> Optional[RecoveryResult]:
+        """Retrieves the potential recovery action for a given symptom."""
+        if symptom.name not in self.recovery_actions:
+            self.hass_app.log(
+                f"No recovery actions defined for symptom: {symptom.name}",
+                level="DEBUG",
+            )
+            return None
+
+        self.hass_app.log(
+            f"Retrieving potential recovery action for symptom: {symptom.name}",
+            level="DEBUG",
+        )
+        potential_recovery_action: RecoveryAction = self.recovery_actions[symptom.name]
+        potential_recovery_result: Optional[RecoveryResult] = (
+            potential_recovery_action.rec_fun(
+                self.hass_app,
+                symptom,
+                self.common_entities,
+                **potential_recovery_action.params,
+            )
+        )
+
+        if not potential_recovery_result:
+            self.hass_app.log(
+                f"No changes determined for recovery of symptom: {symptom.name}",
+                level="DEBUG",
+            )
+        else:
+            self.hass_app.log(
+                f"Potential recovery result obtained for symptom: {symptom.name}",
+                level="DEBUG",
+            )
+
+        return potential_recovery_result
+
+    def _validate_recovery_action(
+        self, symptom: Symptom, recovery_result: RecoveryResult
+    ) -> bool:
+        """Validates if the recovery action can be safely executed without conflicts."""
+        self.hass_app.log(
+            f"Validating potential recovery action for symptom: {symptom.name}",
+            level="DEBUG",
+        )
+
+        if self._run_dry_test(symptom.name, recovery_result.changed_sensors):
+            self.hass_app.log(
+                f"Recovery action for symptom {symptom.name} will trigger another fault. Aborting recovery.",
+                level="DEBUG",
+            )
+            return False
+
+        if self._isRecoveryConflict(symptom):
+            self.hass_app.log(
+                f"Recovery action for symptom {symptom.name} conflicts with existing faults. Aborting recovery.",
+                level="DEBUG",
+            )
+            return False
+
+        self.hass_app.log(
+            f"Recovery action for symptom {symptom.name} validated successfully.",
+            level="DEBUG",
+        )
+        return True
+
+    def _execute_recovery(
+        self, symptom: Symptom, recovery_result: RecoveryResult
+    ) -> None:
+        """Executes the recovery action for a given symptom."""
+        self.hass_app.log(
+            f"Executing recovery for symptom: {symptom.name}", level="DEBUG"
+        )
+        self._perform_recovery(
+            symptom,
+            recovery_result.notifications,
+            recovery_result.changed_actuators,
+        )
+        self.hass_app.log(
+            f"Recovery performed for symptom: {symptom.name}. Setting up listeners for changes.",
+            level="DEBUG",
+        )
+        self._listen_to_changes(
+            symptom,
+            recovery_result.changed_sensors | recovery_result.changed_actuators,
+        )
+        self.hass_app.log(f"Listeners set for symptom: {symptom.name}", level="DEBUG")
 
     def _recovery_clear(self, symptom: Symptom) -> None:
         """
@@ -372,9 +444,7 @@ class RecoveryManager:
             entities_changes (dict): A dictionary mapping entity names to their new values to monitor.
         """
         for name in entities_changes:
-            self.hass_app.listen_state(
-                self._recovery_performed, name, symptom=symptom
-            )
+            self.hass_app.listen_state(self._recovery_performed, name, symptom=symptom)
 
     def _recovery_performed(
         self, _: Any, __: Any, ___: Any, ____: Any, cb_args: dict
