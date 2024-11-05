@@ -164,19 +164,24 @@ class RecoveryManager:
         Args:
             matching_actions (list[str]): A list of matching recovery action names.
             rec_fault_prio (int): The priority of the recovery fault.
-            symptom (symptom): The symptom object representing the fault to check for conflicts.
+            symptom (Symptom): The symptom object representing the fault to check for conflicts.
 
         Returns:
             bool: True if a conflict exists, False otherwise.
         """
         for found_symptom_name in matching_actions:
+            # Skip the current symptom to avoid self-comparison
+            if found_symptom_name == symptom.name:
+                continue
+
             found_symptom: Symptom = self.fm.symptoms[found_symptom_name]
             if found_symptom:
                 found_fault: Fault | None = self.fm.found_mapped_fault(
-                    symptom.name, symptom.sm_name
+                    found_symptom.name, found_symptom.sm_name
                 )
                 if found_fault and found_fault.priority > rec_fault_prio:
                     return True
+
         return False
 
     def _perform_recovery(
@@ -252,7 +257,7 @@ class RecoveryManager:
         sensor_value: str = str(recovery.current_status.name)
         self.hass_app.set_state(sensor_name, state=sensor_value)
 
-    def _run_dry_test(
+    def _is_dry_test_failed(
         self, prefaul_name: str, entities_changes: dict[str, str]
     ) -> bool:
         """
@@ -370,7 +375,7 @@ class RecoveryManager:
             level="DEBUG",
         )
 
-        if self._run_dry_test(symptom.name, recovery_result.changed_sensors):
+        if self._is_dry_test_failed(symptom.name, recovery_result.changed_sensors):
             self.hass_app.log(
                 f"Recovery action for symptom {symptom.name} will trigger another fault. Aborting recovery.",
                 level="DEBUG",
