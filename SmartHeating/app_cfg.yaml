@@ -6,7 +6,7 @@ HeaterController:
 
   # WAM Factors
   wam_factors:
-    living_room: 2
+    livingroom: 2
     corridor: 2
     bathroom: 2
     entrance: 1 
@@ -52,7 +52,7 @@ HeaterController:
     office_pos: 'sensor.office_trv_position'
     kidsRoom_pos: 'sensor.kidsroom_trv_position'
   HAL_output:
-    thermostat_setpoint: 'number.thermostat_hc1_manual_temperature'
+    thermostat_setpoint: 'number.thermostat_hc1_manual_temperature_2'
     wam_value: 'input_number.sh_wam_offset'
     setpoint_offset: 'input_number.sh_setpoint_offset'
   HAL_inputs:

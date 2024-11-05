@@ -4,6 +4,7 @@
 from typing import Iterator, List
 import pytest
 from shared.types_common import FaultState, SMState
+from unittest.mock import Mock
 from .fixtures.hass_fixture import (
     mock_get_state,
     MockBehavior,
@@ -17,8 +18,16 @@ DEBOUNCE_LIMIT = 1
 @pytest.mark.parametrize(
     "temperature, expected_symptom_state, expected_fault_state",
     [
-        (["35", "36", "37", "8", "9"], FaultState.CLEARED, FaultState.CLEARED),
-        (["5", "6", "7", "8", "9"], FaultState.SET, FaultState.SET),
+        (
+            ["35", "36", "37", "8", "9"],
+            FaultState.CLEARED,
+            FaultState.CLEARED,
+        ),
+        (
+            ["5", "6", "7", "8", "9"],
+            FaultState.SET,
+            FaultState.SET,
+        ),
     ],
 )
 def test_temp_comp_smtc1(
@@ -37,14 +46,16 @@ def test_temp_comp_smtc1(
     app_instance, _, __, ___, mock_behaviors_default = (
         mocked_hass_app_with_temp_component
     )
-    
-    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [MockBehavior("sensor.office_temperature", iter(temperature))]
+
+    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [
+        MockBehavior("sensor.office_temperature", iter(temperature))
+    ]
     mock_behaviors_default: List[MockBehavior] = update_mocked_get_state(
         mock_behaviors_default, test_mock_behaviours
     )
-    
+
     app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
-        entity_id,mock_behaviors_default 
+        entity_id, mock_behaviors_default
     )
     app_instance.initialize()
 
@@ -60,7 +71,6 @@ def test_temp_comp_smtc1(
         == expected_symptom_state
     )
     assert app_instance.fm.check_fault("RiskyTemperature") == expected_fault_state
-    
 
 
 def test_symptom_set_when_temp_NOT_below_threshold(mocked_hass_app_with_temp_component):
@@ -119,12 +129,14 @@ def test_symptom_cleared_when_temp_above_threshold(
         mocked_hass_app_with_temp_component
     )
     temperature_sequence = ["20.0", "21.0", "22.0", "22.0"]
-    
-    test_mock_behaviours = [MockBehavior("sensor.office_temperature", iter(temperature_sequence))]
+
+    test_mock_behaviours = [
+        MockBehavior("sensor.office_temperature", iter(temperature_sequence))
+    ]
     mock_behaviors_default: List[MockBehavior] = update_mocked_get_state(
         mock_behaviors_default, test_mock_behaviours
     )
-    
+
     app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
         entity_id,
         mock_behaviors_default,
@@ -160,7 +172,9 @@ def test_symptom_cleared_when_temp_above_threshold_less_than_debounce(
     )
     temperature_sequence = ["20.0", "21.0", "22.0", "22.0"]
 
-    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [MockBehavior("sensor.office_temperature", iter(temperature_sequence))]
+    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [
+        MockBehavior("sensor.office_temperature", iter(temperature_sequence))
+    ]
     mock_behaviors_default: List[MockBehavior] = update_mocked_get_state(
         mock_behaviors_default, test_mock_behaviours
     )
@@ -288,11 +302,13 @@ def test_safety_mechanism_disabled_does_not_trigger_symptom(
     )
     temperature_sequence = ["15.0"]
 
-    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [MockBehavior("sensor.office_temperature", iter(temperature_sequence))]
+    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [
+        MockBehavior("sensor.office_temperature", iter(temperature_sequence))
+    ]
     mock_behaviors_default: List[MockBehavior] = update_mocked_get_state(
         mock_behaviors_default, test_mock_behaviours
     )
-    
+
     app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
         entity_id,
         mock_behaviors_default,
@@ -342,53 +358,3 @@ def test_initialize_dicts_symptom(mocked_hass_app_with_temp_component):
 
     notification = app_instance.notification_cfg
     assert notification["light_entity"] == "light.warning_light"
-
-
-@pytest.mark.parametrize(
-    "temperature, expected_symptom_state, expected_fault_state",
-    [
-        (["35", "36", "37", "8", "9"], FaultState.CLEARED, FaultState.CLEARED),
-        (["5", "6", "7", "8", "9"], FaultState.SET, FaultState.SET),
-    ],
-)
-def test_temp_comp_notification(
-    mocked_hass_app_with_temp_component,
-    temperature,
-    expected_symptom_state,
-    expected_fault_state,
-):
-    """
-    Test Case: Verify symptom and fault states based on temperature input.
-
-    Scenario:
-        - Input: Temperature sequences with varying levels.
-        - Expected Result: Symptom and fault states should match expected values based on temperature.
-    """
-    app_instance, _, __, ___, mock_behaviors_default = (
-        mocked_hass_app_with_temp_component
-    )
-    
-    test_mock_behaviours: List[MockBehavior[str, Iterator[str]]] = [MockBehavior("sensor.office_temperature", iter(temperature))]
-    mock_behaviors_default: List[MockBehavior] = update_mocked_get_state(
-        mock_behaviors_default, test_mock_behaviours
-    )
-    
-    app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
-        entity_id,mock_behaviors_default 
-    )
-    app_instance.initialize()
-
-    for _ in range(5):
-        app_instance.sm_modules["TemperatureComponent"].sm_tc_1(
-            app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
-                "RiskyTemperatureOffice"
-            ]
-        )
-
-    assert (
-        app_instance.fm.check_symptom("RiskyTemperatureOffice")
-        == expected_symptom_state
-    )
-    assert app_instance.fm.check_fault("RiskyTemperature") == expected_fault_state
-    
-    #Check notification

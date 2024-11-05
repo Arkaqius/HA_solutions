@@ -4,9 +4,11 @@ Smart heating AppDeamon application.
 
 import datetime
 import traceback
+from typing import Optional
 from math import nan
 from enum import Enum
 import appdaemon.plugins.hass.hassapi as hass
+
 
 __author__ = "Arkaqius"
 """
@@ -15,10 +17,8 @@ Offset bigger than 0 -> bigger flow
 """
 
 # DEFAULT VALUES FOR FLOAT()
-DEFAULT_COR_SETPOINT = 20.00
 DEFAULT_COR_TERROR = 0.0
 DEFAULT_RAD_POS = 50.0
-DEFAULT_THERMOSTAT_SETPOINT = 20.00
 DEFAULT_WAM_ERROR = 0.0
 DEAFULT_RAD_ERR = 0.0
 
@@ -29,14 +29,13 @@ class ROOM_INDEX_FH(Enum):
     Floor heating room index enumeration.
     """
 
-    LIVING_ROOM = 0
+    LIVINGROOM = 0
     CORRIDOR = 1
     BATHROOM = 2
     ENTRANCE = 3
     UPPER_CORRIDOR = 4
     WARDROBE = 5
     UPPER_BATHROOM = 6
-    SIZE = 7
 
 
 class ROOM_INDEX_RAD(Enum):
@@ -48,7 +47,6 @@ class ROOM_INDEX_RAD(Enum):
     KIDSROOM = 1
     BEDROOM = 2
     GARAGE = 3
-    NUM_OF_RADIATORS = 4
 
 
 class TRV_INDEX(Enum):
@@ -61,7 +59,6 @@ class TRV_INDEX(Enum):
     BEDROOM_LEFT = 2
     BEDROOM_RIGHT = 3
     GARAGE = 4
-    NUM_OF_TRV = 5
 
 
 # endregion
@@ -147,25 +144,25 @@ class SmartHeating(hass.Hass):
             "HAL_TRV_pos",
             [
                 ("garage_pos", "HAL_TRV_garage_pos"),
-                ("bedroomLeft_pos", "HAL_TRV_bedroomLeft_pos"),
-                ("bedroomRight_pos", "HAL_TRV_bedroomRight_pos"),
+                ("bedroomLeft_pos", "HAL_TRV_bedroom_left_pos"),
+                ("bedroomRight_pos", "HAL_TRV_bedroom_right_pos"),
                 ("office_pos", "HAL_TRV_office_pos"),
-                ("kidsRoom_pos", "HAL_TRV_kidsRoom_pos"),
+                ("kidsRoom_pos", "HAL_TRV_kidsroom_pos"),
             ],
         )
 
         self.load_hal_mappings(
             "HAL_errors",
             [
-                ("livingRoom_error", "HAL_livingRomm_tError"),
+                ("livingRoom_error", "HAL_livingroom_tError"),
                 ("corridor_error", "HAL_corridor_tError"),
                 ("bathroom_error", "HAL_bathroom_tError"),
                 ("entrance_error", "HAL_entrance_tError"),
-                ("uppercorridor_error", "HAL_upperCorridor_tError"),
+                ("uppercorridor_error", "HAL_upper_corridor_tError"),
                 ("wardrobe_error", "HAL_wardrobe_tError"),
-                ("upperbathroom_error", "HAL_upperBathroom_tError"),
+                ("upperbathroom_error", "HAL_upper_bathroom_tError"),
                 ("office_error", "HAL_office_tError"),
-                ("kidsroom_error", "HAL_kidsRoom_tError"),
+                ("kidsroom_error", "HAL_kidsroom_tError"),
                 ("garage_error", "HAL_garage_tError"),
                 ("bedroom_error", "HAL_bedroom_tError"),
             ],
@@ -228,7 +225,7 @@ class SmartHeating(hass.Hass):
         List[float]: Normalized WAM factors for the floor heating rooms.
         """
         wam_params: list[float] = self.init_params_from_args(
-            "wam_factors", ROOM_INDEX_FH, ROOM_INDEX_FH.SIZE
+            "wam_factors", ROOM_INDEX_FH
         )
         return wam_params
 
@@ -240,12 +237,12 @@ class SmartHeating(hass.Hass):
         List[float]: Normalized radiator factors.
         """
         rads_params: list[float] = self.init_params_from_args(
-            "rads_factors", ROOM_INDEX_RAD, ROOM_INDEX_RAD.NUM_OF_RADIATORS
+            "rads_factors", ROOM_INDEX_RAD
         )
         return rads_params
 
     def init_params_from_args(
-        self, factor_key: str, room_index_enum: Enum, room_size_enum: Enum
+        self, factor_key: str, room_index_enum: Enum
     ) -> list[float]:
         """
         Generic method to initialize normalized factors from the args.
@@ -253,20 +250,22 @@ class SmartHeating(hass.Hass):
         Parameters:
         - factor_key (str): The key in the args dictionary to retrieve factors.
         - room_index_enum (Enum): Enum defining room indices.
-        - room_size_enum (Enum): Enum representing the size/number of rooms.
 
         Returns:
         List[float]: A list of normalized factors.
         """
-        factors_sum: int = sum(self.args[factor_key].values())  # Sum all factor values
-        params = [0] * room_size_enum.value  # Initialize list with zeroes
+        # Calculate the sum of all factor values
+        factors_sum: int = sum(self.args[factor_key].values())
+
+        # Get the total number of rooms based on the size of the enum
+        num_rooms = len(list(room_index_enum))
+
+        # Initialize list with zeroes based on the number of rooms
+        params = [0] * num_rooms
 
         # Loop over the enum values to populate the params list with normalized values
         for room in room_index_enum:
-            if room != room_size_enum:  # Avoid the SIZE or NUM_OF_RADIATORS enum
-                params[room.value] = (
-                    self.args[factor_key][room.name.lower()] / factors_sum
-                )
+            params[room.value] = self.args[factor_key][room.name.lower()] / factors_sum
 
         return params
 
@@ -375,7 +374,7 @@ class SmartHeating(hass.Hass):
             self.log_input_variables()
 
             # Apply various adjustments to the offset
-            off_final = self.calculate_final_offset(off_final)
+            off_final: float = self.calculate_final_offset(off_final)
 
             # Update TRVs and thermostat offset
             self.sh_update_TRVs()
@@ -462,8 +461,10 @@ class SmartHeating(hass.Hass):
         Returns:
             float: Returns the force_flow_offset if conditions are met, otherwise 0.
         """
+        self.log(f'self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]:{self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]}',level='DEBUG')
         if self.rads_error[ROOM_INDEX_RAD.BEDROOM.value] > 0:
-            if self.force_flow_flag == "on":
+            self.log(f'self.force_flow_flag:{self.force_flow_flag}',level='DEBUG')
+            if self.force_flow_flag:
                 return self.force_flow_offset
         return off_final
 
@@ -482,7 +483,7 @@ class SmartHeating(hass.Hass):
             a > self.force_burn_thres for a in self.rads_error
         ):
             # Multiply each radiator error by its corresponding factor from self.rads_factors
-            modified_rads_error = [
+            modified_rads_error: list[float] = [
                 r_error * self.rads_params[i]
                 for i, r_error in enumerate(self.rads_error)
             ]
@@ -507,7 +508,7 @@ class SmartHeating(hass.Hass):
             float: Updated offset after applying warm flag.
         """
         # Check warm in flag and get offset
-        ret_offset: float = off_final + self.sh_get_offset_warm_flag(self.warm_flag)
+        ret_offset: float = off_final + self.sh_get_offset_warm_flag()
         return ret_offset
 
     def sh_apply_weather_forecast(self, off_final: float) -> float:
@@ -521,9 +522,7 @@ class SmartHeating(hass.Hass):
             float: Updated offset after considering freezing flag.
         """
         # Check freezing forecast
-        ret_offset: float = off_final + self.sh_get_offset_frezzing_flag(
-            self.freezing_flag
-        )
+        ret_offset: float = off_final + self.sh_get_offset_frezzing_flag()
         return ret_offset
 
     def sh_apply_wam_voting(self, off_final: float) -> float:
@@ -537,7 +536,7 @@ class SmartHeating(hass.Hass):
             float: Updated offset after applying WAM voting.
         """
         # Calculate WAM
-        wam = round(self.sh_wam(self.wam_errors, self.wam_params), 2)
+        wam: float = round(self.sh_wam(self.wam_errors, self.wam_params), 2)
         self.sh_set_internal_wam_value(wam)
         return off_final + wam
 
@@ -609,7 +608,7 @@ class SmartHeating(hass.Hass):
             self.get_state(getattr(self, f"HAL_TRV_{trv.name.lower()}_pos"))
             for trv in TRV_INDEX
         ]
-        return [self.safe_float_convert(self, i, DEFAULT_RAD_POS) for i in ret_array]
+        return [self.safe_float_convert(i, DEFAULT_RAD_POS) for i in ret_array]
 
     def sh_wam(self, temperatures: list[float], weights: list[float]) -> float:
         """
@@ -629,7 +628,7 @@ class SmartHeating(hass.Hass):
         total_weighted_temp: float = sum(
             temp * weight for temp, weight in zip(temperatures, weights)
         )
-        return total_weighted_temp / sum(weights)
+        return (total_weighted_temp / sum(weights))
 
     def sh_get_wam_errors(self) -> list[float]:
         """
@@ -640,7 +639,6 @@ class SmartHeating(hass.Hass):
         """
         return [
             self.safe_float_convert(
-                self,
                 self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
                 DEFAULT_WAM_ERROR,
             )
@@ -656,7 +654,6 @@ class SmartHeating(hass.Hass):
         """
         return [
             self.safe_float_convert(
-                self,
                 self.get_state(getattr(self, f"HAL_{room.name.lower()}_tError")),
                 DEAFULT_RAD_ERR,
             )
@@ -667,7 +664,7 @@ class SmartHeating(hass.Hass):
 
     # region HAL opaque functions
 
-    def sh_get_value(self, hal_entity: str, default_value: float) -> float:
+    def sh_get_value(self, hal_entity: str, default_value: float = 0.0) -> float:
         """
         Generic method to retrieve a state value from the HAL and safely convert it to float.
 
@@ -678,7 +675,7 @@ class SmartHeating(hass.Hass):
         Returns:
             float: The state value as a float or the default value if conversion fails.
         """
-        return self.safe_float_convert(self, self.get_state(hal_entity), default_value)
+        return self.safe_float_convert(self.get_state(hal_entity), default_value)
 
     def sh_get_flag_value(self, flag_entity: str) -> bool:
         """
@@ -717,7 +714,10 @@ class SmartHeating(hass.Hass):
         if min_value is not None:
             value = max(min_value, value)
 
-        self.call_service("number/set_value", entity_id=entity, value=value)
+        if 'input' in entity:
+            self.call_service("input_number/set_value", entity_id=entity, value=value)
+        else:
+            self.call_service("number/set_value", entity_id=entity, value=value)
 
     def sh_get_offset_frezzing_flag(self) -> int:
         """Get the offset for the freezing flag."""
@@ -731,11 +731,11 @@ class SmartHeating(hass.Hass):
 
     def sh_get_corridor_setpoint(self) -> float:
         """Retrieve the corridor setpoint from the HAL."""
-        return self.sh_get_value(self.HAL_corridor_setpoint, DEFAULT_COR_SETPOINT)
+        return self.sh_get_value(self.HAL_corridor_setpoint)
 
     def sh_get_thermostat_setpoint(self) -> float:
         """Retrieve the corridor setpoint from the HAL."""
-        return self.sh_get_value(self.HAL_thermostat_setpoint, DEFAULT_COR_SETPOINT)
+        return self.sh_get_value(self.HAL_thermostat_setpoint)
 
     def sh_set_thermostat_setpoint(self, value: float) -> None:
         """Set a new thermostat setpoint in the HAL, ensuring it’s at least 15.0."""
@@ -764,14 +764,15 @@ class SmartHeating(hass.Hass):
     # endregion
 
     # region utilites
-    def safe_float_convert(hass_app, value: str, default: float = 0.0) -> float:
+    def safe_float_convert(self, value: str, default: Optional[float] = None) -> float:
         """
         Attempts to convert a string to a float. If the conversion fails,
         logs a warning and returns a default value, or raises a hardware error if no valid default is provided.
 
         Args:
             value (str): The string value to be converted to float.
-            default (float, optional): The default value to return in case of conversion failure. Default is 0.0.
+            default (float, optional): The default value to return in case of conversion failure. If None is passed,
+                                    hardware error is raised.
 
         Returns:
             float: The converted float value or the default value if conversion fails.
@@ -779,21 +780,23 @@ class SmartHeating(hass.Hass):
         try:
             return float(value)
         except (TypeError, ValueError) as e:
-            if default != 0.0:
-                hass_app.log(
+            if default is not None:
+                self.log(
                     f"Conversion warning: Could not convert '{value}' to float. Returning default value {default}: {str(e)}",
                     level="WARNING",
                 )
                 return default
             else:
-                hass_app.log(
+                self.log(
                     f"Conversion error: Could not convert '{value}' to float: {str(e)}",
                     level="ERROR",
                 )
-                hass_app.handle_hw_error(
+                self.handle_hw_error(
                     f"Failed to convert value '{value}' to float, no valid default provided. Raising hardware fault."
                 )
-                return default  # Default remains 0.0, but error is raised
+                raise ValueError(
+                    f"Failed to convert '{value}' to float, no valid default provided."
+                )
 
     # endregion
 

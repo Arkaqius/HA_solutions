@@ -36,7 +36,7 @@
 GarageDoorController:
   module: DoorController  # Specifies the module where the DoorController class is located
   class: DoorController   # Specifies the class to be instantiated
-  log_level: INFO        # Sets the logging level for this app
+  log_level: DEBUG        # Sets the logging level for this app
   friendly_name: "Garage Door"  # A friendly name for the whole app to be used in Home Assistant UI
 
   # Inputs
@@ -44,7 +44,7 @@ GarageDoorController:
   open_sensor: binary_sensor.garage_gatedoorhigh_contact_contact # Physical contact sensor for open position (Optional)
   input_button_open: input_button.garage_open_door # Template input button for opening the door from LoveLace UI (Required)
   input_button_close: input_button.garage_close_door # Template input button for closing the door from LoveLace UI (Required)
-  external_button: input_button.garage_open_door # Template input button for binding to a physical external button (Required)
+  external_button: input_button.garage_external_button # Template input button for binding to a physical external button (Required)
 
 
   # Outputs

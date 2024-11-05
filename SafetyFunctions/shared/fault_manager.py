@@ -389,7 +389,7 @@ class FaultManager:
                 "sensor.fault_" + fault.name, state="Cleared", attributes=attributes
             )
 
-            if fault.previous_val != FaultState.NOT_TESTED:
+            if fault.previous_val == FaultState.SET:
                 # Call notifications
                 if self.notify_interface:
                     self.notify_interface(
