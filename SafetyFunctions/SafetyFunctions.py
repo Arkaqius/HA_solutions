@@ -85,7 +85,7 @@ class SafetyFunctions(hass.Hass):
         if not self.args["app_config"].get("faults") or not self.args["user_config"].get("safety_components"):
             self.log("No faults or safety components defined. Stopping the app.", level="WARNING")
             self.set_state("sensor.safety_app_health", state="invalid_cfg")
-            self.terminate()
+            self.stop_app(self.name)
             return
 
         # 20. Prepare common entities register

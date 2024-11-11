@@ -33,8 +33,8 @@ from shared.notification_manager import NotificationManager
             'Fault: RiskyTemperature\nlocation: Office\n',
         ),
         (
-            10,
-            ["5", "6", "7", "8", "9", "34", "34", "34", "34", "34"],
+            6,
+            ["5", "6", "7", "8", "9", "34", "34", "34", "34", "34", "34", "34"],
             FaultState.CLEARED,
             FaultState.CLEARED,
             "Hazard!",

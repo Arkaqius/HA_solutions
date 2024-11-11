@@ -10,5 +10,4 @@ class CommonEntities:
     def get_outisde_temperature(self) -> str | None:
         if self.hass_app:
             return self.hass_app.get_state(self.outside_temp_sensor)
-        self.hass_app.log("Error during getting outside temperature")
         return None
