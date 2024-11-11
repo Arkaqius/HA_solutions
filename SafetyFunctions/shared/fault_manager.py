@@ -1,33 +1,32 @@
 """
 Fault Management Module for Home Assistant Safety System
 
-This module defines the core components and logic necessary for managing faults and symptoms within a Home Assistant-based safety system.
-It facilitates the detection, tracking, and resolution of fault conditions, integrating closely with safety mechanisms to proactively address potential issues before they escalate into faults.
+This module defines the core components and logic necessary for managing faults and symptoms within a Home Assistant-based safety system. It facilitates the detection, tracking, and resolution of fault conditions, integrating closely with safety mechanisms to proactively address potential issues before they escalate into faults.
 
 Classes:
-    symptom: Represents symptom conditions that are potential precursors to faults.
-    Fault: Represents faults within the system, which are conditions requiring attention.
-    FaultManager: Manages faults and symptoms, orchestrating detection and response.
 
-The module supports a many-to-one mapping of symptoms to faults, allowing multiple symptom conditions to contribute to or influence the state of a single fault.
-This design enables a nuanced and responsive fault management system capable of handling complex scenarios and dependencies within the safety system architecture.
+symptom: Represents symptom conditions that are potential precursors to faults.
+Fault: Represents faults within the system, which are conditions requiring attention.
+FaultManager: Manages faults and symptoms, orchestrating detection and response.
+The module supports a many-to-one mapping of symptoms to faults, allowing multiple symptom conditions to contribute to or influence the state of a single fault. This design enables a nuanced and responsive fault management system capable of handling complex scenarios and dependencies within the safety system architecture.
 
 Primary functionalities include:
-- Initializing and tracking the states of faults and symptoms based on system configuration and runtime observations.
-- Dynamically updating fault states in response to changes in associated symptom conditions.
-- Executing defined recovery actions and notifications as part of the fault resolution process.
 
-This module is integral to the safety system's ability to maintain operational integrity and respond effectively to detected issues,
-ensuring a high level of safety and reliability.
+Initializing and tracking the states of faults and symptoms based on system configuration and runtime observations.
+Dynamically updating fault states in response to changes in associated symptom conditions.
+Executing defined recovery actions and notifications as part of the fault resolution process.
+Generating a unique faulttag for each fault instance to uniquely identify and manage notifications and recovery actions associated with specific faults.
+The faulttag feature is used across the system to create a unique identifier for each fault by hashing the fault name and additional context information. This allows consistent tracking and correlation of notifications, fault states, and recovery actions, ensuring accurate fault management.
 
-Note:
-    This module is designed for internal use within the Home Assistant safety system
-    and relies on configurations and interactions with other system components, including safety mechanisms and recovery action definitions.
+This module is integral to the safety system's ability to maintain operational integrity and respond effectively to detected issues, ensuring a high level of safety and reliability.
+
+Note: This module is designed for internal use within the Home Assistant safety system and relies on configurations and interactions with other system components, including safety mechanisms and recovery action definitions.
 """
 
 from typing import Optional, Callable
 from shared.types_common import FaultState, SMState, Symptom, Fault
 import appdaemon.plugins.hass.hassapi as hass
+import hashlib
 
 
 class FaultManager:
@@ -227,6 +226,8 @@ class FaultManager:
         # Collect all faults mapped from that symptom
         fault: Fault | None = self.found_mapped_fault(symptom_id, sm_name)
         if fault:
+            # Generate a unique fault tag using the hash method
+            fault_tag: str = self._generate_fault_tag(fault.name, additional_info)
             # Save previous value
             fault.previous_val = fault.state
             # Set Fault
@@ -253,13 +254,14 @@ class FaultManager:
                     fault.notification_level,
                     FaultState.SET,
                     additional_info,
+                    fault_tag,
                 )
             else:
                 self.hass.log("No notification interface", level="WARNING")
 
             # Call recovery actions (specific for symptom)
             if self.recovery_interface:
-                self.recovery_interface(self.symptoms[symptom_id])
+                self.recovery_interface(self.symptoms[symptom_id], fault_tag)
             else:
                 self.hass.log("No recovery interface", level="WARNING")
 
@@ -370,6 +372,8 @@ class FaultManager:
             for symptom in self.symptoms.values()
             if symptom.sm_name == sm_name
         ):  # If Fault was found and if other fault related symptoms are not raised
+            # Generate a unique fault tag using the hash method
+            fault_tag: str = self._generate_fault_tag(fault.name, additional_info)
             # Save previous value
             fault.previous_val = fault.state
             # Clear Fault
@@ -397,13 +401,14 @@ class FaultManager:
                         fault.notification_level,
                         FaultState.CLEARED,
                         additional_info,
+                        fault_tag,
                     )
                 else:
                     self.hass.log("No notification interface", level="WARNING")
 
             # Call recovery actions (specific for symptom)
             if self.recovery_interface:
-                self.recovery_interface(self.symptoms[symptom_id])
+                self.recovery_interface(self.symptoms[symptom_id], fault_tag)
             else:
                 self.hass.log("No recovery interface", level="WARNING")
 
@@ -534,3 +539,28 @@ class FaultManager:
             symptom_data.sm_state = SMState.DISABLED
             # Clear all related faults to NOT_TESTED state when disabling the safety mechanism
             self.disable_symptom(symptom_id=sm_name, additional_info={})
+
+    def _generate_fault_tag(
+        self, fault: str, additional_info: Optional[dict] = None
+    ) -> str:
+        """
+        Generates a unique fault tag by hashing the fault name and additional information.
+
+        Parameters:
+            fault: The fault's name.
+            additional_info: Additional information about the fault, such as location.
+
+        Returns:
+            A unique fault tag as a string.
+        """
+        # Combine fault name and additional info into a single string
+        fault_str = fault
+        if additional_info:
+            # Sort the dictionary items to ensure consistent hash generation
+            sorted_info = sorted(additional_info.items())
+            for key, value in sorted_info:
+                fault_str += f"|{key}:{value}"
+
+        # Generate a hash of the combined string
+        fault_hash = hashlib.sha256(fault_str.encode()).hexdigest()
+        return fault_hash

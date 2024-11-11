@@ -1,30 +1,23 @@
 """
-This module defines the RecoveryManager class, a central component of a safety management system designed to handle the recovery process from fault conditions. The RecoveryManager oversees executing recovery actions in response to detected faults, playing a pivotal role in maintaining the operational integrity and safety of the system.
+Recovery Manager Module for Home Assistant Safety System
 
-Overview:
-The RecoveryManager is built with flexibility in mind, enabling it to manage a wide array of fault conditions through customizable recovery actions. Each recovery action is encapsulated as a callable function, which can be dynamically invoked by the RecoveryManager along with relevant context or parameters necessary for addressing specific faults.
+This module defines the RecoveryManager class, a central component of a safety management system designed to handle the recovery process from fault conditions. 
+The RecoveryManager oversees executing recovery actions in response to detected faults, playing a pivotal role in maintaining the operational integrity and safety of the system.
+
+Overview: The RecoveryManager is built with flexibility in mind, enabling it to manage a wide array of fault conditions through customizable recovery actions. 
+Each recovery action is encapsulated as a callable function, which can be dynamically invoked by the RecoveryManager along with relevant context or parameters necessary for addressing specific faults.
 
 Key Features:
-- **Dynamic Recovery Action Execution**: Allows for the invocation of any callable as a recovery action, offering the flexibility to implement a variety of recovery strategies tailored to specific fault scenarios.
-- **Context-Aware Fault Mitigation**: Supports passing additional information to recovery actions, enabling context-aware processing and more effective fault mitigation strategies.
-- **Simplified Fault Recovery Interface**: Provides a straightforward method (`recovery`) for triggering recovery actions, simplifying the integration of the RecoveryManager into larger safety management systems.
 
-Usage:
-The RecoveryManager is intended to be used within larger safety management or fault handling systems where specific recovery actions are defined for various types of faults. By encapsulating recovery logic within callable functions and associating them with particular fault conditions, system designers can create a comprehensive fault recovery framework capable of addressing a broad spectrum of operational anomalies.
+Dynamic Recovery Action Execution: Allows for the invocation of any callable as a recovery action, offering the flexibility to implement a variety of recovery strategies tailored to specific fault scenarios.
+Context-Aware Fault Mitigation: Supports passing additional information to recovery actions, enabling context-aware processing and more effective fault mitigation strategies.
+Simplified Fault Recovery Interface: Provides a straightforward method (recovery) for triggering recovery actions, simplifying the integration of the RecoveryManager into larger safety management systems.
+Integration with Fault Tagging: Uses the faulttag feature to uniquely identify fault instances during recovery actions. This ensures that notifications, recovery, and fault tracking are handled consistently 
+across the system, preventing confusion and ensuring coherent management of fault states.
+Usage: The RecoveryManager is intended to be used within larger safety management or fault handling systems where specific recovery actions are defined for various types of faults. By encapsulating recovery 
+logic within callable functions and associating them with particular fault conditions, system designers can create a comprehensive fault recovery framework capable of addressing a broad spectrum of operational anomalies.
 
-Example:
-```python
-def cool_down_system(additional_info):
-    # Logic to cool down an overheated system component
-    print(f"Cooling down system with parameters: {additional_info}")
-
-# Create a RecoveryManager instance
-recovery_manager = RecoveryManager()
-
-# Execute a recovery action for an overheated system
-recovery_manager.recovery(cool_down_system, {'component': 'CPU', 'target_temp': 75})
-
-This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems.
+This module's approach to fault recovery empowers developers to construct robust and adaptable safety mechanisms, enhancing the resilience and reliability of automated systems. The faulttag feature helps uniquely identify each fault scenario, aiding in efficient fault resolution and ensuring accurate system state tracking throughout the recovery process.
 """
 
 from typing import Any, Optional
@@ -185,7 +178,11 @@ class RecoveryManager:
         return False
 
     def _perform_recovery(
-        self, symptom: Symptom, notifications: list, entities_changes: dict[str, str]
+        self,
+        symptom: Symptom,
+        notifications: list,
+        entities_changes: dict[str, str],
+        fault_tag: str,
     ) -> None:
         """
         Executes the recovery actions for the given symptom, including notifications and entity changes.
@@ -217,7 +214,7 @@ class RecoveryManager:
                     symptom.name, symptom.sm_name
                 )
                 if fault:
-                    self.nm._add_recovery_action(notification, fault.name)
+                    self.nm._add_recovery_action(notification, fault_tag)
         else:
             self.hass_app.log(
                 f"Recovery action for {symptom.name} was not found!", level="ERROR"
@@ -286,7 +283,7 @@ class RecoveryManager:
                     return True
         return False
 
-    def recovery(self, symptom: Symptom) -> None:
+    def recovery(self, symptom: Symptom, fault_tag) -> None:
         """
         Executes the appropriate recovery action for the given symptom.
 
@@ -305,7 +302,9 @@ class RecoveryManager:
             self._handle_cleared_state(symptom)
             return
 
-        potential_recovery_action: RecoveryResult | None = self._get_potential_recovery_action(symptom)
+        potential_recovery_action: RecoveryResult | None = (
+            self._get_potential_recovery_action(symptom)
+        )
         if not potential_recovery_action:
             return
 
@@ -316,7 +315,7 @@ class RecoveryManager:
             f"Validation successful. Executing recovery action for symptom: {symptom.name}",
             level="DEBUG",
         )
-        self._execute_recovery(symptom, potential_recovery_action)
+        self._execute_recovery(symptom, potential_recovery_action, fault_tag)
         self.hass_app.log(
             f"Recovery process completed for symptom: {symptom.name}", level="DEBUG"
         )
@@ -396,7 +395,7 @@ class RecoveryManager:
         return True
 
     def _execute_recovery(
-        self, symptom: Symptom, recovery_result: RecoveryResult
+        self, symptom: Symptom, recovery_result: RecoveryResult, fault_tag: str
     ) -> None:
         """Executes the recovery action for a given symptom."""
         self.hass_app.log(
@@ -406,6 +405,7 @@ class RecoveryManager:
             symptom,
             recovery_result.notifications,
             recovery_result.changed_actuators,
+            fault_tag,
         )
         self.hass_app.log(
             f"Recovery performed for symptom: {symptom.name}. Setting up listeners for changes.",

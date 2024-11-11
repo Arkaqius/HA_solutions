@@ -18,13 +18,13 @@ def test_recovery_cleared_state(mocked_hass_app_with_temp_component):
     )
     symptom = Mock()
     symptom.state = FaultState.CLEARED
-
+    fault_tag = "00"
     app_instance.initialize()
 
     recovery_manager = app_instance.reco_man
     recovery_manager._handle_cleared_state = Mock()
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     recovery_manager._handle_cleared_state.assert_called_once_with(symptom)
 
@@ -49,7 +49,7 @@ def test_recovery_action_not_found(mocked_hass_app_with_temp_component):
     recovery_manager = app_instance.reco_man
     recovery_manager.hass_app.log = Mock()
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     recovery_manager.hass_app.log.assert_called_with(
         "No recovery actions defined for symptom: NonExistentSymptom", level="DEBUG"
@@ -80,7 +80,7 @@ def test_no_recovery_changes_needed(mocked_hass_app_with_temp_component):
     recovery_manager.recovery_actions = {symptom.name: recovery_action}
     recovery_manager.hass_app.log = Mock()
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     recovery_manager.hass_app.log.assert_called_with(
         f"No changes determined for recovery of symptom: {symptom.name}", level="DEBUG"
@@ -114,7 +114,7 @@ def test_recovery_validation_fails(mocked_hass_app_with_temp_component):
     recovery_manager._isRecoveryConflict = Mock(return_value=False)
     recovery_manager._execute_recovery = Mock()
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     recovery_manager._execute_recovery.assert_not_called()
 
@@ -146,7 +146,7 @@ def test_successful_recovery_execution(mocked_hass_app_with_temp_component):
     recovery_manager._isRecoveryConflict = Mock(return_value=False)
     recovery_manager._execute_recovery = Mock()
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     recovery_manager._execute_recovery.assert_called_once_with(symptom, recovery_result)
 
@@ -181,7 +181,7 @@ def test_dry_test_failure_aborts_recovery(mocked_hass_app_with_temp_component):
     recovery_manager._execute_recovery = Mock()
 
     # Execute recovery
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     # Assert that recovery execution did not proceed
     recovery_manager._execute_recovery.assert_not_called()
@@ -222,7 +222,7 @@ def test_recovery_conflict_aborts_recovery(mocked_hass_app_with_temp_component):
     recovery_manager._execute_recovery = Mock()
 
     # Execute recovery
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     # Assert that recovery execution did not proceed
     recovery_manager._execute_recovery.assert_not_called()
@@ -244,6 +244,7 @@ def test_successful_recovery_execution(mocked_hass_app_with_temp_component):
     app_instance, _, __, ___, mock_behaviors_default = (
         mocked_hass_app_with_temp_component
     )
+    fault_tag = "BEEF"
     symptom = Mock()
     symptom.name = "ComplexSymptom"
     symptom.state = FaultState.SET
@@ -263,10 +264,10 @@ def test_successful_recovery_execution(mocked_hass_app_with_temp_component):
     recovery_manager._execute_recovery = Mock()
 
     # Execute recovery
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,fault_tag)
 
     # Assert that recovery execution proceeded
-    recovery_manager._execute_recovery.assert_called_once_with(symptom, recovery_result)
+    recovery_manager._execute_recovery.assert_called_once_with(symptom, recovery_result, fault_tag)
 
 
 def test_recovery_execution_multiple_entities(mocked_hass_app_with_temp_component):
@@ -299,7 +300,7 @@ def test_recovery_execution_multiple_entities(mocked_hass_app_with_temp_componen
     recovery_manager._is_dry_test_failed = Mock(return_value=False)
     recovery_manager._isRecoveryConflict = Mock(return_value=False)
 
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     # Validate that all entities are updated correctly
     app_instance.set_state.assert_any_call("actuator_1", state="active")
@@ -348,6 +349,7 @@ def test_integration_with_fault_and_notification_managers(
     fault = Fault("IntegrationFault", [symptom.sm_name], 1)
     fault_manager.faults = {fault.name: fault}
     fault_manager.found_mapped_fault = Mock(return_value=fault)
+    fault_tag = '00'
 
     # Mock NotificationManager to validate the notification actions
     notification_manager = app_instance.notify_man
@@ -356,14 +358,14 @@ def test_integration_with_fault_and_notification_managers(
     # Execute recovery
     recovery_manager._is_dry_test_failed = Mock(return_value=False)
     recovery_manager._isRecoveryConflict = Mock(return_value=False)
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,fault_tag)
 
     # Validate that actuators are updated correctly
     app_instance.set_state.assert_any_call("actuator_1", state="active")
 
     # Validate that the notification action was called correctly
     notification_manager._add_recovery_action.assert_called_once_with(
-        "Manual intervention required for actuator_1.", fault.name
+        "Manual intervention required for actuator_1.", fault_tag
     )
 
 
@@ -399,7 +401,7 @@ def test_recovery_action_state_transition(mocked_hass_app_with_temp_component):
     recovery_manager._isRecoveryConflict = Mock(return_value=False)
 
     # Execute the recovery process
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     # Assert that the recovery action state is updated to `TO_PERFORM`
     assert recovery_action.current_status == RecoveryActionState.TO_PERFORM
@@ -528,7 +530,7 @@ def test_recovery_conflict_with_higher_priority(mocked_hass_app_with_temp_compon
     recovery_manager._execute_recovery = Mock()
 
     # Call recovery
-    recovery_manager.recovery(symptom)
+    recovery_manager.recovery(symptom,"00")
 
     # Assert that `_execute_recovery` was not called due to the conflict
     recovery_manager._execute_recovery.assert_not_called()
@@ -572,6 +574,7 @@ def test_perform_recovery_with_exception_handling(mocked_hass_app_with_temp_comp
     # Mocking found fault
     found_fault = Mock()
     found_fault.name = "TestFault"
+    fault_tag = 'BE'
     recovery_manager.fm.found_mapped_fault = Mock(return_value=found_fault)
 
     # Mock `set_state` to throw an exception for one of the entities
@@ -586,7 +589,7 @@ def test_perform_recovery_with_exception_handling(mocked_hass_app_with_temp_comp
     recovery_manager.nm._add_recovery_action  = Mock()
     
     # Call `_perform_recovery`
-    recovery_manager._perform_recovery(symptom, recovery_result.notifications, recovery_result.changed_actuators)
+    recovery_manager._perform_recovery(symptom, recovery_result.notifications, recovery_result.changed_actuators, fault_tag)
 
     # Validate that the correct error was logged
     recovery_manager.hass_app.log.assert_any_call(
@@ -599,7 +602,7 @@ def test_perform_recovery_with_exception_handling(mocked_hass_app_with_temp_comp
     recovery_manager.hass_app.set_state.assert_any_call("actuator_2", state="inactive")
 
     # Assert that notifications were processed
-    recovery_manager.nm._add_recovery_action.assert_called_once_with("Test notification", found_fault.name)
+    recovery_manager.nm._add_recovery_action.assert_called_once_with("Test notification", fault_tag)
 
 
 def test_perform_recovery_no_recovery_action_found(mocked_hass_app_with_temp_component):
@@ -615,6 +618,7 @@ def test_perform_recovery_no_recovery_action_found(mocked_hass_app_with_temp_com
     symptom.name = "NonExistentRecoverySymptom"
     symptom.sm_name = "TestSM"
     symptom.state = FaultState.SET
+    fault_tag = 'CE'
 
     app_instance.initialize()
 
@@ -625,7 +629,7 @@ def test_perform_recovery_no_recovery_action_found(mocked_hass_app_with_temp_com
     recovery_manager.hass_app.log = Mock()
 
     # Call `_perform_recovery`
-    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={})
+    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={}, fault_tag=fault_tag)
 
     # Validate that the correct error was logged
     recovery_manager.hass_app.log.assert_called_once_with(
@@ -651,6 +655,7 @@ def test_perform_recovery_no_action_in_list(mocked_hass_app_with_temp_component)
 
     # Set up the RecoveryManager instance
     recovery_manager = app_instance.reco_man
+    fault_tag = '00'
 
     # Prepare recovery_actions list with entries for other symptoms, but not the one we're testing
     recovery_action_1 = Mock(spec=RecoveryAction)
@@ -663,7 +668,7 @@ def test_perform_recovery_no_action_in_list(mocked_hass_app_with_temp_component)
     recovery_manager.hass_app.log = Mock()
 
     # Call `_perform_recovery`
-    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={})
+    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={},fault_tag=fault_tag)
 
     # Validate that the correct error was logged
     recovery_manager.hass_app.log.assert_called_once_with(
@@ -691,12 +696,13 @@ def test_perform_recovery_no_matching_action(mocked_hass_app_with_temp_component
     symptom.name = "NonExistingSymptom"
     symptom.sm_name = "TestSM"
     symptom.state = FaultState.SET
+    fault_tag = '78'
 
     # Mock `hass_app` logging to verify log calls
     recovery_manager.hass_app.log = Mock()
 
     # Call `_perform_recovery` with the mock Symptom
-    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={})
+    recovery_manager._perform_recovery(symptom, notifications=[], entities_changes={},fault_tag=fault_tag)
 
     # Validate that the correct log message is printed
     recovery_manager.hass_app.log.assert_called_once_with(

@@ -1,21 +1,22 @@
 """
 Notification Manager Module for Home Assistant Safety System
 
-This module contains the NotificationManager class, designed to handle various types of notifications within a Home Assistant-based safety system.
-It facilitates the delivery of notifications through Home Assistant's notification services, dashboard updates, and other notification mechanisms
-such as lights and alarms. The NotificationManager is configurable, allowing for dynamic notification behaviors based on the severity of detected faults and system states.
+This module contains the NotificationManager class, designed to handle various types of notifications within a Home Assistant-based safety system. It facilitates the delivery of notifications through Home Assistant's notification services, dashboard updates, and other notification mechanisms such as lights and alarms. The NotificationManager is configurable, allowing for dynamic notification behaviors based on the severity of detected faults and system states.
 
-The NotificationManager class provides a structured way to manage and execute notifications based on predefined levels of urgency. It maps different
-notification levels to specific methods that handle the logic for each notification type, ensuring that users are informed of system states and faults in a timely and appropriate manner.
+The NotificationManager class provides a structured way to manage and execute notifications based on predefined levels of urgency. It maps different notification levels to specific methods that handle the logic for each notification type, ensuring that users are informed of system states and faults in a timely and appropriate manner.
 
 Features include:
-- Configurable notification levels, allowing for tailored responses to different fault conditions.
-- Integration with Home Assistant services for sending notifications to devices, updating dashboard states, and controlling home automation entities like lights and alarms.
-- Support for additional information in notifications, enabling detailed fault descriptions to be communicated to the user.
+
+Configurable notification levels, allowing for tailored responses to different fault conditions.
+Integration with Home Assistant services for sending notifications to devices, updating dashboard states, and controlling home automation entities like lights and alarms.
+Support for additional information in notifications, enabling detailed fault descriptions to be communicated to the user.
+Use of a unique faulttag to manage notifications effectively, ensuring that notifications related to the same fault instance can be tracked and correlated properly.
+The faulttag feature is utilized to uniquely identify notifications associated with specific fault instances, facilitating efficient management of notification lifecycles, such as setting, updating, and clearing notifications. This ensures that users receive coherent and timely information regarding the status of faults.
 
 This module plays a crucial role in the safety system's ability to notify users of faults and system states, contributing to the overall responsiveness and reliability of the system.
 
 Classes:
+
     NotificationManager: Manages the configuration and execution of notifications within the safety system.
 """
 
@@ -59,9 +60,9 @@ class NotificationManager:
             4: None,
         }
 
-    def notify(self, fault: str, level: int, fault_status: "FaultState", additional_info: Optional[dict]) -> None:  # type: ignore
+    def notify(self, fault: str, level: int, fault_status: "FaultState", additional_info: Optional[dict], fault_tag: str) -> None:  # type: ignore
         """
-        Sends or clears notifications based on fault status, using the fault name as a unique tag.
+        Sends or clears notifications based on fault status, using fault name and location as unique tags.
 
         Parameters:
             fault: The fault's name, used as a unique tag for the notification.
@@ -70,22 +71,27 @@ class NotificationManager:
             fault_status: Status of the fault ('active' or 'cleared').
         """
 
-        # Construct the message to be sent
-        message: str = f"{fault}\n"
+        # Construct the message to be sent, including the location information if available
+        location = (
+            additional_info.get("Location") if additional_info else "Unknown Location"
+        )
+        message: str = f"Fault: {fault}\n"
+
         if additional_info:
             for key, value in additional_info.items():
-                message += f"{key}: {value}\n"
+                if key != "Location":  # Avoid duplicating the location in the message
+                    message += f"{key}: {value}\n"
 
         if fault_status == FaultState.SET:
-            self._process_active_fault(level, message, fault)
+            self._process_active_fault(level, message, fault_tag)
             self.hass_app.log(
-                f"Notification for set for {fault} was process with  message {message}",
+                f"Notification for set for {fault} at {location} was processed with message: {message}",
                 level="DEBUG",
             )
         elif fault_status == FaultState.CLEARED:
-            self._process_cleared_fault(level, message, fault)
+            self._process_cleared_fault(level, message, fault_tag)
             self.hass_app.log(
-                f"Notification cleared for {fault} was process with  message {message}",
+                f"Notification cleared for {fault} at {location} was processed with message: {message}",
                 level="DEBUG",
             )
         else:
@@ -102,11 +108,11 @@ class NotificationManager:
             )
 
     def _process_cleared_fault(self, level: int, message: str, fault_tag: str) -> None:
-        # Add "cleared" to the message and send a new notification
-        cleared_message = f"{message}\nStatus: Cleared"
+        # Create a new message specifically for clearing
+        cleared_message = f"{message} has been cleared."
         self._notify_company_app(level, cleared_message, fault_tag, FaultState.CLEARED)
         self.hass_app.log(
-            f"Cleared notification for {fault_tag} with message {cleared_message}",
+            f"Cleared notification for {fault_tag} with message: '{cleared_message}'",
             level="DEBUG",
         )
 
@@ -152,9 +158,9 @@ class NotificationManager:
             color_name="red",
         )
         self.hass_app.log(
-                f"Performed _notify_level_1_additional",
-                level="DEBUG",
-            )
+            f"Performed _notify_level_1_additional",
+            level="DEBUG",
+        )
 
     def _notify_level_2_additional(self) -> None:
         """
@@ -171,9 +177,9 @@ class NotificationManager:
             color_name="yellow",
         )
         self.hass_app.log(
-                f"Performed _notify_level_2_additional",
-                level="DEBUG",
-            )
+            f"Performed _notify_level_2_additional",
+            level="DEBUG",
+        )
 
     def _prepare_notification_data(
         self, level: int, message: str, fault_tag: str
@@ -285,7 +291,7 @@ class NotificationManager:
             data=notification_data["data"],
         )
 
-    def _add_recovery_action(self, notification_msg: str, fault_name: str) -> None:
+    def _add_recovery_action(self, notification_msg: str, fault_tag: str) -> None:
         """
         Adds a recovery action message to an existing active notification.
 
@@ -294,7 +300,7 @@ class NotificationManager:
             fault_name: The fault identifier for which to add the recovery message.
         """
         for fault_tag, notification in self.active_notification.items():
-            if fault_tag == fault_name:
+            if fault_tag == fault_tag:
                 self._add_rec_msg(notification, notification_msg)
 
     def _add_rec_msg(self, notification: dict, notification_msg: str) -> None:
@@ -318,3 +324,4 @@ class NotificationManager:
         """
         notification["message"] = f" {notification_msg}"
         self._send_notification(notification)
+        
