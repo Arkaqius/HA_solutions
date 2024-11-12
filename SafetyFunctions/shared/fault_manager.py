@@ -265,9 +265,6 @@ class FaultManager:
             else:
                 self.hass.log("No recovery interface", level="WARNING")
 
-        else:
-            pass  # Error logged in previous call
-
     def _determinate_info(
         self, entity_id: str, additional_info: Optional[dict], fault_state: FaultState
     ) -> Optional[dict]:
@@ -335,7 +332,7 @@ class FaultManager:
                         del info_to_send[key]
             return info_to_send
 
-        return additional_info
+        return None
 
     def _clear_fault(self, symptom_id: str, additional_info: dict) -> None:
         """
@@ -489,8 +486,7 @@ class FaultManager:
         Enables or disables a safety mechanism based on the provided state.
 
         This method is used to control the state of a specific safety mechanism identified by `sm_name`.
-        It attempts to enable or disable the safety mechanism according to the provided `sm_state`. If an
-        unknown state is passed, the function will log an error and take no further action.
+        It attempts to enable or disable the safety mechanism according to the provided `sm_state`.
 
         During the enabling process, the system also attempts to fetch and update the state of the safety mechanisms
         directly through the associated safety mechanism's function, updating the system's understanding of each
@@ -507,15 +503,6 @@ class FaultManager:
             This method also clears all pre-existing fault states associated with the specified safety mechanism
             when disabling it, setting them to `NOT_TESTED`.
         """
-        if sm_state not in SMState:
-            self.hass.log(
-                f"Error: Unknown SMState '{sm_state}' for safety mechanism '{sm_name}'.",
-                level="ERROR",
-            )
-            raise ValueError(
-                f"Unknown SMState '{sm_state}' for safety mechanism '{sm_name}'."
-            )
-
         symptom_data: Symptom = self.symptoms[sm_name]
 
         if sm_state == SMState.ENABLED:
@@ -539,6 +526,13 @@ class FaultManager:
             symptom_data.sm_state = SMState.DISABLED
             # Clear all related faults to NOT_TESTED state when disabling the safety mechanism
             self.disable_symptom(symptom_id=sm_name, additional_info={})
+
+        else:
+            # Handle an unexpected state
+            self.hass.log(
+                f"Error: Unknown SMState '{sm_state}' for safety mechanism '{sm_name}'.",
+                level="ERROR",
+            )
 
     def _generate_fault_tag(
         self, fault: str, additional_info: Optional[dict] = None

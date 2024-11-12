@@ -435,3 +435,182 @@ def test_fault_manager_missing_interfaces(fault_manager, mocked_hass_app):
     # Verify that no notification or recovery calls are made
     assert fault_manager.notify_interface is None
     assert fault_manager.recovery_interface is None
+    
+def test_fault_manager_cleared_state_determinate_info(fault_manager, mocked_hass_app):
+    """
+    Test the _determinate_info function for the CLEARED branch.
+    """
+    # Set up the mock for get_state to simulate current attributes
+    mocked_hass_app.get_state = Mock(
+        return_value={"attributes": {"Location": "Living Room, Office"}}
+    )
+
+    # Define additional information to clear
+    additional_info = {"Location": "Office"}
+
+    # Call the _determinate_info method with FaultState.CLEARED
+    updated_info = fault_manager._determinate_info(
+        "sensor.fault_RiskyTemperature", additional_info, FaultState.CLEARED
+    )
+
+    # Verify the updated information
+    assert updated_info == {"Location": "Living Room"}
+
+    # Test clearing the last remaining location
+    additional_info = {"Location": "Living Room"}
+    updated_info = fault_manager._determinate_info(
+        "sensor.fault_RiskyTemperature", additional_info, FaultState.CLEARED
+    )
+
+    # Verify the updated information is empty
+    assert updated_info == {'Location': 'Office'}
+    
+    
+def test_fault_manager_multiple_faults_associated_with_symptom(fault_manager, mocked_hass_app):
+    """
+    Test the behavior when multiple faults are associated with a single symptom.
+    """
+    # Define a symptom
+    symptom = Symptom(
+        name="RiskyTemperatureOffice",
+        sm_name="sm_tc_1",
+        module=Mock(),
+        parameters={"CAL_LOW_TEMP_THRESHOLD": 18.0},
+    )
+    fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
+
+    # Define multiple faults that are incorrectly associated with the same symptom
+    fault1 = Fault("Fault1", ["sm_tc_1"], notification_level=2)
+    fault2 = Fault("Fault2", ["sm_tc_1"], notification_level=3)
+    fault_manager.faults["Fault1"] = fault1
+    fault_manager.faults["Fault2"] = fault2
+
+    # Call found_mapped_fault and verify it returns None due to multiple faults
+    result = fault_manager.found_mapped_fault("RiskyTemperatureOffice", "sm_tc_1")
+    assert result is None
+    mocked_hass_app.log.assert_called_with(
+        "Error: Multiple faults found associated with symptom_id 'RiskyTemperatureOffice', indicating a configuration error.",
+        level="ERROR",
+    )
+
+
+def test_fault_manager_no_fault_associated_with_symptom(fault_manager, mocked_hass_app):
+    """
+    Test the behavior when no fault is associated with a symptom.
+    """
+    # Define a symptom
+    symptom = Symptom(
+        name="RiskyTemperatureOffice",
+        sm_name="sm_tc_1",
+        module=Mock(),
+        parameters={"CAL_LOW_TEMP_THRESHOLD": 18.0},
+    )
+    fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
+
+    # Call found_mapped_fault and verify it returns None due to no associated faults
+    result = fault_manager.found_mapped_fault("RiskyTemperatureKitchen", "sm_tc_999")
+    assert result is None
+    mocked_hass_app.log.assert_called_with(
+        "Error: No faults associated with symptom_id 'RiskyTemperatureKitchen'. This may indicate a configuration error.",
+        level="ERROR",
+    )
+    
+def test_enable_sm_invalid_state(fault_manager, mocked_hass_app):
+    """
+    Test the behavior when an invalid safety mechanism state is provided.
+    """
+    # Define a symptom
+    symptom = Symptom(
+        name="RiskyTemperatureOffice",
+        sm_name="sm_tc_1",
+        module=Mock(),
+        parameters={"CAL_LOW_TEMP_THRESHOLD": 18.0},
+    )
+    fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
+
+    # Attempt to enable the safety mechanism with an invalid state
+    invalid_state = "INVALID_STATE"  # This is not an instance of SMState
+    fault_manager.enable_sm("RiskyTemperatureOffice", invalid_state)
+
+    # Verify that the error was logged
+    mocked_hass_app.log.assert_called_with(
+        f"Error: Unknown SMState '{invalid_state}' for safety mechanism 'RiskyTemperatureOffice'.",
+        level="ERROR",
+    )
+    
+def test_enable_sm_failure_case(fault_manager, mocked_hass_app):
+    """
+    Test the behavior when enabling a safety mechanism fails.
+    """
+    # Define a symptom
+    symptom = Symptom(
+        name="RiskyTemperatureOffice",
+        sm_name="sm_tc_1",
+        module=Mock(),
+        parameters={"CAL_LOW_TEMP_THRESHOLD": 18.0},
+    )
+    # Simulate enabling failure by returning False
+    symptom.module.enable_safety_mechanism.return_value = False
+    fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
+
+    # Attempt to enable the safety mechanism
+    fault_manager.enable_sm("RiskyTemperatureOffice", SMState.ENABLED)
+
+    # Verify that the symptom state is set to ERROR
+    assert symptom.sm_state == SMState.ERROR
+    
+def test_determinate_info_no_NOT_TESTED(fault_manager):
+    """
+    Test _determinate_info when fault_state doesn't match.
+    """
+    entity_id = "sensor.fault_test"
+    additional_info = {"Location": "Office"}
+    fault_state = FaultState.NOT_TESTED  # FaultState is neither SET nor CLEARED
+    
+    # Set up the mock for `get_state` to return current attributes
+    mocked_hass_app.get_state = Mock(return_value={
+        "attributes": {"Location": "None"}  # Existing attribute is set as 'None'
+    })
+
+    result = fault_manager._determinate_info(entity_id, additional_info, fault_state)
+    
+    # Verify that the result is None, covering the last line of the function
+    assert result is None
+    
+def test_determinate_info_set_none_value(fault_manager, mocked_hass_app):
+    """
+    Test _determinate_info when the current attribute exists as 'None' and needs to be updated to a new value.
+    """
+    entity_id = "sensor.fault_test"
+    additional_info = {"Location": "Office"}
+
+    # Set up the mock for `get_state` to return current attributes
+    mocked_hass_app.get_state = Mock(return_value={
+        "attributes": {"Location": "None"}  # Existing attribute is set as 'None'
+    })
+
+    fault_state = FaultState.SET
+
+    result = fault_manager._determinate_info(entity_id, additional_info, fault_state)
+    
+    # Verify that the attribute "Location" was updated from "None" to "Office"
+    assert result == {"Location": "Office"}
+    
+def test_determinate_info_clear_none_value(fault_manager, mocked_hass_app):
+    """
+    Test _determinate_info when clearing an attribute that exists as 'None'.
+    """
+    entity_id = "sensor.fault_test"
+    additional_info = {"Location": "Office"}
+
+    # Set up the mock for `get_state` to return current attributes
+    mocked_hass_app.get_state = Mock(return_value={
+        "attributes": {"Location": "None, Office"}  # Existing attribute contains 'None' and 'Office'
+    })
+
+    fault_state = FaultState.CLEARED
+
+    result = fault_manager._determinate_info(entity_id, additional_info, fault_state)
+    
+    # Verify that the attribute "Location" is cleared correctly
+    assert result == {"Location": "None"}
