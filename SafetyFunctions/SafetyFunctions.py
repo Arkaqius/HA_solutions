@@ -43,6 +43,7 @@ from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 from shared.types_common import Fault, Symptom, RecoveryAction
 from shared.common_entities import CommonEntities
+from shared.DerivativeMonitor import DerivativeMonitor
 import shared.cfg_parser as cfg_pr
 
 DEBUG = False
@@ -74,6 +75,7 @@ class SafetyFunctions(hass.Hass):
         self.symptoms: dict[str, Symptom] = {}
         self.faults: dict[str, Fault] = {}
         self.recovery_actions: dict[str, RecoveryAction] = {}
+        self.derivative_monitor = DerivativeMonitor(self)
 
         # 10. Get and verify cfgs
         self.fault_dict: dict = self.args["app_config"]["faults"]

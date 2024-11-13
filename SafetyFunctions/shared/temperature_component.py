@@ -115,7 +115,6 @@ class TemperatureComponent(SafetyComponent):
                 "CAL_LOW_TEMP_THRESHOLD",
                 "CAL_FORECAST_TIMESPAN",
                 "location",
-                'temperature_sensor_rate'
             ]
             sm_method = self.sm_tc_2
         else:
@@ -215,18 +214,17 @@ class TemperatureComponent(SafetyComponent):
         cold_threshold: float = sm.sm_args["cold_thr"]
         location: str = sm.sm_args["location"]
         forecast_timespan: float = sm.sm_args["forecast_timespan"]
-        temperature_rate_sensor = sm.sm_args["temperature_sensor_rate"]
 
         # Fetch temperature value, using stubbed value if provided
         temperature: float | None = self._get_temperature_value(
             temperature_sensor, entities_changes
         )
 
-        temperature_rate: float | None = self._get_temperature_value(
-            temperature_rate_sensor, entities_changes
+        temperature_rate: float | None = self.derivative_monitor.get_first_derivative(
+            temperature_sensor
         )
 
-        if temperature is None:
+        if temperature is None or temperature_rate is None:
             return SafetyMechanismResult(False, None)
 
         # Ensure sm_args["forecast_timespan"] is in hours for this calculation
@@ -236,7 +234,7 @@ class TemperatureComponent(SafetyComponent):
 
         # Calculate forecasted temperature for the specified timespan
         # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
-        forecasted_temperature = (
+        forecasted_temperature: float = (
             temperature + temperature_rate * forecast_timespan_in_minutes
         )
 
@@ -459,8 +457,9 @@ class TemperatureComponent(SafetyComponent):
 
         # Additional setup for SM TC 2
         if sm_method == self.sm_tc_2:
-            pass
-            # self.hass_app.run_every(self._calculate_diff, "now", 60)
+            self.derivative_monitor.register_entity(
+                extracted_params["temperature_sensor"], 60, -2, 2
+            )
 
         return True
 
@@ -514,39 +513,11 @@ class TemperatureComponent(SafetyComponent):
         if sm_method == self.sm_tc_2:
             sm_args.update(
                 {
-                    "temperature_sensor_rate": params["temperature_sensor_rate"],
                     "forecast_timespan": params["CAL_FORECAST_TIMESPAN"],
-                    "diverative": 0.0,
-                    "prev_val": 0.0,
                 }
             )
 
         return SafetyMechanism(**sm_args)
-
-    def _calculate_diff(self, _: "Any") -> None:
-        """
-        Calculates the rate of temperature change and updates the safety mechanism's state accordingly.
-        This method is scheduled to run periodically to monitor temperature trends.
-
-        Args:
-            _: Ignored parameter for compatibility with the scheduling system.
-        """
-        sm: SafetyMechanism = self.safety_mechanisms[
-            "RiskyTemperatureOfficeForeCast"
-        ]  # HARDCODED!
-
-        # Get inputs
-        temperature: float | None = self.get_num_sensor_val(
-            self.hass_app, sm.sm_args["temperature_sensor"]
-        )
-        if temperature is None:
-            return  # Exit if there's a conversion error
-
-        sm.sm_args["diverative"] = temperature - sm.sm_args["prev_val"]
-        sm.sm_args["prev_val"] = temperature
-        self.hass_app.set_state(
-            "sensor.office_temperature_rate", state=sm.sm_args["diverative"]
-        )
 
     def _get_temperature_value(
         self, sensor_id: str, entities_changes: dict[str, str] | None

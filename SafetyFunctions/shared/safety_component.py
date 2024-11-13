@@ -37,8 +37,9 @@ from enum import Enum
 from shared.fault_manager import FaultManager
 from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
-from shared.types_common import Symptom, RecoveryAction
+from shared.types_common import Symptom, RecoveryAction, SMState
 from shared.common_entities import CommonEntities
+from shared.DerivativeMonitor import DerivativeMonitor
 
 NO_NEEDED = False
 
@@ -121,9 +122,10 @@ class SafetyComponent:
         self.hass_app: hass.Hass = hass_app
         self.fault_man: Optional[FaultManager] = None
         self.common_entities: CommonEntities = common_entities
-        self.init_safety_mechanisms()
+        self.init_common_data()
+        self.derivative_monitor = DerivativeMonitor(hass_app)
 
-    def init_safety_mechanisms(self) -> None:
+    def init_common_data(self) -> None:
         # Initialize dictionaries that need to be unique to each instance
         self.safety_mechanisms: dict = {}
         self.debounce_states: dict = {}
@@ -131,6 +133,54 @@ class SafetyComponent:
     def get_symptoms_data(
         self, modules: dict, component_cfg: list[dict[str, Any]]
     ) -> tuple[dict[str, Symptom], dict[str, RecoveryAction]]:
+        """
+        Abstract method to retrieve symptom configurations and generate corresponding symptom and recovery action objects.
+
+        Args:
+            modules (dict): A dictionary of system modules.
+            component_cfg (list[dict[str, Any]]): A list of dictionaries, each containing a location as the key and a configuration dictionary for that location.
+
+        Returns:
+            tuple: A tuple containing:
+                - dict[str, Symptom]: A dictionary mapping symptom names to Symptom objects.
+                - dict[str, RecoveryAction]: A dictionary mapping symptom names to RecoveryAction objects.
+
+        Raises:
+            NotImplementedError: This method must be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    def init_safety_mechanism(self, sm_name: str, name: str, parameters: dict) -> bool:
+        """
+        Abstract method to initialize a safety mechanism based on the provided name and parameters.
+
+        Args:
+            sm_name (str): The name of the safety mechanism (e.g., "sm_tc_1" or "sm_tc_2").
+            name (str): The unique identifier for this safety mechanism.
+            parameters (dict): Configuration parameters specific to the safety mechanism.
+
+        Returns:
+            bool: True if initialization is successful, False otherwise.
+
+        Raises:
+            NotImplementedError: This method must be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    def enable_safety_mechanism(self, name: str, state: SMState) -> bool:
+        """
+        Abstract method to enable or disable a specific safety mechanism.
+
+        Args:
+            name (str): The unique identifier for the safety mechanism.
+            state (SMState): The desired state for the safety mechanism (ENABLED or DISABLED).
+
+        Returns:
+            bool: True if the state change is successful, False otherwise.
+
+        Raises:
+            NotImplementedError: This method must be implemented in subclasses.
+        """
         raise NotImplementedError
 
     def register_fm(self, fm: FaultManager) -> None:
