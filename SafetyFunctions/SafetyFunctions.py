@@ -43,7 +43,7 @@ from shared.notification_manager import NotificationManager
 from shared.recovery_manager import RecoveryManager
 from shared.types_common import Fault, Symptom, RecoveryAction
 from shared.common_entities import CommonEntities
-from shared.DerivativeMonitor import DerivativeMonitor
+from shared.derivative_monitor import DerivativeMonitor
 import shared.cfg_parser as cfg_pr
 
 DEBUG = False

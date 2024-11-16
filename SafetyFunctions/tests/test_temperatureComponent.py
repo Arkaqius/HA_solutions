@@ -208,14 +208,22 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
         - Input: Initial temperature is 20.0°C, rate is -0.1°C/min, and forecast timespan is 2 hours.
         - Expected Result: Symptom "RiskyTemperatureOfficeForeCast" should be set to True.
     """
-    app_instance, _, __, ___, mock_behaviors_default = (
+    app_instance, __, _, ___, mock_behaviors_default = (
         mocked_hass_app_with_temp_component
     )
     temperature_sequence = ["20.0"]
     rate_of_change = "-0.1"  # degrees per minute
 
+    # Initialize the application and register the monitored entity in DerivativeMonitor
     app_instance.initialize()
+    app_instance.derivative_monitor.register_entity(
+        "sensor.office_temperature",
+        sample_time=60,  # Sampling every 1 minute
+        low_saturation=-10.0,
+        high_saturation=10.0,
+    )
 
+    # Mock the states for temperature and rate
     app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
         entity_id,
         [
@@ -224,6 +232,7 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
         ],
     )
 
+    # Simulate multiple iterations to reach the debounce limit
     for _ in range(DEBOUNCE_LIMIT):
         app_instance.sm_modules["TemperatureComponent"].sm_tc_2(
             app_instance.sm_modules["TemperatureComponent"].safety_mechanisms[
@@ -231,10 +240,12 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
             ]
         )
 
+    # Assert the symptom state
     assert (
         app_instance.fm.check_symptom("RiskyTemperatureOfficeForeCast")
         is FaultState.SET
     )
+
 
 
 @pytest.mark.parametrize(

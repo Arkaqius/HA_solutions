@@ -39,7 +39,7 @@ from shared.types_common import FaultState
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 from shared.types_common import Symptom, RecoveryAction, SMState
 from shared.common_entities import CommonEntities
-from shared.DerivativeMonitor import DerivativeMonitor
+from shared.derivative_monitor import DerivativeMonitor
 
 NO_NEEDED = False
 

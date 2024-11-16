@@ -219,9 +219,10 @@ class TemperatureComponent(SafetyComponent):
         temperature: float | None = self._get_temperature_value(
             temperature_sensor, entities_changes
         )
-
-        temperature_rate: float | None = self.derivative_monitor.get_first_derivative(
-            temperature_sensor
+        
+        # Fetch temperature value, using stubbed value if provided
+        temperature_rate: float | None = self._get_temperature_value(
+            f"{temperature_sensor}_rate", entities_changes
         )
 
         if temperature is None or temperature_rate is None:

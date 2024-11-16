@@ -7,7 +7,7 @@ Classes:
 - DerivativeMonitor: A singleton class to register entities, calculate derivatives, and provide access to derivative data.
 """
 
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any
 from appdaemon.plugins.hass.hassapi import Hass  # type: ignore
 from threading import Lock
 
@@ -37,6 +37,7 @@ class DerivativeMonitor:
             self.entities: Dict[str, Dict[str, Any]] = {}
             self.derivative_data: Dict[str, Dict[str, Optional[float]]] = {}
             self.initialized = True
+            self.hass_app.log("DerivativeMonitor initialized.", level="DEBUG")
 
     def register_entity(
         self,
@@ -55,6 +56,7 @@ class DerivativeMonitor:
             low_saturation (float): Lower saturation limit for derivative values.
             high_saturation (float): Upper saturation limit for derivative values.
         """
+        self.hass_app.log(f"Registering entity {entity_id} for derivative monitoring.", level="DEBUG")
         self.entities[entity_id] = {
             "sample_time": sample_time,
             "low_saturation": low_saturation,
@@ -64,18 +66,18 @@ class DerivativeMonitor:
             "second_derivative": None,
             "last_sample_time": None,
         }
-        # Create derivative entities in Home Assistant with initial state as None
+        # Create derivative entities in Home Assistant
         self.hass_app.set_state(
-            f"sensor.{entity_id}_rate",
+            f"{entity_id}_rate",
             state=None,
             attributes={"friendly_name": f"{entity_id} Rate"},
         )
         self.hass_app.set_state(
-            f"sensor.{entity_id}_rateOfRate",
+            f"{entity_id}_rateOfRate",
             state=None,
             attributes={"friendly_name": f"{entity_id} Rate of Rate"},
         )
-
+        self.hass_app.log(f"Derivative entities created for {entity_id}.", level="DEBUG")
         self.schedule_sampling(entity_id, sample_time)
 
     def schedule_sampling(self, entity_id: str, sample_time: int) -> None:
@@ -86,11 +88,12 @@ class DerivativeMonitor:
             entity_id (str): The ID of the entity to sample.
             sample_time (int): Sampling time in seconds.
         """
+        self.hass_app.log(f"Scheduling sampling for {entity_id} every {sample_time} seconds.", level="DEBUG")
         self.hass_app.run_every(
             self._calculate_diff, "now", sample_time, entity_id=entity_id
         )
 
-    def _calculate_diff(self, kwargs: Dict[str, Any]) -> None:
+    def _calculate_diff(self, **kwargs: Dict[str, Any]) -> None:
         """
         Calculates the first and second derivatives for a registered entity's state
         and updates the corresponding Home Assistant entities.
@@ -98,14 +101,16 @@ class DerivativeMonitor:
         Args:
             kwargs (dict): Contains "entity_id" key identifying the entity to process.
         """
-        entity_id = kwargs.get("entity_id")
-        if entity_id not in self.entities:
-            self.hass_app.log(f"Entity {entity_id} not registered.", level="ERROR")
+        entity_id: Dict[str, Any] | None = kwargs.get("entity_id")
+        if not entity_id or entity_id not in self.entities:
+            self.hass_app.log(f"Entity {entity_id} not registered for derivatives.", level="ERROR")
             return
 
-        entity_config = self.entities[entity_id]
-        current_value = self._get_entity_value(entity_id)
+        self.hass_app.log(f"Calculating derivatives for {entity_id}.", level="DEBUG")
+        entity_config: Dict[str, Any] = self.entities[entity_id]
+        current_value: float | None = self._get_entity_value(entity_id)
         if current_value is None:
+            self.hass_app.log(f"No value available for {entity_id}. Skipping calculation.", level="DEBUG")
             return
 
         # Calculate first and second derivatives
@@ -116,12 +121,9 @@ class DerivativeMonitor:
                 entity_config["low_saturation"],
                 min(first_derivative, entity_config["high_saturation"]),
             )
-
             prev_first_derivative = entity_config["first_derivative"]
-            second_derivative: None | Any = (
-                None
-                if prev_first_derivative is None
-                else first_derivative - prev_first_derivative
+            second_derivative = (
+                None if prev_first_derivative is None else first_derivative - prev_first_derivative
             )
             if second_derivative is not None:
                 second_derivative = max(
@@ -131,21 +133,20 @@ class DerivativeMonitor:
 
             entity_config["first_derivative"] = first_derivative
             entity_config["second_derivative"] = second_derivative
+            self.hass_app.log(
+                f"Calculated for {entity_id}: First Derivative={first_derivative}, Second Derivative={second_derivative}.",
+                level="DEBUG",
+            )
         entity_config["prev_value"] = current_value
-
-        # Store derivative data
-        self.derivative_data[entity_id] = {
-            "first_derivative": entity_config["first_derivative"],
-            "second_derivative": entity_config["second_derivative"],
-        }
 
         # Update derivative states in Home Assistant
         self.hass_app.set_state(
-            f"sensor.{entity_id}_rate", state=entity_config["first_derivative"]
+            f"{entity_id}_rate", state=entity_config["first_derivative"]
         )
         self.hass_app.set_state(
-            f"sensor.{entity_id}_rateOfRate", state=entity_config["second_derivative"]
+            f"{entity_id}_rateOfRate", state=entity_config["second_derivative"]
         )
+        self.hass_app.log(f"Updated Home Assistant states for {entity_id}.", level="DEBUG")
 
     def _get_entity_value(self, entity_id: str) -> Optional[float]:
         """
@@ -158,7 +159,9 @@ class DerivativeMonitor:
             Optional[float]: The entity's current state as a float, or None if retrieval fails.
         """
         try:
-            return float(self.hass_app.get_state(entity_id))
+            value = float(self.hass_app.get_state(entity_id))
+            self.hass_app.log(f"Retrieved value for {entity_id}: {value}.", level="DEBUG")
+            return value
         except (TypeError, ValueError):
             self.hass_app.log(
                 f"Unable to retrieve or convert state for {entity_id}.", level="ERROR"
@@ -175,7 +178,8 @@ class DerivativeMonitor:
         Returns:
             Optional[float]: The latest first derivative or None if unavailable.
         """
-        return self.derivative_data.get(entity_id, {}).get("first_derivative")
+        self.hass_app.log(f"Getting first derivative for {entity_id}.", level="DEBUG")
+        return self.entities.get(entity_id)['first_derivative']
 
     def get_second_derivative(self, entity_id: str) -> Optional[float]:
         """
@@ -187,4 +191,5 @@ class DerivativeMonitor:
         Returns:
             Optional[float]: The latest second derivative or None if unavailable.
         """
-        return self.derivative_data.get(entity_id, {}).get("second_derivative")
+        self.hass_app.log(f"Getting second derivative for {entity_id}.", level="DEBUG")
+        return self.entities.get(entity_id)['second_derivative']
