@@ -86,14 +86,14 @@ def test_calculate_diff(setup_derivative_monitor):
     # Simulate second state change
     set_mock_state(entity_id, 25.0)
     derivative_monitor._calculate_diff(entity_id=entity_id)
-    assert derivative_monitor.get_first_derivative(entity_id) == 5.0
-    assert derivative_monitor.get_second_derivative(entity_id) is None
+    assert derivative_monitor.get_first_derivative(entity_id) == 2.5
+    assert derivative_monitor.get_second_derivative(entity_id) == 0.0
 
     # Simulate third state change
     set_mock_state(entity_id, 28.0)
     derivative_monitor._calculate_diff(entity_id=entity_id)
-    assert derivative_monitor.get_first_derivative(entity_id) == 3.0
-    assert derivative_monitor.get_second_derivative(entity_id) == -2.0
+    assert derivative_monitor.get_first_derivative(entity_id) > 2.5 and derivative_monitor.get_first_derivative(entity_id) < 2.7
+    assert derivative_monitor.get_second_derivative(entity_id) == 0.25
 
 def test_unregistered_entity_error(setup_derivative_monitor):
     """Ensure an error is logged for unregistered entities."""

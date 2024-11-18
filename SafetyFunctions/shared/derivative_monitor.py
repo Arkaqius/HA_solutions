@@ -10,6 +10,7 @@ Classes:
 from typing import Optional, Dict, Any
 from appdaemon.plugins.hass.hassapi import Hass  # type: ignore
 from threading import Lock
+import collections
 
 
 class DerivativeMonitor:
@@ -36,6 +37,7 @@ class DerivativeMonitor:
             self.hass_app = hass_app
             self.entities: Dict[str, Dict[str, Any]] = {}
             self.derivative_data: Dict[str, Dict[str, Optional[float]]] = {}
+            self.filter_window_size = 50  # Default window size for moving average filtering
             self.initialized = True
             self.hass_app.log("DerivativeMonitor initialized.", level="DEBUG")
 
@@ -65,7 +67,11 @@ class DerivativeMonitor:
             "first_derivative": None,
             "second_derivative": None,
             "last_sample_time": None,
+            "first_derivative_history": collections.deque(maxlen=self.filter_window_size),
+            "second_derivative_history": collections.deque(maxlen=self.filter_window_size),
         }
+        self.entities[entity_id]["first_derivative_history"].append(0.00)
+        self.entities[entity_id]["second_derivative_history"].append(0.00)
         # Create derivative entities in Home Assistant
         self.hass_app.set_state(
             f"{entity_id}_rate",
@@ -131,10 +137,21 @@ class DerivativeMonitor:
                     min(second_derivative, entity_config["high_saturation"]),
                 )
 
-            entity_config["first_derivative"] = first_derivative
-            entity_config["second_derivative"] = second_derivative
+            # Add to history for filtering
+            if first_derivative:
+                entity_config["first_derivative_history"].append(first_derivative)
+            if second_derivative:
+                entity_config["second_derivative_history"].append(second_derivative)
+
+            # Apply moving average filtering
+            filtered_first_derivative = sum(entity_config["first_derivative_history"]) / len(entity_config["first_derivative_history"])
+            filtered_second_derivative = sum(entity_config["second_derivative_history"]) / len(entity_config["second_derivative_history"])
+
+            entity_config["first_derivative"] = filtered_first_derivative
+            entity_config["second_derivative"] = filtered_second_derivative
+
             self.hass_app.log(
-                f"Calculated for {entity_id}: First Derivative={first_derivative}, Second Derivative={second_derivative}.",
+                f"Calculated for {entity_id}: First Derivative={filtered_first_derivative}, Second Derivative={filtered_second_derivative}.",
                 level="DEBUG",
             )
         entity_config["prev_value"] = current_value
