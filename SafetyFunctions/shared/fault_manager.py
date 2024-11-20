@@ -242,7 +242,7 @@ class FaultManager:
             # Prepare the attributes for the state update
             attributes: dict = info_to_send if info_to_send else {}
 
-            # Clear HA entity
+            # Set HA entity
             self.hass.set_state(
                 "sensor.fault_" + fault.name, state="Set", attributes=attributes
             )
@@ -379,7 +379,7 @@ class FaultManager:
 
             # Determinate additional info
             info_to_send = self._determinate_info(
-                "sensor.fault_" + fault.name, additional_info, FaultState.SET
+                "sensor.fault_" + fault.name, additional_info, FaultState.CLEARED
             )
 
             # Prepare the attributes for the state update

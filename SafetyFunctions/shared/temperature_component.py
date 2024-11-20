@@ -20,6 +20,7 @@ Note:
 This module is part of a larger system designed for enhancing safety through Home Assistant. It should be integrated with the appropriate Home Assistant setup and configured according to the specific needs and safety requirements of the environment being monitored.
 """
 
+import math
 from typing import Dict, Any, Callable, Optional
 from shared.safety_component import (
     SafetyComponent,
@@ -35,6 +36,7 @@ import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 # CONFIG
 DEBOUNCE_INIT = 0
 SM_TC_2_DEBOUNCE_LIMIT = 0
+FORECAST_SPAN = 1  # hour
 
 
 class TemperatureComponent(SafetyComponent):
@@ -213,13 +215,13 @@ class TemperatureComponent(SafetyComponent):
         temperature_sensor: str = sm.sm_args["temperature_sensor"]
         cold_threshold: float = sm.sm_args["cold_thr"]
         location: str = sm.sm_args["location"]
-        forecast_timespan: float = sm.sm_args["forecast_timespan"]
+        forecast_span: float = sm.sm_args["forecast_timespan"]
 
         # Fetch temperature value, using stubbed value if provided
         temperature: float | None = self._get_temperature_value(
             temperature_sensor, entities_changes
         )
-        
+
         # Fetch temperature value, using stubbed value if provided
         temperature_rate: float | None = self._get_temperature_value(
             f"{temperature_sensor}_rate", entities_changes
@@ -228,21 +230,55 @@ class TemperatureComponent(SafetyComponent):
         if temperature is None or temperature_rate is None:
             return SafetyMechanismResult(False, None)
 
-        # Ensure sm_args["forecast_timespan"] is in hours for this calculation
-        forecast_timespan_in_minutes: float = (
-            forecast_timespan * 60
-        )  # Convert hours to minutes
-
-        # Calculate forecasted temperature for the specified timespan
-        # Since temperature_rate is per minute, multiply by forecast_timespan_in_minutes directly
-        forecasted_temperature: float = (
-            temperature + temperature_rate * forecast_timespan_in_minutes
+        forecasted_temperature = self.forecast_temperature(
+            temperature, temperature_rate, forecast_span
         )
 
         sm_result: bool = forecasted_temperature < cold_threshold
         additional_info: dict[str, str] = {"location": location}
 
         return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
+
+    def forecast_temperature(
+        initial_temperature: float, dT_per_minute: float, forecast_timespan_hours: float
+    ) -> float:
+        """
+        Forecast the temperature using an exponential decay model.
+
+        Parameters:
+        - initial_temperature (float): The initial temperature in degrees Celsius (T_0).
+        - dT_per_minute (float): The temperature drop per minute (initial rate).
+        - forecast_timespan_hours (float): The timespan for the forecast in hours.
+
+        Returns:
+        - float: The forecasted temperature after the given timespan.
+        """
+        # Convert forecast timespan from hours to minutes
+        forecast_timespan_in_minutes = forecast_timespan_hours * 60
+
+        # Calculate decay constant k based on the initial rate of temperature change
+        k: float = -math.log(
+            (initial_temperature - dT_per_minute) / initial_temperature
+        )
+
+        # Calculate forecasted temperature for the specified timespan using exponential decay
+        forecasted_temperature: float = initial_temperature * math.exp(
+            -k * forecast_timespan_in_minutes
+        )
+
+        return forecasted_temperature
+
+    # Example usage
+    initial_temperature = 25.0  # Initial temperature in degrees Celsius
+    dT_per_minute = 0.1  # Temperature drop per minute
+    forecast_timespan_hours = 2  # Forecast for 2 hours
+
+    forecasted_temperature = forecast_temperature(
+        initial_temperature, dT_per_minute, forecast_timespan_hours
+    )
+    print(
+        f"Forecasted temperature after {forecast_timespan_hours} hours: {forecasted_temperature:.2f} °C"
+    )
 
     def sm_recalled(self, **kwargs: dict) -> None:
         """

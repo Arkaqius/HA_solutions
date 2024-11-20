@@ -160,9 +160,24 @@ class SafetyFunctions(hass.Hass):
         self.log("Safety app started", level="DEBUG")
 
     def register_entities(self, faults: dict[str, Fault]) -> None:
-        for name, _ in faults.items():
+        """
+        Registers fault entities in Home Assistant with attributes optimized for status presentation.
+
+        Args:
+            faults (dict[str, Fault]): A dictionary of fault names and Fault objects.
+        """
+        for name, fault in faults.items():
             self.set_state(
                 "sensor.fault_" + name,
                 state="Not_tested",
-                attributes={"friendly_name": name, "location": "None"},
+                attributes={
+                    "friendly_name": f"Fault: {name}",
+                    "icon": "mdi:alert-circle-outline",
+                    "state_class": "diagnostic",  # Prevents graphing
+                    "unit_of_measurement": None,  # Avoid numeric interpretation
+                    "attribution": "Managed by SafetyFunction",
+                    "description": f"Status of the {name} fault: Not tested, Cleared, or Set.",
+                    "device_class": "problem",  # Indicates issue status
+                    "entity_category": "diagnostic",  # Optional: Makes it appear in the diagnostics section
+                },
             )
