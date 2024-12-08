@@ -64,57 +64,62 @@ class SafetyFunctions(hass.Hass):
     def initialize(self) -> None:
         """
         Initialize the SafetyFunctions app and its components.
-        This method sets up the temperature sensor component and initializes the health status.
+        This method sets up safety mechanisms, fault conditions, recovery actions, and health state.
         """
         # Disable all the no-member violations in this function
         # pylint: disable=attribute-defined-outside-init
+        # 10. Initialize health entity
         self.set_state("sensor.safety_app_health", state="init")
+
         if DEBUG:
             RemotePdb("172.30.33.4", 5050).set_trace()
+
+        # 10.1. Internal storage for safety components
         self.sm_modules: dict = {}
         self.symptoms: dict[str, Symptom] = {}
-        self.faults: dict[str, Fault] = {}
         self.recovery_actions: dict[str, RecoveryAction] = {}
         self.derivative_monitor = DerivativeMonitor(self)
 
-        # 10. Get and verify cfgs
+        # 10.2. Get configuration data
         self.fault_dict: dict = self.args["app_config"]["faults"]
         self.safety_components_cfg: dict = self.args["user_config"]["safety_components"]
         self.notification_cfg: dict = self.args["user_config"]["notification"]
         self.common_entities_cfg: dict = self.args["user_config"]["common_entities"]
-        
-        # Check if symptoms or faults are defined, otherwise stop the app
-        if not self.args["app_config"].get("faults") or not self.args["user_config"].get("safety_components"):
-            self.log("No faults or safety components defined. Stopping the app.", level="WARNING")
+
+        # Combine configuration for export later
+        combined_config = {
+            "faults": self.fault_dict,
+            "safety_components": self.safety_components_cfg,
+            "notification": self.notification_cfg,
+            "common_entities": self.common_entities_cfg,
+        }
+
+        # 10.3. Stop if configurations are invalid
+        if not self.fault_dict or not self.safety_components_cfg:
+            self.log(
+                "No faults or safety components defined. Stopping the app.",
+                level="WARNING",
+            )
             self.set_state("sensor.safety_app_health", state="invalid_cfg")
             self.stop_app(self.name)
             return
 
-        # 20. Prepare common entities register
+        # 20. Initialize common entities
         self.common_entities: CommonEntities = CommonEntities(
             self, self.common_entities_cfg
         )
 
-        # 30. Initialize SM modules and get symptoms and recovery data
+        # 30. Initialize components and collect symptoms/recovery actions
         for component_name, component_cls in COMPONENT_DICT.items():
             if component_name in self.safety_components_cfg:
-                # Instantiate the component with 'self' passed to its constructor
-                component_instance = component_cls(  # type: ignore
-                    self, self.common_entities
-                )  # Assuming the constructor expects a reference to `self`
-
-                # Store the instance in a dictionary
+                component_instance = component_cls(self, self.common_entities)
                 self.sm_modules[component_name] = component_instance
 
-                # Get configuration for this component
                 component_cfg = self.safety_components_cfg[component_name]
-
-                # Get symptoms from the component instance
                 symptoms_data, recovery_data = component_instance.get_symptoms_data(
                     self.sm_modules, component_cfg
                 )
 
-                # Update the symptoms dictionary with new symptoms
                 self.symptoms.update(symptoms_data)
                 self.recovery_actions.update(recovery_data)
 
@@ -123,10 +128,7 @@ class SafetyFunctions(hass.Hass):
 
         # 50. Initialize fault manager
         self.fm: FaultManager = FaultManager(
-            self,
-            self.sm_modules,
-            self.symptoms,
-            self.faults,
+            self, self.sm_modules, self.symptoms, self.faults
         )
 
         # 60. Initialize notification manager
@@ -139,25 +141,43 @@ class SafetyFunctions(hass.Hass):
             self, self.fm, self.recovery_actions, self.common_entities, self.notify_man
         )
 
-        # 80. Initialize notification manager
+        # 80. Register callbacks for faults
         self.fm.register_callbacks(self.reco_man.recovery, self.notify_man.notify)
 
-        # 90. Register fm to safety components
+        # 90. Register fault manager to components
         for sm in self.sm_modules.values():
             sm.register_fm(self.fm)
 
-        # 110. Register all symptoms
+        # 100. Register entities for faults
         self.register_entities(self.faults)
 
-        # 120. Init safety mechanisms
+        # 110. Initialize safety mechanisms
         self.fm.init_safety_mechanisms()
 
-        # 130. Enable safety mechanisms
+        # 120. Enable all symptoms
         self.fm.enable_all_symptoms()
 
-        # 140. Set the health status after initialization
-        self.set_state("sensor.safety_app_health", state="good")
-        self.log("Safety app started", level="DEBUG")
+        # 130. Export health entity attributes
+        health_attributes = {
+            "friendly_name": "Safety App Health",
+            "configuration": combined_config,
+            "symptoms": {
+                name: vars(symptom) for name, symptom in self.symptoms.items()
+            },
+            "recovery_actions": {
+                name: {
+                    "name": action.name,
+                    "params": action.params,
+                    "status": action.current_status.name,
+                }
+                for name, action in self.recovery_actions.items()
+            },
+            "status": "Operational",
+        }
+        self.set_state(
+            "sensor.safety_app_health", state="good", attributes=health_attributes
+        )
+        self.log("Safety app started successfully", level="DEBUG")
 
     def register_entities(self, faults: dict[str, Fault]) -> None:
         """
