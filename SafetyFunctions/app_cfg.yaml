@@ -2,7 +2,7 @@ SafetyFunctions:
   # App definitions
   module: SafetyFunctions
   class: SafetyFunctions
-  log_level: DEBUG
+  log_level: WARNING
   use_dictionary_unpacking: true
 
   # General config of app

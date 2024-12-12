@@ -293,6 +293,10 @@ class SmartHeating(hass.Hass):
             # Initialize internal fields
             self.initialize_internal_fields()
 
+            # Initialize TemporaryWarmWater
+            self.temporary_ww = TemporaryWarmWater(self)
+            self.temporary_ww.initialize()
+
             # Log initialization completion
             self.log("Initialization finished", level="DEBUG")
             self.log_config()
@@ -461,9 +465,12 @@ class SmartHeating(hass.Hass):
         Returns:
             float: Returns the force_flow_offset if conditions are met, otherwise 0.
         """
-        self.log(f'self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]:{self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]}',level='DEBUG')
+        self.log(
+            f"self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]:{self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]}",
+            level="DEBUG",
+        )
         if self.rads_error[ROOM_INDEX_RAD.BEDROOM.value] > 0:
-            self.log(f'self.force_flow_flag:{self.force_flow_flag}',level='DEBUG')
+            self.log(f"self.force_flow_flag:{self.force_flow_flag}", level="DEBUG")
             if self.force_flow_flag:
                 return self.force_flow_offset
         return off_final
@@ -628,7 +635,7 @@ class SmartHeating(hass.Hass):
         total_weighted_temp: float = sum(
             temp * weight for temp, weight in zip(temperatures, weights)
         )
-        return (total_weighted_temp / sum(weights))
+        return total_weighted_temp / sum(weights)
 
     def sh_get_wam_errors(self) -> list[float]:
         """
@@ -714,7 +721,7 @@ class SmartHeating(hass.Hass):
         if min_value is not None:
             value = max(min_value, value)
 
-        if 'input' in entity:
+        if "input" in entity:
             self.call_service("input_number/set_value", entity_id=entity, value=value)
         else:
             self.call_service("number/set_value", entity_id=entity, value=value)
@@ -837,3 +844,64 @@ class SmartHeating(hass.Hass):
         pass  # For now, this is a placeholder. In reality, you'd implement specific safe state actions.
 
     # endregion
+
+
+class TemporaryWarmWater:
+    """
+    TemporaryWarmWater - Handles temporary warm water activation for 15 minutes.
+    """
+
+    def __init__(self, hass_instance):
+        """
+        Initialize the TemporaryWarmWater class.
+        Args:
+            hass_instance: The main AppDaemon hass instance for calling services.
+        """
+        self.hass = hass_instance
+        self.ww_timer_handle = None
+
+    def initialize(self) -> None:
+        """
+        Setup input_button and input_boolean entities, and listen for button presses.
+        """
+        # Set attributes for the button and boolean
+        self.hass.set_state(
+            "input_button.temporary_ww",
+            state=0,
+            attributes={
+                "friendly_name": "Temporary Warm Water",
+                "icon": "mdi:water-boiler",
+                "description": "Enable warm tap water for 15 minutes.",
+            },
+        )
+
+        # Listen for button presses
+        self.hass.listen_state(self.handle_button_press, "input_button.temporary_ww")
+
+    def handle_button_press(self, entity, attribute, old, new, kwargs) -> None:
+        """
+        Reset the 15-minute timer on button press.
+        """
+        self.hass.log(
+            "Temporary warm water button pressed, resetting timer.", level="INFO"
+        )
+
+        # Turn on warm water
+        self.hass.call_service(
+            "input_boolean/turn_on", entity_id="input_boolean.ww_state"
+        )
+
+        # Reset or start the 15-minute timer
+        if self.ww_timer_handle:
+            self.hass.cancel_timer(self.ww_timer_handle)
+
+        self.ww_timer_handle = self.hass.run_in(self.turn_off_warm_water, 15 * 60)
+
+    def turn_off_warm_water(self, kwargs) -> None:
+        """
+        Turn off the warm water state after the timeout.
+        """
+        self.hass.call_service(
+            "input_boolean/turn_off", entity_id="input_boolean.ww_state"
+        )
+        self.hass.log("Warm water timer expired. Turning off warm water.", level="INFO")

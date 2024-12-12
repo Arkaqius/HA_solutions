@@ -240,7 +240,10 @@ class TemperatureComponent(SafetyComponent):
         return SafetyMechanismResult(result=sm_result, additional_info=additional_info)
 
     def forecast_temperature(
-        initial_temperature: float, dT_per_minute: float, forecast_timespan_hours: float
+        self,
+        initial_temperature: float,
+        dT_per_minute: float,
+        forecast_timespan_hours: float,
     ) -> float:
         """
         Forecast the temperature using an exponential decay model.
@@ -267,18 +270,6 @@ class TemperatureComponent(SafetyComponent):
         )
 
         return forecasted_temperature
-
-    # Example usage
-    initial_temperature = 25.0  # Initial temperature in degrees Celsius
-    dT_per_minute = 0.1  # Temperature drop per minute
-    forecast_timespan_hours = 2  # Forecast for 2 hours
-
-    forecasted_temperature = forecast_temperature(
-        initial_temperature, dT_per_minute, forecast_timespan_hours
-    )
-    print(
-        f"Forecasted temperature after {forecast_timespan_hours} hours: {forecasted_temperature:.2f} °C"
-    )
 
     def sm_recalled(self, **kwargs: dict) -> None:
         """
