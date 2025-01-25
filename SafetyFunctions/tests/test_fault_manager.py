@@ -15,7 +15,7 @@ def symptom():
 
 @pytest.fixture
 def fault():
-    return Fault(name="RiskyTemperature", related_symptoms=["sm_tc_1"], notification_level=2)
+    return Fault(name="RiskyTemperature", related_symptoms=["sm_tc_1"], level=2)
 
 @pytest.fixture
 def fault_manager(mocked_hass_app, symptom, fault):
@@ -94,7 +94,7 @@ def test_set_fault(fault_manager, mocked_hass_app, fault):
     )
     fault_manager.notify_interface.assert_called_once_with(
         "RiskyTemperature",
-        fault.notification_level,
+        fault.level,
         FaultState.SET,
         additional_info,
         "mocked_fault_tag"
@@ -127,7 +127,7 @@ def test_clear_fault(fault_manager, mocked_hass_app, fault):
     )
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault.notification_level,
+        fault.level,
         FaultState.CLEARED,
         additional_info,
         "mocked_fault_tag"
@@ -203,7 +203,7 @@ def test_fault_manager_multiple_symptoms(fault_manager, mocked_hass_app, fault):
     )
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault.notification_level,
+        fault.level,
         FaultState.SET,
         additional_info_office,
         "mocked_fault_tag",
@@ -225,7 +225,7 @@ def test_fault_manager_multiple_symptoms(fault_manager, mocked_hass_app, fault):
     )
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault.notification_level,
+        fault.level,
         FaultState.SET,
         additional_info_kitchen,
         "mocked_fault_tag",
@@ -252,7 +252,7 @@ def test_fault_manager_multiple_symptoms(fault_manager, mocked_hass_app, fault):
     )
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault.notification_level,
+        fault.level,
         FaultState.CLEARED,
         additional_info_kitchen,
         "mocked_fault_tag",
@@ -290,8 +290,8 @@ def test_fault_manager_state_transitions(fault_manager, mocked_hass_app, fault):
     fault_manager.symptoms["OverheatingKitchen"] = symptom2
 
     # Add faults that relate to the symptoms
-    fault1 = Fault("RiskyTemperature", ["sm_tc_1"], notification_level=2)
-    fault2 = Fault("OverheatingFault", ["sm_tc_2"], notification_level=3)
+    fault1 = Fault("RiskyTemperature", ["sm_tc_1"], level=2)
+    fault2 = Fault("OverheatingFault", ["sm_tc_2"], level=3)
     fault_manager.faults["RiskyTemperature"] = fault1
     fault_manager.faults["OverheatingFault"] = fault2
 
@@ -308,7 +308,7 @@ def test_fault_manager_state_transitions(fault_manager, mocked_hass_app, fault):
     assert fault1.state == FaultState.SET
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault1.notification_level,
+        fault1.level,
         FaultState.SET,
         additional_info1,
         "mocked_fault_tag",
@@ -322,7 +322,7 @@ def test_fault_manager_state_transitions(fault_manager, mocked_hass_app, fault):
     assert fault2.state == FaultState.SET
     fault_manager.notify_interface.assert_called_with(
         "OverheatingFault",
-        fault2.notification_level,
+        fault2.level,
         FaultState.SET,
         additional_info2,
         "mocked_fault_tag",
@@ -335,7 +335,7 @@ def test_fault_manager_state_transitions(fault_manager, mocked_hass_app, fault):
     assert fault1.state == FaultState.CLEARED
     fault_manager.notify_interface.assert_called_with(
         "RiskyTemperature",
-        fault1.notification_level,
+        fault1.level,
         FaultState.CLEARED,
         additional_info1,
         "mocked_fault_tag",
@@ -351,7 +351,7 @@ def test_fault_manager_state_transitions(fault_manager, mocked_hass_app, fault):
     assert fault2.state == FaultState.CLEARED
     fault_manager.notify_interface.assert_called_with(
         "OverheatingFault",
-        fault2.notification_level,
+        fault2.level,
         FaultState.CLEARED,
         additional_info2,
         "mocked_fault_tag",
@@ -403,7 +403,7 @@ def test_fault_manager_missing_interfaces(fault_manager, mocked_hass_app):
     fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
 
     # Add a fault that the symptom relates to
-    fault = Fault("RiskyTemperature", ["sm_tc_1"], notification_level=2)
+    fault = Fault("RiskyTemperature", ["sm_tc_1"], level=2)
     fault_manager.faults["RiskyTemperature"] = fault
 
     # Set symptom without recovery and notification interfaces
@@ -480,8 +480,8 @@ def test_fault_manager_multiple_faults_associated_with_symptom(fault_manager, mo
     fault_manager.symptoms["RiskyTemperatureOffice"] = symptom
 
     # Define multiple faults that are incorrectly associated with the same symptom
-    fault1 = Fault("Fault1", ["sm_tc_1"], notification_level=2)
-    fault2 = Fault("Fault2", ["sm_tc_1"], notification_level=3)
+    fault1 = Fault("Fault1", ["sm_tc_1"], level=2)
+    fault2 = Fault("Fault2", ["sm_tc_1"], level=3)
     fault_manager.faults["Fault1"] = fault1
     fault_manager.faults["Fault2"] = fault2
 

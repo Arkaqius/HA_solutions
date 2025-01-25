@@ -140,21 +140,20 @@ class Fault:
         name (str): The name of the fault.
         state (FaultState): The current state of the fault.
         related_symptoms (list): A list of symptoms related to this fault.
-        notification_level (int): The severity level of the fault for notification purposes.
+        level (int): The severity level of the fault for notification purposes.
 
     Args:
         name (str): The name identifier of the fault.
         related_symptoms (list): List of names of safety mechanism that can trigger this fault.
-        notification_level (int): The severity level assigned to this fault for notification purposes.
+        level (int): The severity level assigned to this fault for notification purposes.
     """
 
-    def __init__(self, name: str, related_symptoms: list, notification_level: int):
+    def __init__(self, name: str, related_symptoms: list, level: int):
         self.name: str = name
         self.state: FaultState = FaultState.NOT_TESTED
         self.previous_val = FaultState.NOT_TESTED
         self.related_symptoms: list = related_symptoms
-        self.notification_level: int = notification_level
-        self.priority = 2
+        self.level: int = level
 
 
 class RecoveryResult(NamedTuple):

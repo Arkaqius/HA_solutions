@@ -113,7 +113,7 @@ class RecoveryManager:
                 symptom.name, symptom.sm_name
             )
             if rec_fault:
-                rec_fault_prio: int = rec_fault.priority
+                rec_fault_prio: int = rec_fault.level
                 conflict_status: bool = self._check_conflict_with_matching_actions(
                     matching_actions, rec_fault_prio, symptom
                 )
@@ -172,7 +172,7 @@ class RecoveryManager:
                 found_fault: Fault | None = self.fm.found_mapped_fault(
                     found_symptom.name, found_symptom.sm_name
                 )
-                if found_fault and found_fault.priority > rec_fault_prio:
+                if found_fault and found_fault.level > rec_fault_prio:
                     return True
 
         return False

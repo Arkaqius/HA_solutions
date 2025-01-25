@@ -286,7 +286,7 @@ class SafetyComponent:
         try:
             return float(hass_app.get_state(sensor_id))
         except (ValueError, TypeError) as e:
-            hass_app.log(f"Conversion error: {e}", level="ERROR")
+            hass_app.log(f"Conversion error: {e}", level="WARNING")
             return None
 
     @staticmethod

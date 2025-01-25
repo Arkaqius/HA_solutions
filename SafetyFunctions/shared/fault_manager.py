@@ -232,6 +232,7 @@ class FaultManager:
             fault.previous_val = fault.state
             # Set Fault
             fault.state = FaultState.SET
+            self.update_system_state_entity()  # Update the system state entity
             self.hass.log(f"Fault {fault.name} was set", level="DEBUG")
 
             # Determinate additional info
@@ -251,7 +252,7 @@ class FaultManager:
             if self.notify_interface:
                 self.notify_interface(
                     fault.name,
-                    fault.notification_level,
+                    fault.level,
                     FaultState.SET,
                     additional_info,
                     fault_tag,
@@ -389,13 +390,14 @@ class FaultManager:
             self.hass.set_state(
                 "sensor.fault_" + fault.name, state="Cleared", attributes=attributes
             )
+            self.update_system_state_entity()  # Update the system state entity
 
             if fault.previous_val == FaultState.SET:
                 # Call notifications
                 if self.notify_interface:
                     self.notify_interface(
                         fault.name,
-                        fault.notification_level,
+                        fault.level,
                         FaultState.CLEARED,
                         additional_info,
                         fault_tag,
@@ -558,3 +560,38 @@ class FaultManager:
         # Generate a hash of the combined string
         fault_hash = hashlib.sha256(fault_str.encode()).hexdigest()
         return fault_hash
+    
+    def get_system_fault_level(self) -> int:
+        """
+        Determines the highest severity level of active faults in the system.
+
+        The severity level is based on the `level` attribute of faults.
+        If no faults are active, the system's fault level is considered 0.
+
+        Returns:
+            int: The highest severity level of active faults, or 0 if no faults are active.
+        """
+        highest_level = 0
+        for fault in self.faults.values():
+            if fault.state == FaultState.SET:
+                highest_level = max(highest_level, fault.level)
+        return highest_level
+    
+    def update_system_state_entity(self) -> None:
+        """
+        Updates the Home Assistant entity representing the overall system state.
+
+        The state reflects the highest severity level of active faults.
+        """
+        highest_fault_level = self.get_system_fault_level()
+        attributes = {
+            "fault_count": len(
+                [fault for fault in self.faults.values() if fault.state == FaultState.SET]
+            ),
+            "highest_fault_level": highest_fault_level,
+        }
+        self.hass.set_state(
+            "sensor.system_state",
+            state=str(highest_fault_level),  # Use the fault level as the state
+            attributes=attributes,
+        )

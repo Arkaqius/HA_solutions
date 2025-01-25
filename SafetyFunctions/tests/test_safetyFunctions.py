@@ -27,7 +27,7 @@ def test_safety_functions_initialization(mocked_hass_app_with_temp_component) ->
     # Assert the 'faults' dictionary content
     fault = app_instance.fault_dict["RiskyTemperature"]
     assert fault["name"] == "Unsafe temperature"
-    assert fault["priority"] == 2
+    assert fault["level"] == 2
     assert fault["related_sms"][0] == "sm_tc_1"
 
     # Assert the 'notification_cfg' dictionary content
@@ -87,7 +87,7 @@ def test_fault_and_symptom_registration(mocked_hass_app_with_temp_component):
     for fault_name in app_instance.faults:
         fault = app_instance.faults[fault_name]
         assert fault.name is not None
-        assert fault.priority >= 0
+        assert fault.level >= 0
 
 
 def test_trigger_symptom_sets_fault(mocked_hass_app_with_temp_component):

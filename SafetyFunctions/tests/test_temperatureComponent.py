@@ -364,7 +364,7 @@ def test_initialize_dicts_symptom(mocked_hass_app_with_temp_component):
 
     fault = app_instance.fault_dict["RiskyTemperature"]
     assert fault["name"] == "Unsafe temperature"
-    assert fault["priority"] == 2
+    assert fault["level"] == 2
     assert fault["related_sms"][0] == "sm_tc_1"
 
     notification = app_instance.notification_cfg

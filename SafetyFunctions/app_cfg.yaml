@@ -2,7 +2,7 @@ SafetyFunctions:
   # App definitions
   module: SafetyFunctions
   class: SafetyFunctions
-  log_level: WARNING
+  log_level: ERROR
   use_dictionary_unpacking: true
 
   # General config of app
@@ -10,12 +10,12 @@ SafetyFunctions:
     faults:
       RiskyTemperature:
         name: "Unsafe temperature"
-        priority: 2
+        level: 2
         related_sms:
           - "sm_tc_1"
       RiskyTemperatureForecast:
         name: "Unsafe temperature forecast"
-        priority: 3
+        level: 3
         related_sms:
           - "sm_tc_2"
 
