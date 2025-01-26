@@ -11,12 +11,12 @@ def app_config_valid():
             "faults": {
                 "RiskyTemperature": {
                     "name": "Unsafe temperature",
-                    "priority": 2,
+                    "level": 2,
                     "related_sms": ["sm_tc_1"],
                 },
                 "RiskyTemperatureForecast": {
                     "name": "Unsafe temperature forecast",
-                    "priority": 3,
+                    "level": 3,
                     "related_sms": ["sm_tc_2"],
                 },
             }
@@ -59,12 +59,12 @@ def app_config_2_faults_to_single_symptom():
                 "faults": {
                     "RiskyTemperature": {
                         "name": "Unsafe temperature",
-                        "priority": 2,
+                        "level": 2,
                         "related_sms": ["sm_tc_1"],
                     },
                     "RiskyTemperatureForecast": {
                         "name": "Unsafe temperature forecast",
-                        "priority": 3,
+                        "level": 3,
                         "related_sms": ["sm_tc_1"],
                     },
                 }
@@ -99,12 +99,12 @@ def app_config_fault_withou_smc():
                 "faults": {
                     "RiskyTemperature": {
                         "name": "Unsafe temperature",
-                        "priority": 2,
+                        "level": 2,
                         "related_sms": ["sm_tc_9999"],
                     },
                     "RiskyTemperatureForecast": {
                         "name": "Unsafe temperature forecast",
-                        "priority": 3,
+                        "level": 3,
                         "related_sms": ["sm_tc_9999"],
                     },
                 }

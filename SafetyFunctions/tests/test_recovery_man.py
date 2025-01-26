@@ -439,7 +439,7 @@ def test_check_conflict_with_higher_priority(mocked_hass_app_with_temp_component
     found_symptom.name = "MatchingSymptom"
     
     higher_priority_fault = Mock()
-    higher_priority_fault.priority = 5  # Set higher priority
+    higher_priority_fault.level = 5  # Set higher priority
     
     # Set the fault manager's symptoms and found_fault method to match
     recovery_manager.fm.symptoms = {
@@ -504,10 +504,10 @@ def test_recovery_conflict_with_higher_priority(mocked_hass_app_with_temp_compon
     found_symptom.name = "MatchingSymptom"
     found_symptom.sm_name = "sm_test"
     found_fault = Mock()
-    found_fault.priority = 5  # Set higher priority than current recovery fault
+    found_fault.level = 5  # Set higher priority than current recovery fault
 
     test_fault = Mock()
-    test_fault.priority = 3  # Priority of the current recovery fault (lower)
+    test_fault.level = 3  # Priority of the current recovery fault (lower)
 
     # Set up FaultManager behavior
     recovery_manager.fm.symptoms = {

@@ -35,6 +35,7 @@ Note:
 
 """
 
+from typing import Any
 import appdaemon.plugins.hass.hassapi as hass
 from shared.safety_component import SafetyComponent
 from shared.temperature_component import TemperatureComponent
@@ -149,7 +150,7 @@ class SafetyFunctions(hass.Hass):
             sm.register_fm(self.fm)
 
         # 100. Register entities for faults
-        self.register_entities(self.faults)
+        health_attributes: dict[str, Any] = self.register_entities()
 
         # 110. Initialize safety mechanisms
         self.fm.init_safety_mechanisms()
@@ -157,7 +158,55 @@ class SafetyFunctions(hass.Hass):
         # 120. Enable all symptoms
         self.fm.enable_all_symptoms()
 
-        # 130. Export health entity attributes
+        # 130 Emit config and set state to running
+        self.set_state(
+            "sensor.safety_app_health", state="running", attributes=health_attributes
+        )
+        self.log("Safety app started successfully", level="DEBUG")
+
+    def register_entities(self) -> dict[str, Any]:
+        """
+        Registers all entities required by the Safety Functions app in Home Assistant.
+
+        This includes:
+        - Initializing the `sensor.system_state` entity with a default safe state.
+        - Registering fault entities for each fault in the system.
+        - Exporting the app health entity attributes.
+
+        Ensures that the entities are properly initialized and available for monitoring in Home Assistant.
+        """
+        # Register system state entity
+        self.set_state(
+            "sensor.safetySystem_state",
+            state="safe",  # Default state on initialization
+            attributes={
+                "friendly_name": "System State",
+                "icon": "mdi:shield-check",
+                "attribution": "Managed by SafetyFunction",
+                "description": "Overall safety system state based on fault conditions.",
+            },
+        )
+
+        # Register fault entities
+        for name, fault in self.faults.items():
+            self.set_state(
+                "sensor.fault_" + name,
+                state="Not_tested",
+                attributes={
+                    "friendly_name": f"Fault: {name}",
+                    "attribution": "Managed by SafetyFunction",
+                    "description": f"Status of the {name} fault.",
+                    "level": f'level_{fault.level}'
+                },
+            )
+
+        # Register health entity
+        combined_config = {
+            "faults": self.fault_dict,
+            "safety_components": self.safety_components_cfg,
+            "notification": self.notification_cfg,
+            "common_entities": self.common_entities_cfg,
+        }
         health_attributes = {
             "friendly_name": "Safety App Health",
             "configuration": combined_config,
@@ -172,32 +221,6 @@ class SafetyFunctions(hass.Hass):
                 }
                 for name, action in self.recovery_actions.items()
             },
-            "status": "Operational",
         }
-        self.set_state(
-            "sensor.safety_app_health", state="good", attributes=health_attributes
-        )
-        self.log("Safety app started successfully", level="DEBUG")
 
-    def register_entities(self, faults: dict[str, Fault]) -> None:
-        """
-        Registers fault entities in Home Assistant with attributes optimized for status presentation.
-
-        Args:
-            faults (dict[str, Fault]): A dictionary of fault names and Fault objects.
-        """
-        for name, fault in faults.items():
-            self.set_state(
-                "sensor.fault_" + name,
-                state="Not_tested",
-                attributes={
-                    "friendly_name": f"Fault: {name}",
-                    "icon": "mdi:alert-circle-outline",
-                    "state_class": "diagnostic",  # Prevents graphing
-                    "unit_of_measurement": None,  # Avoid numeric interpretation
-                    "attribution": "Managed by SafetyFunction",
-                    "description": f"Status of the {name} fault: Not tested, Cleared, or Set.",
-                    "device_class": "problem",  # Indicates issue status
-                    "entity_category": "diagnostic",  # Optional: Makes it appear in the diagnostics section
-                },
-            )
+        return health_attributes

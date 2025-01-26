@@ -293,6 +293,10 @@ class SmartHeating(hass.Hass):
             # Initialize internal fields
             self.initialize_internal_fields()
 
+            # Initialize TemporaryWarmWater
+            self.temporary_ww = TemporaryWarmWater(self)
+            self.temporary_ww.initialize()
+
             # Log initialization completion
             self.log("Initialization finished", level="DEBUG")
             self.log_config()
@@ -461,9 +465,12 @@ class SmartHeating(hass.Hass):
         Returns:
             float: Returns the force_flow_offset if conditions are met, otherwise 0.
         """
-        self.log(f'self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]:{self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]}',level='DEBUG')
+        self.log(
+            f"self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]:{self.rads_error[ROOM_INDEX_RAD.BEDROOM.value]}",
+            level="DEBUG",
+        )
         if self.rads_error[ROOM_INDEX_RAD.BEDROOM.value] > 0:
-            self.log(f'self.force_flow_flag:{self.force_flow_flag}',level='DEBUG')
+            self.log(f"self.force_flow_flag:{self.force_flow_flag}", level="DEBUG")
             if self.force_flow_flag:
                 return self.force_flow_offset
         return off_final
@@ -628,7 +635,7 @@ class SmartHeating(hass.Hass):
         total_weighted_temp: float = sum(
             temp * weight for temp, weight in zip(temperatures, weights)
         )
-        return (total_weighted_temp / sum(weights))
+        return total_weighted_temp / sum(weights)
 
     def sh_get_wam_errors(self) -> list[float]:
         """
@@ -714,7 +721,7 @@ class SmartHeating(hass.Hass):
         if min_value is not None:
             value = max(min_value, value)
 
-        if 'input' in entity:
+        if "input" in entity:
             self.call_service("input_number/set_value", entity_id=entity, value=value)
         else:
             self.call_service("number/set_value", entity_id=entity, value=value)
@@ -837,3 +844,84 @@ class SmartHeating(hass.Hass):
         pass  # For now, this is a placeholder. In reality, you'd implement specific safe state actions.
 
     # endregion
+
+
+class TemporaryWarmWater:
+    """
+    TemporaryWarmWater - Handles warm water activation using an input_boolean.
+    """
+
+    def __init__(self, hass_instance):
+        """
+        Initialize the class with the AppDaemon hass instance.
+        Args:
+            hass_instance: Main AppDaemon instance to call services.
+        """
+        self.hass = hass_instance
+        self.timer_handle = None  # Handle for managing the timer
+
+    def initialize(self) -> None:
+        """
+        Setup the input_boolean entity and add state listeners.
+        """
+        # Initialize input_boolean with attributes
+        self.hass.set_state(
+            "input_boolean.temporary_ww",
+            state="off",
+            attributes={
+                "friendly_name": "Temporary Warm Water",
+                "icon": "mdi:water-boiler",
+                "description": "Enables warm water for 15 minutes.",
+            },
+        )
+
+        # Listen for state changes
+        self.hass.listen_state(
+            self.handle_input_boolean_change, "input_boolean.temporary_ww"
+        )
+        self.hass.log(
+            "TemporaryWarmWater initialized with input_boolean.", level="INFO"
+        )
+
+    def handle_input_boolean_change(self, entity, attribute, old, new, kwargs) -> None:
+        """
+        Handle state changes of input_boolean.temporary_ww:
+        - Turn ON warm water for 15 minutes if set to 'on'.
+        - Turn OFF warm water immediately if set to 'off'.
+        """
+        if old == "off" and new == "on":
+            self.hass.log(
+                "Input_boolean ON: Enabling warm water for 15 minutes.", level="INFO"
+            )
+
+            # Turn on warm water
+            self.hass.call_service(
+                "input_boolean/turn_on", entity_id="input_boolean.ww_state"
+            )
+
+            # Start a 15-minute timer
+            if self.timer_handle:
+                self.hass.cancel_timer(self.timer_handle)  # Cancel existing timer
+            self.timer_handle = self.hass.run_in(self.turn_off_warm_water, 15 * 60)
+
+        elif old == "on" and new == "off":
+            self.hass.log(
+                "Input_boolean OFF: Turning off warm water immediately.", level="INFO"
+            )
+
+            # Cancel timer if running
+            if self.timer_handle:
+                self.hass.cancel_timer(self.timer_handle)
+                self.timer_handle = None
+
+            # Turn off warm water
+            self.turn_off_warm_water({})
+
+    def turn_off_warm_water(self, kwargs) -> None:
+        """
+        Turn off the warm water state.
+        """
+        self.hass.call_service(
+            "input_boolean/turn_off", entity_id="input_boolean.ww_state"
+        )
+        self.hass.log("Warm water turned off.", level="INFO")

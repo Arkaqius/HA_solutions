@@ -21,7 +21,7 @@ def test_initialize_dicts_symptom(mocked_hass_app_basic):
     # Assert the 'faults' dictionary content
     fault = app_instance.fault_dict["RiskyTemperature"]
     assert fault["name"] == "Unsafe temperature"
-    assert fault["priority"] == 2
+    assert fault["level"] == 2
     assert fault["related_sms"][0] == "sm_tc_1"
 
     # Assert the 'notification_cfg' dictionary content
@@ -71,4 +71,4 @@ def test_app_health_set_to_good_at_end_of_init(mocked_hass_app_with_temp_compone
     app_instance, _, mock_log_method, ___ , mock_behaviors_default = mocked_hass_app_with_temp_component
     app_instance.initialize()
 
-    mock_log_method.assert_called_with("Safety app started", level="DEBUG")
+    mock_log_method.assert_called_with("Safety app started successfully", level="DEBUG")

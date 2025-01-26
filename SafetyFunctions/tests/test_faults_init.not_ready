@@ -36,5 +36,5 @@ def test_faults_init_RiskyTemperature(mocked_hass_app):
         "'RiskyTemperature' fault is not correctly related to 'sm_tc_1' symptom."
 
     # Verify the fault's notification level is set to 2
-    assert app_instance.faults["RiskyTemperature"].notification_level == 2, \
+    assert app_instance.faults["RiskyTemperature"].level == 2, \
         "'RiskyTemperature' fault does not have the correct notification level."

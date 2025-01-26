@@ -9,7 +9,7 @@ from .fixtures.hass_fixture import (
     MockBehavior,
     update_mocked_get_state,
 )  # Import utilities from conftest.py
-
+from unittest.mock import ANY
 
 def test_safety_functions_initialization(mocked_hass_app_with_temp_component) -> None:
 
@@ -27,7 +27,7 @@ def test_safety_functions_initialization(mocked_hass_app_with_temp_component) ->
     # Assert the 'faults' dictionary content
     fault = app_instance.fault_dict["RiskyTemperature"]
     assert fault["name"] == "Unsafe temperature"
-    assert fault["priority"] == 2
+    assert fault["level"] == 2
     assert fault["related_sms"][0] == "sm_tc_1"
 
     # Assert the 'notification_cfg' dictionary content
@@ -39,7 +39,7 @@ def test_safety_functions_initialization(mocked_hass_app_with_temp_component) ->
 
     # Verify that safety mechanisms are initialized and enabled
     mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="init")
-    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="good")
+    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="running",attributes = ANY)
 
     # Verify TemperatureComponent configurations are set up correctly
     assert "TemperatureComponent" in app_instance.sm_modules
@@ -87,7 +87,7 @@ def test_fault_and_symptom_registration(mocked_hass_app_with_temp_component):
     for fault_name in app_instance.faults:
         fault = app_instance.faults[fault_name]
         assert fault.name is not None
-        assert fault.priority >= 0
+        assert fault.level >= 0
 
 
 def test_trigger_symptom_sets_fault(mocked_hass_app_with_temp_component):
@@ -130,7 +130,7 @@ def test_app_initialization_health_state(mocked_hass_app_with_temp_component):
 
     # Verify that health state transitions from 'init' to 'good'
     mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="init")
-    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="good")
+    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="running",attributes = ANY)
 
 def test_common_entities_lookup(mocked_hass_app_with_temp_component):
     """Test that common entities are properly initialized and accessible."""
