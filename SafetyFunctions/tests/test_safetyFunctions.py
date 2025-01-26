@@ -9,7 +9,7 @@ from .fixtures.hass_fixture import (
     MockBehavior,
     update_mocked_get_state,
 )  # Import utilities from conftest.py
-
+from unittest.mock import ANY
 
 def test_safety_functions_initialization(mocked_hass_app_with_temp_component) -> None:
 
@@ -39,7 +39,7 @@ def test_safety_functions_initialization(mocked_hass_app_with_temp_component) ->
 
     # Verify that safety mechanisms are initialized and enabled
     mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="init")
-    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="good")
+    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="running",attributes = ANY)
 
     # Verify TemperatureComponent configurations are set up correctly
     assert "TemperatureComponent" in app_instance.sm_modules
@@ -130,7 +130,7 @@ def test_app_initialization_health_state(mocked_hass_app_with_temp_component):
 
     # Verify that health state transitions from 'init' to 'good'
     mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="init")
-    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="good")
+    mocked_hass.set_state.assert_any_call("sensor.safety_app_health", state="running",attributes = ANY)
 
 def test_common_entities_lookup(mocked_hass_app_with_temp_component):
     """Test that common entities are properly initialized and accessible."""

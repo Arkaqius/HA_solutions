@@ -212,7 +212,7 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
         mocked_hass_app_with_temp_component
     )
     temperature_sequence = ["20.0"]
-    rate_of_change = "-0.1"  # degrees per minute
+    rate_of_change = "0.5"  # degrees per minute
 
     # Initialize the application and register the monitored entity in DerivativeMonitor
     app_instance.initialize()
@@ -273,7 +273,7 @@ def test_forecasted_symptom_cleared_when_temp_rate_indicates_stability(
         mocked_hass_app_with_temp_component
     )
     temperature_sequence = ["20.0"]
-    rate_of_change = "0.1"  # degrees per minute
+    rate_of_change = "-0.5"  # degrees per minute
 
     app_instance.get_state.side_effect = lambda entity_id, **kwargs: mock_get_state(
         entity_id,

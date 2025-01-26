@@ -267,73 +267,76 @@ class FaultManager:
                 self.hass.log("No recovery interface", level="WARNING")
 
     def _determinate_info(
-        self, entity_id: str, additional_info: Optional[dict], fault_state: FaultState
-    ) -> Optional[dict]:
-        """
-        Determine the information to send based on the current state and attributes of the entity,
-        merging or clearing it with additional information provided based on the fault state.
+            self, entity_id: str, additional_info: Optional[dict], fault_state: FaultState
+        ) -> Optional[dict]:
+            """
+            Determine the information to send based on the current state and attributes of the entity,
+            merging or clearing it with additional information provided based on the fault state.
 
-        Args:
-            entity_id (str): The Home Assistant entity ID to check.
-            additional_info (Optional[dict]): Additional details to merge with or clear from the entity's current attributes.
-            fault_state (FaultState): The state of the fault, either Set or Cleared.
+            Args:
+                entity_id (str): The Home Assistant entity ID to check.
+                additional_info (Optional[dict]): Additional details to merge with or clear from the entity's current attributes.
+                fault_state (FaultState): The state of the fault, either Set or Cleared.
 
-        Returns:
-            Optional[dict]: The updated information as a dictionary, or None if there is no additional info.
-        """
-        # If no additional info is provided, return None
-        if not additional_info:
-            return None
+            Returns:
+                Optional[dict]: The updated information as a dictionary, or None if there is no additional info.
+            """
+            # If no additional info is provided, return None
+            if not additional_info:
+                return None
 
-        # Retrieve the current state object for the entity
-        state = self.hass.get_state(entity_id, attribute="all")
-        # If the entity does not exist, simply return the additional info if the fault is being set
-        if not state:
-            return additional_info if fault_state == FaultState.SET else {}
+            # Retrieve the current state object for the entity
+            state = self.hass.get_state(entity_id, attribute="all")
+            # If the entity does not exist, simply return the additional info if the fault is being set
+            if not state:
+                return additional_info if fault_state == FaultState.SET else {}
 
-        # Get the current attributes of the entity; if none exist, initialize to an empty dict
-        current_attributes = state.get("attributes", {})
-        if fault_state == FaultState.SET:
-            # Prepare the information to send by merging or updating current attributes with additional info
-            info_to_send = current_attributes.copy()
-            for key, value in additional_info.items():
-                if key in current_attributes and current_attributes[key] not in [
-                    None,
-                    "None",
-                    "",
-                ]:
-                    # If the current attribute exists and is not None, check if the value needs updating
-                    current_value = current_attributes[key]
-                    # If the current attribute is a comma-separated string, append new value if it's not already included
-                    if isinstance(
-                        current_value, str
-                    ) and value not in current_value.split(", "):
-                        current_value += ", " + value
-                    info_to_send[key] = current_value
-                else:
-                    # If the current attribute is None or does not exist, set it to the new value
-                    info_to_send[key] = value
-            return info_to_send
-        elif fault_state == FaultState.CLEARED:
-            # Clear specified keys from the current attributes if they exist
-            info_to_send = current_attributes.copy()
-            for key in additional_info.keys():
-                if key in info_to_send:
-                    # Check if other values need to remain (if it was a list converted to string)
-                    if ", " in info_to_send[key]:
-                        # Remove only the specified value and leave others if any
-                        new_values = [
-                            val
-                            for val in info_to_send[key].split(", ")
-                            if val != additional_info[key]
-                        ]
-                        info_to_send[key] = ", ".join(new_values)
+            # Get the current attributes of the entity; if none exist, initialize to an empty dict
+            current_attributes = state.get("attributes", {})
+            if fault_state == FaultState.SET:
+                # Prepare the information to send by merging or updating current attributes with additional info
+                info_to_send = current_attributes.copy()
+                for key, value in additional_info.items():
+                    if key in current_attributes and current_attributes[key] not in [
+                        None,
+                        "None",
+                        "",
+                    ]:
+                        # If the current attribute exists and is not None, check if the value needs updating
+                        current_value = current_attributes[key]
+                        # If the current attribute is a comma-separated string, append new value if it's not already included
+                        if isinstance(
+                            current_value, str
+                        ) and value not in current_value.split(", "):
+                            current_value += ", " + value
+                        info_to_send[key] = current_value
                     else:
-                        # Completely remove the key if only one value was stored
-                        del info_to_send[key]
-            return info_to_send
+                        # If the current attribute is None or does not exist, set it to the new value
+                        info_to_send[key] = value
+                return info_to_send
+            elif fault_state == FaultState.CLEARED:
+                # Clear specified keys from the current attributes by setting their values to empty strings
+                info_to_send = current_attributes.copy()
+                for key in additional_info.keys():
+                    if key in info_to_send:
+                        # Check if other values need to remain (if it was a list converted to string)
+                        if ", " in info_to_send[key]:
+                            # Remove only the specified value and leave others if any
+                            new_values = [
+                                val
+                                for val in info_to_send[key].split(", ")
+                                if val != additional_info[key]
+                            ]
+                            info_to_send[key] = ", ".join(new_values)
+                        else:
+                            # Set the key's value to an empty string instead of removing it
+                            info_to_send[key] = ""
+                    else:
+                        # If the key does not exist, add it with an empty string value
+                        info_to_send[key] = ""
+                return info_to_send
 
-        return None
+            return None
 
     def _clear_fault(self, symptom_id: str, additional_info: dict) -> None:
         """
