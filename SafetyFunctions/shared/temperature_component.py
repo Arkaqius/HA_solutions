@@ -261,7 +261,7 @@ class TemperatureComponent(SafetyComponent):
 
         # Calculate decay constant k based on the initial rate of temperature change
         k: float = -math.log(
-            (initial_temperature - dT_per_minute) / initial_temperature
+            (initial_temperature + dT_per_minute) / initial_temperature
         )
 
         # Calculate forecasted temperature for the specified timespan using exponential decay
