@@ -36,7 +36,7 @@ import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 # CONFIG
 DEBOUNCE_INIT = 0
 SM_TC_2_DEBOUNCE_LIMIT = 0
-FORECAST_SPAN = 1  # hour
+FORECAST_SAMPLING_TIME = 15  # minutes, but deviratives are ALWAYS in minutes
 
 
 class TemperatureComponent(SafetyComponent):
@@ -242,7 +242,7 @@ class TemperatureComponent(SafetyComponent):
     def forecast_temperature(
         self,
         initial_temperature: float,
-        dT_per_minute: float,
+        dT: float,
         forecast_timespan_hours: float,
     ) -> float:
         """
@@ -250,7 +250,7 @@ class TemperatureComponent(SafetyComponent):
 
         Parameters:
         - initial_temperature (float): The initial temperature in degrees Celsius (T_0).
-        - dT_per_minute (float): The temperature drop per minute (initial rate).
+        - dT (float): The temperature drop per 15 minute (initial rate).
         - forecast_timespan_hours (float): The timespan for the forecast in hours.
 
         Returns:
@@ -261,7 +261,7 @@ class TemperatureComponent(SafetyComponent):
 
         # Calculate decay constant k based on the initial rate of temperature change
         k: float = -math.log(
-            (initial_temperature + dT_per_minute) / initial_temperature
+            (initial_temperature + dT/FORECAST_SAMPLING_TIME) / initial_temperature
         )
 
         # Calculate forecasted temperature for the specified timespan using exponential decay
@@ -486,7 +486,7 @@ class TemperatureComponent(SafetyComponent):
         # Additional setup for SM TC 2
         if sm_method == self.sm_tc_2:
             self.derivative_monitor.register_entity(
-                extracted_params["temperature_sensor"], 60, -2, 2
+                extracted_params["temperature_sensor"], 60*FORECAST_SAMPLING_TIME, -2, 2
             )
 
         return True

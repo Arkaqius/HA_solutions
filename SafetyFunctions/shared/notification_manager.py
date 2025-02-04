@@ -19,7 +19,6 @@ Classes:
 
     NotificationManager: Manages the configuration and execution of notifications within the safety system.
 """
-
 from typing import Optional, Callable
 import appdaemon.plugins.hass.hassapi as hass  # type: ignore
 from shared.types_common import FaultState
@@ -60,7 +59,14 @@ class NotificationManager:
             4: None,
         }
 
-    def notify(self, fault: str, level: int, fault_status: "FaultState", additional_info: Optional[dict], fault_tag: str) -> None:  # type: ignore
+    def notify(
+        self,
+        fault: str,
+        level: int,
+        fault_status: "FaultState",
+        additional_info: Optional[dict],
+        fault_tag: str
+    ) -> None:
         """
         Sends or clears notifications based on fault status, using fault name and location as unique tags.
 
@@ -71,7 +77,6 @@ class NotificationManager:
             fault_status: Status of the fault ('active' or 'cleared').
         """
 
-        # Construct the message to be sent, including the location information if available
         location = (
             additional_info.get("Location") if additional_info else "Unknown Location"
         )
@@ -85,13 +90,14 @@ class NotificationManager:
         if fault_status == FaultState.SET:
             self._process_active_fault(level, message, fault_tag)
             self.hass_app.log(
-                f"Notification for set for {fault} at {location} was processed with message: {message}",
+                f"Notification set for {fault} at {location} with message: {message}",
                 level="DEBUG",
             )
         elif fault_status == FaultState.CLEARED:
-            self._process_cleared_fault(level, message, fault_tag)
+            # Instead of sending a new "cleared" notification, we just clear the existing one.
+            self._process_cleared_fault(level, fault_tag)
             self.hass_app.log(
-                f"Notification cleared for {fault} at {location} was processed with message: {message}",
+                f"Notification cleared for {fault} at {location}",
                 level="DEBUG",
             )
         else:
@@ -104,17 +110,13 @@ class NotificationManager:
             additional_actions()
         else:
             self.hass_app.log(
-                f"Notification level {level} has not additional actions", level="DEBUG"
+                f"Notification level {level} has no additional actions",
+                level="DEBUG",
             )
 
-    def _process_cleared_fault(self, level: int, message: str, fault_tag: str) -> None:
-        # Create a new message specifically for clearing
-        cleared_message = f"{message} has been cleared."
-        self._notify_company_app(level, cleared_message, fault_tag, FaultState.CLEARED)
-        self.hass_app.log(
-            f"Cleared notification for {fault_tag} with message: '{cleared_message}'",
-            level="DEBUG",
-        )
+    def _process_cleared_fault(self, level: int, fault_tag: str) -> None:
+        # Just clear the existing notification without sending a new message.
+        self._clear_company_app(level, fault_tag)
 
     def _set_dashboard_notification(self, message: str, level: int) -> None:
         """
@@ -126,8 +128,7 @@ class NotificationManager:
         """
         # This function assumes that you have an entity in Home Assistant that represents
         # a text field on a dashboard. You would need to create this entity and configure it
-        # to display messages.
-        dashboard_entity = self.notification_config.get(f"dashboard_{level}_entity")
+        # to display messages        dashboard_entity = self.notification_config.get(f"dashboard_{level}_entity")
         if dashboard_entity:
             self.hass_app.set_state(dashboard_entity, state=message)
             self.hass_app.log(
@@ -158,7 +159,7 @@ class NotificationManager:
             color_name="red",
         )
         self.hass_app.log(
-            f"Performed _notify_level_1_additional",
+            "Performed _notify_level_1_additional",
             level="DEBUG",
         )
 
@@ -177,7 +178,7 @@ class NotificationManager:
             color_name="yellow",
         )
         self.hass_app.log(
-            f"Performed _notify_level_2_additional",
+            "Performed _notify_level_2_additional",
             level="DEBUG",
         )
 
@@ -204,11 +205,11 @@ class NotificationManager:
                 "message": message,
                 "data": {
                     **common_data,
-                    "color": "#FF0000",  # Red for immediate emergencies.
+                    "color": "#FF0000",  # Red
                     "vibrationPattern": "100, 1000, 100, 1000, 100",
                     "sticky": True,
                     "notification_icon": "mdi:exit-run",
-                    "importance": "high",  # Setting high importance for level 1 notifications
+                    "importance": "high",
                 },
             },
             2: {
@@ -216,7 +217,7 @@ class NotificationManager:
                 "message": message,
                 "data": {
                     **common_data,
-                    "color": "#FFA500",  # Orange, a mix of yellow and red.
+                    "color": "#FFA500",  # Orange
                     "sticky": True,
                     "notification_icon": "mdi:hazard-lights",
                 },
@@ -226,14 +227,13 @@ class NotificationManager:
                 "message": message,
                 "data": {
                     **common_data,
-                    "color": "#FFFF00",  # Hex code for yellow.
+                    "color": "#FFFF00",  # Yellow
                     "sticky": True,
                     "notification_icon": "mdi:home-alert",
                 },
             },
-            # Level 4 is intentionally left out as per previous instructions
+            # No direct user notification for level 4
         }
-
         return notification_configs.get(level, {})
 
     def _notify_company_app(
@@ -256,7 +256,8 @@ class NotificationManager:
             self._handle_notify_reg(fault_tag, fault_state, notification_data)
             self._send_notification(notification_data)
             self.hass_app.log(
-                f'Notification details for {fault_tag} : {notification_data["title"]} {notification_data["message"]} {notification_data["data"]}',
+                f'Notification for {fault_tag}: {notification_data["title"]} | '
+                f'{notification_data["message"]} | {notification_data["data"]}',
                 level="DEBUG",
             )
         else:
@@ -273,6 +274,29 @@ class NotificationManager:
             # Remove the fault from active notifications
             if fault_tag in self.active_notification:
                 del self.active_notification[fault_tag]
+
+    def _clear_company_app(self, level: int, fault_tag: str) -> None:
+        """
+        Clears the previously-set notification for this fault (by tag), without sending a new message.
+        """
+        # Remove it from the active notifications dictionary if present.
+        if fault_tag in self.active_notification:
+            del self.active_notification[fault_tag]
+
+        # If you're using the generic `notify.notify` service:
+        if level != 4:
+            # The tag must match the tag you originally used in _prepare_notification_data
+            self.hass_app.call_service(
+                "notify/notify",
+                data={
+                    "tag": fault_tag,
+                    "clear_notification": True
+                }
+            )
+            self.hass_app.log(
+                f"Cleared notification (tag='{fault_tag}') via clear_notification request.",
+                level="DEBUG",
+            )
 
     def _send_notification(self, notification_data: dict[str, str]) -> None:
         """
@@ -299,8 +323,8 @@ class NotificationManager:
             notification_msg: The recovery message to add.
             fault_name: The fault identifier for which to add the recovery message.
         """
-        for fault_tag, notification in self.active_notification.items():
-            if fault_tag == fault_tag:
+        for tag, notification in self.active_notification.items():
+            if tag == fault_tag:
                 self._add_rec_msg(notification, notification_msg)
 
     def _add_rec_msg(self, notification: dict, notification_msg: str) -> None:
@@ -322,6 +346,5 @@ class NotificationManager:
             notification: The notification data dictionary to update.
             notification_msg: The recovery message to append.
         """
-        notification["message"] = f" {notification_msg}"
+        notification["message"] = f"{notification_msg}"
         self._send_notification(notification)
-        

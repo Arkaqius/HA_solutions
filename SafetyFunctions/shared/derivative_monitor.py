@@ -38,7 +38,7 @@ class DerivativeMonitor:
             self.entities: Dict[str, Dict[str, Any]] = {}
             self.derivative_data: Dict[str, Dict[str, Optional[float]]] = {}
             self.filter_window_size = (
-                50  # Default window size for moving average filtering
+                4  # Default window size for moving average filtering
             )
             self.initialized = True
             self.hass_app.log("DerivativeMonitor initialized.", level="DEBUG")
@@ -86,11 +86,7 @@ class DerivativeMonitor:
             state=None,
             attributes={
                 "friendly_name": f"{entity_id} Rate",
-                "state_class": "measurement",
-                "unit_of_measurement": "°C/min",
-                "attribution": "Data provided by SafetyFunction",
-                "device_class": "temperature",
-                "icon": "mdi:chart-timeline-variant",
+                "unit_of_measurement": "°C/min"
             },
         )
         self.hass_app.set_state(
@@ -98,11 +94,7 @@ class DerivativeMonitor:
             state=None,
             attributes={
                 "friendly_name": f"{entity_id} Rate",
-                "state_class": "measurement",
-                "unit_of_measurement": "°C/min",
-                "attribution": "Data provided by SafetyFunction",
-                "device_class": "temperature",
-                "icon": "mdi:chart-timeline-variant",
+                "unit_of_measurement": "°C/min"
             },
         )
         self.hass_app.log(
@@ -123,7 +115,7 @@ class DerivativeMonitor:
             level="DEBUG",
         )
         self.hass_app.run_every(
-            self._calculate_diff, "now", sample_time, entity_id=entity_id
+            self._calculate_diff, "now", sample_time, entity_id=entity_id, sample_time = sample_time
         )
 
     def _calculate_diff(self, **kwargs: Dict[str, Any]) -> None:
@@ -140,6 +132,8 @@ class DerivativeMonitor:
                 f"Entity {entity_id} not registered for derivatives.", level="ERROR"
             )
             return
+        
+        sample_time: Dict[str, Any] | None = kwargs.get("sample_time")
 
         self.hass_app.log(f"Calculating derivatives for {entity_id}.", level="DEBUG")
         entity_config: Dict[str, Any] = self.entities[entity_id]
@@ -154,7 +148,7 @@ class DerivativeMonitor:
         # Calculate first and second derivatives
         prev_value = entity_config["prev_value"]
         if prev_value is not None:
-            first_derivative = current_value - prev_value
+            first_derivative = (current_value - prev_value) * 60.0 / sample_time 
             first_derivative = max(
                 entity_config["low_saturation"],
                 min(first_derivative, entity_config["high_saturation"]),
@@ -163,7 +157,7 @@ class DerivativeMonitor:
             second_derivative = (
                 None
                 if prev_first_derivative is None
-                else first_derivative - prev_first_derivative
+                else (first_derivative - prev_first_derivative) * 60.0 / sample_time 
             )
             if second_derivative is not None:
                 second_derivative = max(
@@ -181,12 +175,12 @@ class DerivativeMonitor:
             filtered_first_derivative = round(
                 sum(entity_config["first_derivative_history"])
                 / len(entity_config["first_derivative_history"]),
-                2,
+                3,
             )
             filtered_second_derivative = round(
                 sum(entity_config["second_derivative_history"])
                 / len(entity_config["second_derivative_history"]),
-                2,
+                3,
             )
 
             entity_config["first_derivative"] = filtered_first_derivative

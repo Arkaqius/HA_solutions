@@ -212,13 +212,13 @@ def test_forecasted_symptom_set_when_temp_rate_indicates_drop(
         mocked_hass_app_with_temp_component
     )
     temperature_sequence = ["20.0"]
-    rate_of_change = "-0.5"  # degrees per minute
+    rate_of_change = "-1"  # degrees per 15 minute
 
     # Initialize the application and register the monitored entity in DerivativeMonitor
     app_instance.initialize()
     app_instance.derivative_monitor.register_entity(
         "sensor.office_temperature",
-        sample_time=60,  # Sampling every 1 minute
+        sample_time=60*15,  # Sampling every 1 minute
         low_saturation=-10.0,
         high_saturation=10.0,
     )
